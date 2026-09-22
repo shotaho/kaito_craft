@@ -1674,12 +1674,14 @@ function gameOver(){
   overEl.style.display='flex';
 }
 function lockMouse(){ if(!isTouch){try{const r=canvas.requestPointerLock();if(r&&r.catch)r.catch(()=>{});}catch(e){}} }
+// テスト版：全ステージを最初から選べる（本番では false にする）
+const TEST_ALL_STAGES=true;
 let selStage=0;
 const stageSelEl=document.getElementById('stagesel'),goalEl=document.getElementById('goal');
 function renderStageSel(){
   stageSelEl.innerHTML='';
   STAGES.forEach((st,i)=>{const b=document.createElement('button');b.className='stg'+(i===selStage?' on':'');
-    const lock=i>progress.unlocked;b.disabled=lock;b.innerHTML='<span>'+(lock?'🔒':st.icon)+'</span>'+(i+1)+'. '+st.name;
+    const lock=!TEST_ALL_STAGES&&i>progress.unlocked;b.disabled=lock;b.innerHTML='<span>'+(lock?'🔒':st.icon)+'</span>'+(i+1)+'. '+st.name;
     if(!lock)onTap(b,()=>{selStage=i;renderStageSel();});stageSelEl.appendChild(b);});
 }
 renderStageSel();
