@@ -56,6 +56,11 @@ body{background:#87ceeb;color:var(--ui-fg);font-family:"Hiragino Maru Gothic Pro
 #goal{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:14px;padding:5px 12px;border-radius:14px;pointer-events:none;white-space:nowrap;z-index:3}
 body.touch #goal{top:calc(84px + env(safe-area-inset-top,0px));font-size:12px}
 #goal.done{background:rgba(123,31,162,.8)}
+#appearsel{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:4px 0 4px}
+.apr{font:inherit;font-size:11px;font-weight:800;padding:6px 2px;border-radius:8px;border:3px solid transparent;background:rgba(0,0,0,.08);color:var(--ui-fg);cursor:pointer;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:3px}
+.apr canvas{width:36px;height:36px;image-rendering:pixelated;border-radius:6px;background:rgba(0,0,0,.06)}
+.apr.on{border-color:#ff9800;background:rgba(255,152,0,.18)}
+.apr:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
 #stagesel{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 4px}
 .stg{font:inherit;font-size:12px;font-weight:800;padding:8px 4px;border-radius:8px;border:3px solid transparent;background:rgba(0,0,0,.08);color:var(--ui-fg);cursor:pointer;line-height:1.3}
 .stg span{display:block;font-size:22px}
@@ -163,6 +168,8 @@ body.touch #held.gun{right:40%;bottom:-6px}
     <h1>カイトクラフト</h1>
     <p>ステージのゴールを達成するとポータル🌀が出て、次のステージへ進めるよ。ブロックで世界をつくろう。牛をたおすと料理ができる。木や石を集めて作業台で武器を作ろう。でも気をつけて、ゾンビやエンティティゼロ、ミミッカーがやってくる。</p>
     <table id="help"></table>
+    <p class="mpt" style="margin:8px 0 4px">🧑 見た目（2人プレイの相手に見える姿）</p>
+    <div id="appearsel"></div>
     <div id="stagesel"></div>
     <button id="start" class="big">あそぶ</button>
     <p id="msg" style="display:none;font-size:13px;color:#c0392b;font-weight:700"></p>
@@ -240,6 +247,62 @@ function initAudio(){
 }
 function sfx(name,info){const f=SFX[name];if(!f||!audioCtx)return;try{f(audioCtx,info||{});}catch(e){}}
 
+// ---- 効果音の中身（Web Audioで簡易合成） ----
+let _noiseBuf=null;
+function noiseBuffer(ctx){
+  if(_noiseBuf&&_noiseBuf.ctx===ctx) return _noiseBuf.buf;
+  const buf=ctx.createBuffer(1,Math.max(1,ctx.sampleRate*0.5|0),ctx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  _noiseBuf={ctx,buf};
+  return buf;
+}
+function envGain(g,vol,t0,attack,decay){
+  g.gain.cancelScheduledValues(t0);
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.linearRampToValueAtTime(vol,t0+attack);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+attack+decay);
+}
+SFX.enemyNear=(ctx,info)=>{
+  const t0=ctx.currentTime, vol=0.04+0.16*Math.min(1,info.volume||0.3);
+  if(info.type==='zombie'){
+    const o=ctx.createOscillator(),g=ctx.createGain();o.type='sawtooth';o.frequency.value=68;
+    const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.type='sine';lfo.frequency.value=5.5;lg.gain.value=9;
+    lfo.connect(lg);lg.connect(o.frequency);o.connect(g);g.connect(ctx.destination);
+    envGain(g,vol,t0,0.06,0.5);
+    lfo.start(t0);o.start(t0);lfo.stop(t0+0.6);o.stop(t0+0.6);
+  }else if(info.type==='mimic'){
+    for(let i=0;i<3;i++){
+      const st=t0+i*0.075;
+      const o=ctx.createOscillator(),g=ctx.createGain();o.type='square';
+      o.frequency.value=850+Math.random()*550;o.connect(g);g.connect(ctx.destination);
+      envGain(g,vol*0.7,st,0.004,0.05);
+      o.start(st);o.stop(st+0.07);
+    }
+  }else{
+    const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine';o2.type='sine';
+    o.frequency.setValueAtTime(320,t0);o.frequency.exponentialRampToValueAtTime(255,t0+0.45);
+    o2.frequency.value=326;
+    o.connect(g);o2.connect(g);g.connect(ctx.destination);
+    envGain(g,vol*0.6,t0,0.08,0.45);
+    o.start(t0);o2.start(t0);o.stop(t0+0.55);o2.stop(t0+0.55);
+  }
+};
+SFX.playerHurt=(ctx,info)=>{
+  const t0=ctx.currentTime, vol=Math.min(0.5,0.16+0.05*(info.dmg||1));
+  const noise=ctx.createBufferSource(),nf=ctx.createBiquadFilter(),ng=ctx.createGain();
+  noise.buffer=noiseBuffer(ctx);nf.type='lowpass';nf.frequency.value=1000;
+  noise.connect(nf);nf.connect(ng);ng.connect(ctx.destination);
+  envGain(ng,vol,t0,0.002,0.15);
+  noise.start(t0);noise.stop(t0+0.16);
+  const o=ctx.createOscillator(),og=ctx.createGain();o.type='triangle';
+  o.frequency.setValueAtTime(170,t0);o.frequency.exponentialRampToValueAtTime(55,t0+0.2);
+  o.connect(og);og.connect(ctx.destination);
+  envGain(og,vol*0.8,t0,0.002,0.22);
+  o.start(t0);o.stop(t0+0.23);
+};
+
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 document.getElementById('help').innerHTML = isTouch
@@ -259,7 +322,8 @@ const BLOCKS={
   4:{name:'原木',t:[5,4,5]}, 5:{name:'葉っぱ',t:[6,6,6]}, 6:{name:'砂',t:[7,7,7]},
   7:{name:'木の板',t:[8,8,8]}, 8:{name:'ガラス',t:[9,9,9]}, 9:{name:'レンガ',t:[10,10,10]}, 10:{name:'作業台',t:[22,23,8]},
   11:{name:'マグマ岩',t:[42,42,42]},12:{name:'宝石',t:[45,45,45]},13:{name:'ポータル',t:[47,47,47]},14:{name:'溶岩',t:[43,43,43]},15:{name:'光る石',t:[44,44,44]},16:{name:'島の石',t:[46,46,46]},
-  17:{name:'かべ紙',t:[48,48,48]},18:{name:'屋根',t:[49,49,49]},19:{name:'宝箱',t:[51,50,50]},20:{name:'コンクリート',t:[52,52,52]},21:{name:'クジラの肉',t:[55,55,55]},22:{name:'ほね',t:[56,56,56]},23:{name:'胃液',t:[57,57,57]}
+  17:{name:'かべ紙',t:[48,48,48]},18:{name:'屋根',t:[49,49,49]},19:{name:'宝箱',t:[51,50,50]},20:{name:'コンクリート',t:[52,52,52]},21:{name:'クジラの肉',t:[55,55,55]},22:{name:'ほね',t:[56,56,56]},23:{name:'胃液',t:[57,57,57]},
+  24:{name:'ニンジン',t:[78,78,78]},25:{name:'たまねぎ',t:[79,79,79]},26:{name:'キノコ',t:[80,80,80]}
 };
 const TRANS={5:true,8:true,13:true};
 const NONSOLID={13:true,14:true,23:true},HAZARD={14:true,23:true};
@@ -301,6 +365,15 @@ function generate(seed){
       }
     }
     for(let i=1;i<=th;i++) if(h+i<H) world[idx(x,h+i,z)]=4;
+  }
+  for(let z=2;z<D-2;z++)for(let x=2;x<W-2;x++){
+    const h=hm[z*W+x];
+    if(world[idx(x,h,z)]!==1||world[idx(x,h+1,z)]!==0) continue;
+    if(Math.abs(x-W/2)<4&&Math.abs(z-D/2)<4) continue;
+    const rv=rnd();
+    if(rv<0.007) world[idx(x,h+1,z)]=24;
+    else if(rv<0.014) world[idx(x,h+1,z)]=25;
+    else if(rv<0.021) world[idx(x,h+1,z)]=26;
   }
 }
 // ---------- ステージ ----------
@@ -434,7 +507,8 @@ let saveTimer=null;
 function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,800);}
 
 // ---------- textures ----------
-const atlas=document.createElement('canvas');atlas.width=1024;atlas.height=16;
+const atlas=document.createElement('canvas');atlas.width=1312;atlas.height=16;
+const ATLAS_TILES=atlas.width/16;
 const actx=atlas.getContext('2d');
 const TR=mulberry32(7);
 const cl=v=>Math.max(0,Math.min(255,v|0));
@@ -521,6 +595,64 @@ paint(39,(x,y)=>y<2?vary([250,250,250],6):vary([245,140,40],14));
 paint(40,()=>vary([55,65,125],12));
 paint(41,()=>vary(SKIN2,10));
 
+// 外見: ゴールド（つるつるボディ、黒い目とグレーの歯）
+const GOLD=[228,168,32],GOLD_LT=[245,190,55],GOLD_DK=[178,128,18];
+paint(58,(x,y)=>{ // 顔
+  if((y>=5&&y<=8&&x>=3&&x<=5)||(y>=5&&y<=8&&x>=10&&x<=12))return [15,15,15,255];
+  if(y>=10&&y<=11&&x>=4&&x<=11)return (x%2===0)?[110,110,110,255]:[175,175,175,255];
+  return vary(GOLD,14);});
+paint(59,()=>vary(GOLD,14)); // 頭の横
+paint(60,()=>vary(GOLD_LT,10)); // 頭の上
+paint(61,()=>vary(GOLD,14)); // あご
+paint(62,()=>vary(GOLD,16)); // 体
+paint(63,()=>vary(GOLD_DK,12)); // あし・うで
+
+// 外見: 消防士
+const FSKIN=[240,198,168],HELM=[196,199,203],HELM_DK=[150,153,158],JACKET=[233,138,18],JACKET_DK=[196,108,10],STRIPE=[214,232,46],FPANTS=[38,38,42];
+paint(64,(x,y)=>{ // 顔
+  if(y<4)return vary(HELM,10);
+  if(y===4&&(x<2||x>13))return vary(HELM_DK,8);
+  if(y>=7&&y<=8&&(x===4||x===5||x===10||x===11))return (x===5||x===10)?[35,35,35,255]:[250,250,250,255];
+  if(y===11&&x>=6&&x<=9)return [175,95,85,255];
+  return vary(FSKIN,10);});
+paint(65,(x,y)=>(y<5||(y<8&&x>10))?vary(HELM,10):vary(FSKIN,10)); // 頭の横
+paint(66,()=>vary(HELM_DK,8)); // 頭の上（ヘルメット）
+paint(67,()=>vary(FSKIN,10)); // あご
+paint(68,(x,y)=>y>=13?vary(STRIPE,10):((x===7||x===8)?vary(JACKET_DK,10):vary(JACKET,16))); // 上着
+paint(69,()=>vary(FPANTS,10)); // ズボン
+paint(70,(x,y)=>y>=13?vary(STRIPE,10):vary(JACKET,16)); // うで（そで）
+
+// 外見: はかせ
+const DSKIN=[245,205,175],DHAIR=[32,26,22],COAT=[244,244,247],COAT_SH=[212,214,220],UNDER=[108,148,184],DPANTS=[54,57,63];
+paint(71,(x,y)=>{ // 顔
+  if(y<3||(y<5&&(x<1||x>14)))return vary(DHAIR,10);
+  if(y>=7&&y<=8&&(x===4||x===5||x===10||x===11))return (x===5||x===10)?[35,35,60,255]:[250,250,250,255];
+  if(y===11&&x>=6&&x<=9)return [175,95,85,255];
+  return vary(DSKIN,10);});
+paint(72,(x,y)=>(y<5||(y<8&&x>10))?vary(DHAIR,10):vary(DSKIN,10)); // 頭の横
+paint(73,()=>vary(DHAIR,10)); // 頭の上
+paint(74,()=>vary(DSKIN,10)); // あご
+paint(75,(x,y)=>y<2?vary(UNDER,10):((x%4===0)?vary(COAT_SH,8):vary(COAT,10))); // 白衣
+paint(76,()=>vary(DPANTS,10)); // ズボン
+paint(77,(x,y)=>y>=13?vary(DSKIN,10):vary(COAT,10)); // そで（白衣）
+
+// シチューの具材
+paint(78,(x,y)=>{ // ニンジン
+  if(y<5&&((x>=6&&x<=7)||(x>=9&&x<=10)||(x===8&&y<3)))return vary([70,150,50],20);
+  const d=Math.abs(x-8)+Math.abs(y-11);
+  if(d>7)return vary([222,214,150],14);
+  return vary([232,122,38],18);});
+paint(79,(x,y)=>{ // たまねぎ
+  const d=Math.hypot(x-8,y-9);
+  if(d>6.5)return vary([222,214,150],14);
+  if(y<5)return vary([150,168,84],16);
+  return (Math.floor(d)%2===0)?vary([214,180,196],14):vary([236,222,214],14);});
+paint(80,(x,y)=>{ // キノコ
+  if(y<7){if(Math.hypot(x-8,y-4)>6.5)return vary([222,214,150],14);
+    return ((x*3+y*5)%11===0)?[255,250,240,255]:vary([196,86,52],18);}
+  if(x>=6&&x<=9)return vary([238,228,208],14);
+  return vary([222,214,150],14);});
+
 // ステージ用ブロック
 paint(42,()=>TR()<0.1?vary([80,22,24],12):vary([118,38,36],26));
 paint(43,()=>{const v=TR();return v<0.3?[255,210,70,255]:v<0.75?[250,120,20,255]:[210,60,15,255];});
@@ -590,7 +722,7 @@ function buildMesh(){
       const n=getB(x+f.d[0],y+f.d[1],z+f.d[2]);
       if(n && !(TRANS[n]&&n!==id)) continue;
       const tile=f.d[1]===1?t[0]:f.d[1]===-1?t[2]:t[1];
-      for(const k of ORDER){const c=f.c[k];out.push(x+c[0],y+c[1],z+c[2],(tile+0.002+c[3]*0.996)/64,c[4],f.s);}
+      for(const k of ORDER){const c=f.c[k];out.push(x+c[0],y+c[1],z+c[2],(tile+0.002+c[3]*0.996)/ATLAS_TILES,c[4],f.s);}
     }
   }
   gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
@@ -625,7 +757,7 @@ function pushBox(out,mn,mx,tiles,xf){
   for(let fi=0;fi<6;fi++){const f=FACES[fi],tile=tiles[fi];
     for(const k of ORDER){const c=f.c[k];
       const p=xf(mn[0]+(mx[0]-mn[0])*c[0],mn[1]+(mx[1]-mn[1])*c[1],mn[2]+(mx[2]-mn[2])*c[2]);
-      out.push(p[0],p[1],p[2],(tile+0.002+c[3]*0.996)/64,c[4],f.s);}}
+      out.push(p[0],p[1],p[2],(tile+0.002+c[3]*0.996)/ATLAS_TILES,c[4],f.s);}}
 }
 function part(e,piv,ang){
   const ca=Math.cos(ang),sa=Math.sin(ang),cy=Math.cos(e.yaw),sy=Math.sin(e.yaw),sc=e.scale;
@@ -760,7 +892,7 @@ function spawn(){const sp=STAGES[stage].spawn;P.x=sp[0];P.z=sp[2];P.y=standAt(P.
 const hits=(x,y,z)=>hitsBox(x,y,z,PR,PH);
 
 // ---------- enemies & cows ----------
-let enemies=[],kills=0,spawnTimer=0,cowTimer=0,mimicTimer=0,playTime=0,pendingCook=0,cookTotal=0;
+let enemies=[],kills=0,spawnTimer=0,cowTimer=0,mimicTimer=0,playTime=0,pendingCook=0,pendingCookStew=0,cookTotal=0;
 let items=[],rockets=[],booms=[];
 const MAX_ENEMIES=4,MAX_COWS=3,MAX_MIMIC=2,MAX_ZOMBIE=4;let zombieTimer=0;
 function spawnEnemy(type){
@@ -1019,6 +1151,7 @@ function step(dt){
   updateEnemies(dt);updateItems(dt);updateWeapons(dt);
   if(net.role!=='guest')checkGoal();
   if(pendingCook>0){pendingCook-=dt;if(pendingCook<=0)startCooking();}
+  if(pendingCookStew>0){pendingCookStew-=dt;if(pendingCookStew<=0){if(!cooking)startCooking('stew');else pendingCookStew=0.1;}}
 }
 
 function raycast(max){
@@ -1052,6 +1185,7 @@ function breakBlock(){
   if(id===4||id===7)inv.wood++; if(id===3||id===9||id===11||id===16||id===20)inv.stone++;
   if(id===12){stageStats.gems++;toast('💎 宝石を見つけた！');}
   if(id===19){stageStats.chests++;inv.wood+=3;inv.stone+=3;saveInv();updateHud();toast('📦 宝箱！ 🪵+3 🪨+3');}
+  if(id===24||id===25||id===26)harvestCrop(id);
   if(id===4||id===7||id===3||id===9||id===11||id===16||id===20){saveInv();updateHud();}
   buildMesh(); queueSave();
 }
@@ -1086,9 +1220,20 @@ function kick(){
 
 // ---------- 武器と作業台 ----------
 const INV_KEY='blockcraft-inv-v1';
-let inv={wood:0,stone:0,own:{pickaxe:false,mg:false,rocket:false,minigun:false}};
-try{const j=JSON.parse(localStorage.getItem(INV_KEY)||'null');if(j&&j.own)inv={wood:j.wood|0,stone:j.stone|0,own:Object.assign(inv.own,j.own)};}catch(e){}
+let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,mg:false,rocket:false,minigun:false}};
+try{const j=JSON.parse(localStorage.getItem(INV_KEY)||'null');if(j&&j.own)inv={wood:j.wood|0,stone:j.stone|0,carrot:j.carrot|0,onion:j.onion|0,mushroom:j.mushroom|0,own:Object.assign(inv.own,j.own)};}catch(e){}
 function saveInv(){try{localStorage.setItem(INV_KEY,JSON.stringify(inv));}catch(e){}}
+const CROP_LABEL={24:'🥕 ニンジン',25:'🧅 たまねぎ',26:'🍄 キノコ'},CROP_KEY={24:'carrot',25:'onion',26:'mushroom'};
+function harvestCrop(id){
+  const kind=CROP_KEY[id];
+  inv[kind]++;saveInv();updateHud();
+  if(inv.carrot>=1&&inv.onion>=1&&inv.mushroom>=1){
+    toast(CROP_LABEL[id]+'を収穫！ 具材がそろった、シチューを作ろう！');
+    pendingCookStew=0.6;
+  } else {
+    toast(CROP_LABEL[id]+'を収穫した！');
+  }
+}
 const RECIPES=[
   {id:'pickaxe',name:'ピッケル',desc:'石とレンガを1回でこわせる',wood:3,stone:2},
   {id:'mg',name:'マシンガン',desc:'⚔️おしっぱなしで連射',wood:4,stone:8},
@@ -1363,11 +1508,21 @@ const cA=document.getElementById('cA'),cB=document.getElementById('cB'),stepEls=
 let ck=null;
 const rr=(a,b)=>a+Math.random()*(b-a);
 const SALT_P=[[45,105],[130,190],[215,275]];
-function startCooking(){
+const COOK_INFO={
+  steak:{steps:['切る','味付け','焼く'],resultText:'ステーキのできあがり！ミルクといっしょにめしあがれ。',
+    heal:s=>s>=200?MAXHP:Math.round(4+s/300*12),bonus:3,extra:'（🥛 +3）'},
+  stew:{steps:['切る','味付け','煮込む'],resultText:'あったかシチューのできあがり！',
+    heal:s=>s>=200?MAXHP:Math.round(6+s/300*14),bonus:0,extra:''}
+};
+function refreshStepLabels(){const st=COOK_INFO[ck.recipe].steps;stepEls.forEach((el,i)=>{el.textContent=(i+1)+' '+st[i];});}
+function startCooking(recipe){
+  recipe=recipe==='stew'?'stew':'steak';
   cooking=true;sfx('cookStart');resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
-  ck={step:0,scores:[0,0,0],wait:0,t:0};
+  if(recipe==='stew'){inv.carrot--;inv.onion--;inv.mushroom--;saveInv();updateHud();}
+  ck={recipe,step:0,scores:[0,0,0],wait:0,t:0};
   ck.marble=[];for(let i=0;i<9;i++)ck.marble.push([rr(55,255),rr(75,150),rr(10,30)]);
+  refreshStepLabels();
   cookEl.style.display='flex';setupStep(0);
 }
 function setBtns(a,b){cA.textContent=a||'';cA.style.display=a?'':'none';cB.textContent=b||'';cB.style.display=b?'':'none';}
@@ -1375,15 +1530,17 @@ function feedback(t){cfb.textContent=t;}
 function setupStep(n){
   ck.step=n;ck.t=0;ck.done=false;feedback('');cres.innerHTML='';cv.style.display='';
   stepEls.forEach((el,i)=>{el.className=i===n?'now':(i<n?'fin':'');});
+  const isStew=ck.recipe==='stew';
   if(n===0){
     ck.taps=0;ck.need=12;ck.t0=null;ck.chop=0;
-    cinst.textContent='「切る！」を12回タップ！はやく切るほど高得点。';setBtns('🔪 切る！');
+    cinst.textContent=isStew?'具材を「切る！」を12回タップ！こまかく切ろう。':'「切る！」を12回タップ！はやく切るほど高得点。';setBtns('🔪 切る！');
   } else if(n===1){
     ck.shakes=0;ck.hits=[0,0,0];ck.parts=[];ck.dots=[];ck.shaker=40;ck.sdir=1;ck.fin=0;
-    cinst.textContent='塩は3回だけ。3つのお肉に1回ずつ、バランスよくふろう！';setBtns('🧂 ふる');
+    cinst.textContent=isStew?'コンソメは3回だけ。なべの3か所にまんべんなくふろう！':'塩は3回だけ。3つのお肉に1回ずつ、バランスよくふろう！';setBtns('🧂 ふる');
   } else if(n===2){
-    ck.side=0;ck.c=0;ck.sides=[];ck.flipT=0;ck.smoke=[];
-    cinst.textContent='焼き色ゲージが緑に入ったら「ひっくり返す」。裏も焼いたら「できあがり」。';setBtns('🍳 ひっくり返す');
+    ck.c=0;ck.flipT=0;ck.smoke=[];
+    if(isStew){ck.stirs=[];cinst.textContent='ふつふつ煮えたら「かきまぜる！」。3回くり返そう。';setBtns('🥄 かきまぜる！');}
+    else{ck.side=0;ck.sides=[];cinst.textContent='焼き色ゲージが緑に入ったら「ひっくり返す」。裏も焼いたら「できあがり」。';setBtns('🍳 ひっくり返す');}
   } else {
     showResult();
   }
@@ -1406,10 +1563,16 @@ function actA(){
     feedback(i>=0?'パラパラ♪':'あっ、はずれた！');
     if(ck.shakes===3){ck.fin=0.9;setBtns();}
   } else if(ck.step===2){
-    const c=ck.c,d=c<55?55-c:c>75?c-75:0;
-    const sc=Math.max(0,100-d*3);ck.sides.push(sc);ck.flipT=0.35;
-    if(ck.side===0){ck.side=1;ck.c=0;feedback(d===0?'いい焼き色！':c<55?'まだ生っぽい…':'ちょっと焼きすぎ');setBtns('🍽 できあがり！');}
-    else {const tot=(ck.sides[0]+ck.sides[1])/2;nextStep(tot,tot>=90?'最高の焼き加減！':tot>=60?'おいしそう！':'うーん、もう少し');}
+    const c=ck.c,d=c<55?55-c:c>75?c-75:0,sc=Math.max(0,100-d*3);ck.flipT=0.35;
+    if(ck.recipe==='stew'){
+      ck.stirs.push(sc);ck.c=0;
+      if(ck.stirs.length<3)feedback(d===0?'いいかんじ！':c<55?'まだ薄い…':'煮詰まってきた');
+      else{const tot=ck.stirs.reduce((a,b)=>a+b,0)/3;nextStep(tot,tot>=90?'最高の煮込み！':tot>=60?'おいしそう！':'うーん、もう少し');}
+    } else {
+      ck.sides.push(sc);
+      if(ck.side===0){ck.side=1;ck.c=0;feedback(d===0?'いい焼き色！':c<55?'まだ生っぽい…':'ちょっと焼きすぎ');setBtns('🍽 できあがり！');}
+      else {const tot=(ck.sides[0]+ck.sides[1])/2;nextStep(tot,tot>=90?'最高の焼き加減！':tot>=60?'おいしそう！':'うーん、もう少し');}
+    }
   } else if(ck.step===3){ endCooking(); }
 }
 function actB(){
@@ -1428,15 +1591,17 @@ cv.addEventListener('touchstart',tapAct,{passive:false});cv.addEventListener('mo
 let healAmt=0,cookSum=0;
 function showResult(){
   cookSum=ck.scores[0]+ck.scores[1]+ck.scores[2];
+  const info=COOK_INFO[ck.recipe];
   const stars=cookSum>=270?'⭐⭐⭐':cookSum>=200?'⭐⭐':cookSum>=120?'⭐':'';
   const title=cookSum>=270?'三つ星シェフ！':cookSum>=200?'すばらしい料理！':cookSum>=120?'おいしくできた！':'がんばった！';
-  healAmt=cookSum>=200?MAXHP:Math.round(4+cookSum/300*12);
-  cinst.textContent='ステーキのできあがり！ミルクといっしょにめしあがれ。';
-  cres.innerHTML=`<strong>${title} ${stars}</strong><br>切る ${ck.scores[0]}　味付け ${ck.scores[1]}　焼く ${ck.scores[2]}<br>合計 <strong>${cookSum}</strong> 点　${healAmt>=MAXHP?'❤️ 体力 大回復！':'❤️ 体力 +'+healAmt}（🥛 +3）`;
+  healAmt=info.heal(cookSum);
+  cinst.textContent=info.resultText;
+  cres.innerHTML=`<strong>${title} ${stars}</strong><br>${info.steps[0]} ${ck.scores[0]}　${info.steps[1]} ${ck.scores[1]}　${info.steps[2]} ${ck.scores[2]}<br>合計 <strong>${cookSum}</strong> 点　${healAmt>=MAXHP?'❤️ 体力 大回復！':'❤️ 体力 +'+healAmt}${info.extra}`;
   feedback('');setBtns('😋 食べて冒険にもどる');
 }
 function endCooking(){
-  P.hp=Math.min(MAXHP,P.hp+healAmt+3);cookTotal+=cookSum;P.inv=3;P.safe=3;
+  const bonus=COOK_INFO[ck.recipe].bonus;
+  P.hp=Math.min(MAXHP,P.hp+healAmt+bonus);cookTotal+=cookSum;P.inv=3;P.safe=3;
   cookEl.style.display='none';cooking=false;ck=null;updateHud();
   toast('ごちそうさま！ 🍳 +'+cookSum);
   lockMouse();
@@ -1471,6 +1636,8 @@ function meatColor(c){
 function board(){cx.fillStyle='#6b4a2b';cx.fillRect(0,0,320,220);cx.fillStyle='#c89b63';cx.fillRect(18,40,284,160);cx.fillStyle='#b8894f';for(let y=52;y<200;y+=18)cx.fillRect(18,y,284,2);}
 function meat(x,y,w,h){cx.fillStyle='#c9383f';cx.fillRect(x,y,w,h);cx.fillStyle='#e8646a';cx.fillRect(x+4,y+4,w-8,h-8);
   cx.fillStyle='rgba(255,240,240,.75)';for(const m of ck.marble)if(m[0]>x&&m[0]<x+w-m[2]&&m[1]>y&&m[1]<y+h-3)cx.fillRect(m[0],m[1],m[2],3);}
+const VEG_COL=[['#e8792e','#f5a35c'],['#e8dfe0','#c9bdbe'],['#8a6a4e','#a9866a']];
+function veggie(x,y,w,h,k){const c=VEG_COL[k%3];cx.fillStyle=c[0];cx.fillRect(x,y,w,h);cx.fillStyle=c[1];cx.fillRect(x+4,y+4,w-8,h-8);}
 function sword(x,y){cx.fillStyle='#7a5230';cx.fillRect(x-4,y,8,18);cx.fillStyle='#4b6470';cx.fillRect(x-14,y+18,28,6);
   cx.fillStyle='#9fb6c1';cx.fillRect(x-5,y+24,10,62);cx.fillStyle='#5f7883';cx.fillRect(x+3,y+24,2,62);cx.beginPath();cx.moveTo(x-5,y+86);cx.lineTo(x+5,y+86);cx.lineTo(x,y+96);cx.fill();}
 function gauge(x,y,w,h,v,lo,hi,vertical){
@@ -1480,17 +1647,17 @@ function gauge(x,y,w,h,v,lo,hi,vertical){
   else{cx.fillRect(x+w*lo/100,y,w*(hi-lo)/100,h);cx.fillStyle='#222';const px=x+w*v/100;cx.beginPath();cx.moveTo(px-7,y-9);cx.lineTo(px+7,y-9);cx.lineTo(px,y+1);cx.fill();cx.fillRect(px-1,y,2,h);}
 }
 function drawCook(){
-  const s=ck.step;
+  const s=ck.step,isStew=ck.recipe==='stew';
   if(s===0){
     board();
     const n=ck.taps+1,w=220/n;
-    for(let k=0;k<n;k++){const x0=50+k*w;meat(x0+(k?2:0),70,w-(k<n-1?2:0)-(k?2:0),95);}
+    for(let k=0;k<n;k++){const x0=50+k*w;const bw=w-(k<n-1?2:0)-(k?2:0);if(isStew)veggie(x0+(k?2:0),70,bw,95,k);else meat(x0+(k?2:0),70,bw,95);}
     sword(160,ck.chop>0?48:4);
     cx.fillStyle='#fff';cx.font='bold 18px sans-serif';cx.fillText(ck.taps+' / '+ck.need,236,28);
     if(ck.t0!==null){const T=ck.done?0:ck.t-ck.t0;if(!ck.done){cx.fillText(T.toFixed(1)+'秒',22,28);}}
   } else if(s===1){
     board();
-    for(let k=0;k<3;k++){const q=SALT_P[k];meat(q[0],120,q[1]-q[0],58);
+    for(let k=0;k<3;k++){const q=SALT_P[k];if(isStew)veggie(q[0],120,q[1]-q[0],58,k);else meat(q[0],120,q[1]-q[0],58);
       const h=ck.hits[k];cx.lineWidth=2;cx.strokeStyle='#fff';cx.beginPath();cx.arc((q[0]+q[1])/2,104,7,0,Math.PI*2);cx.stroke();
       if(h>=1){cx.fillStyle=h===1?'#66bb6a':'#e53935';cx.beginPath();cx.arc((q[0]+q[1])/2,104,6,0,Math.PI*2);cx.fill();}
       if(h>1){cx.fillStyle='#fff';cx.font='bold 11px sans-serif';cx.fillText('×'+h,(q[0]+q[1])/2+10,108);}}
@@ -1498,8 +1665,24 @@ function drawCook(){
     for(const p of ck.parts)cx.fillRect(p.x,p.y,2,2);
     const x=ck.shaker;cx.fillStyle='#fafafa';cx.fillRect(x-14,6,28,40);cx.fillStyle='#9e9e9e';cx.fillRect(x-14,40,28,10);
     cx.fillStyle='#333';cx.fillRect(x-6,49,2,2);cx.fillRect(x,49,2,2);cx.fillRect(x+5,49,2,2);
-    cx.fillStyle='#1565c0';cx.font='bold 13px sans-serif';cx.fillText('しお',x-12,28);
+    cx.fillStyle='#1565c0';cx.font='bold 13px sans-serif';cx.fillText(isStew?'だし':'しお',x-12,28);
     cx.fillStyle='#fff';cx.font='bold 14px sans-serif';cx.fillText('のこり '+(3-ck.shakes)+' 回',8,24);
+  } else if(s===2&&isStew){
+    cx.fillStyle='#37302b';cx.fillRect(0,0,320,220);
+    cx.fillStyle='#e65100';for(let i=0;i<7;i++){cx.fillRect(80+i*24,205,10,15);}
+    cx.fillStyle='#3a3a3a';cx.fillRect(200,58,16,82);
+    cx.fillStyle='#616161';cx.beginPath();cx.arc(150,140,78,0,Math.PI*2);cx.fill();
+    const bub=1+Math.sin(ck.t*6)*0.03*Math.min(1,ck.c/70);
+    cx.save();cx.translate(150,138);cx.scale(bub,bub);
+    cx.fillStyle='#a9702f';cx.beginPath();cx.arc(0,0,64,0,Math.PI*2);cx.fill();
+    cx.restore();
+    const bits=[[120,118,0],[172,148,1],[142,158,2],[164,112,0],[126,148,1],[152,128,2]];
+    for(const b of bits){const bx=b[0]+Math.sin(ck.t*3+b[0])*2,by=b[1]+Math.cos(ck.t*2+b[1])*2;
+      cx.fillStyle=VEG_COL[b[2]][0];cx.fillRect(bx,by,8,8);}
+    for(const m of ck.smoke){cx.fillStyle=`rgba(255,255,255,${m.a*.6})`;cx.fillRect(m.x,m.y,5,5);}
+    gauge(30,26,260,14,ck.c,55,75,false);
+    cx.fillStyle='#fff';cx.font='bold 12px sans-serif';cx.fillText('うすい',24,56);cx.fillText('こげつき',242,56);
+    cx.fillText('のこり '+(3-ck.stirs.length)+' 回',128,56);
   } else if(s===2){
     cx.fillStyle='#37302b';cx.fillRect(0,0,320,220);
     cx.fillStyle='#e65100';for(let i=0;i<7;i++){cx.fillRect(80+i*24,205,10,15);}
@@ -1514,6 +1697,13 @@ function drawCook(){
     gauge(30,26,260,14,ck.c,55,75,false);
     cx.fillStyle='#fff';cx.font='bold 12px sans-serif';cx.fillText('生',30,56);cx.fillText('こげ',262,56);
     cx.fillText(ck.side===0?'おもて':'うら',140,56);
+  } else if(isStew){
+    cx.fillStyle='#fff3e0';cx.fillRect(0,0,320,220);
+    cx.fillStyle='#fff';cx.beginPath();cx.ellipse(140,130,110,68,0,0,Math.PI*2);cx.fill();cx.strokeStyle='#d7ccc8';cx.lineWidth=3;cx.stroke();
+    cx.fillStyle='#a9702f';cx.beginPath();cx.ellipse(140,118,84,46,0,0,Math.PI*2);cx.fill();
+    for(const b of [[110,108,0],[160,100,1],[135,128,2],[95,124,0],[150,132,1]])veggie(b[0],b[1],14,12,b[2]);
+    cx.fillStyle='rgba(255,255,255,.6)';for(const s of [[100,96],[175,108],[130,90]])cx.fillRect(s[0],s[1],6,6);
+    cx.fillStyle='#90a4ae';cx.font='bold 13px sans-serif';cx.fillText('あつあつシチュー',96,190);
   } else {
     cx.fillStyle='#fff3e0';cx.fillRect(0,0,320,220);
     cx.fillStyle='#fff';cx.beginPath();cx.ellipse(135,125,105,62,0,0,Math.PI*2);cx.fill();cx.strokeStyle='#d7ccc8';cx.lineWidth=3;cx.stroke();
@@ -1615,8 +1805,8 @@ function onNet(m){
     if(!started&&!dead)window.startGame();
     toast('🙌 ホストの世界に入った！');
   } else if(m.t==='pos'){
-    if(!remote)remote={x:m.x,y:m.y,z:m.z,yaw:m.yaw,pitch:m.pitch,walk:0,swing:0,scale:1};
-    remote.tx=m.x;remote.ty=m.y;remote.tz=m.z;remote.tyaw=m.yaw;remote.pitch=m.pitch;
+    if(!remote)remote={x:m.x,y:m.y,z:m.z,yaw:m.yaw,pitch:m.pitch,walk:0,swing:0,scale:1,appearance:0};
+    remote.tx=m.x;remote.ty=m.y;remote.tz=m.z;remote.tyaw=m.yaw;remote.pitch=m.pitch;remote.appearance=m.ap|0;
   } else if(m.t==='blk'){
     for(const c of m.c){const[x,y,z,id]=c;if(x>=0&&z>=0&&y>=0&&x<W&&z<D&&y<H){const old=world[idx(x,y,z)];
       if(net.role==='host'&&id===0){if(old===12)stageStats.gems++;if(old===19)stageStats.chests++;}world[idx(x,y,z)]=id;}}
@@ -1639,21 +1829,32 @@ function netTick(dt){
   }
   if(!net.connected){net.out.length=0;return;}
   net.sendT-=dt;
-  if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3)});}
+  if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3),ap:myAppearance});}
   if(net.out.length){netSend({t:'blk',c:net.out});net.out=[];}
 }
-const T_AFACE=[37,37,41,38,36,38],T_SHIRT=[39,39,39,39,39,39],T_PANTS=[40,40,40,40,40,40],T_ASKIN=[41,41,41,41,41,41];
+const APPEARANCES=[
+  {name:'ノーマル',face:36,side:37,top:38,skin:41,shirt:39,pants:40,arm:41},
+  {name:'ゴールド',face:58,side:59,top:60,skin:61,shirt:62,pants:63,arm:61},
+  {name:'消防士',face:64,side:65,top:66,skin:67,shirt:68,pants:69,arm:70},
+  {name:'はかせ',face:71,side:72,top:73,skin:74,shirt:75,pants:76,arm:77}
+];
+const APPEAR_KEY='blockcraft-appearance-v1';
+let myAppearance=0;
+try{const j=parseInt(localStorage.getItem(APPEAR_KEY),10);if(j>=0&&j<APPEARANCES.length)myAppearance=j;}catch(e){}
+function setAppearance(i){myAppearance=i;try{localStorage.setItem(APPEAR_KEY,String(i));}catch(e){}}
+function apTex(i){const a=APPEARANCES[i]||APPEARANCES[0];
+  return {face:[a.side,a.side,a.skin,a.top,a.face,a.top],shirt:[a.shirt,a.shirt,a.shirt,a.shirt,a.shirt,a.shirt],pants:[a.pants,a.pants,a.pants,a.pants,a.pants,a.pants],arm:[a.arm,a.arm,a.arm,a.arm,a.arm,a.arm]};}
 function avatarVerts(e,out){
+  const tex=apTex(e.appearance||0);
   const sw=Math.sin(e.walk)*0.6;
   const armR=e.swing>0?1.6+Math.sin((0.3-e.swing)/0.3*Math.PI)*0.8:-sw*0.8;
-  pushBox(out,[-0.125,-0.55,-0.125],[0.125,0,0.125],T_PANTS,part(e,[-0.125,0.55,0],sw));
-  pushBox(out,[-0.125,-0.55,-0.125],[0.125,0,0.125],T_PANTS,part(e,[0.125,0.55,0],-sw));
-  pushBox(out,[-0.25,0,-0.125],[0.25,0.75,0.125],T_SHIRT,part(e,[0,0.55,0],0));
-  pushBox(out,[-0.125,-0.7,-0.125],[0.125,0.05,0.125],T_SKIN2(),part(e,[-0.375,1.25,0],sw*0.8));
-  pushBox(out,[-0.125,-0.7,-0.125],[0.125,0.05,0.125],T_SKIN2(),part(e,[0.375,1.25,0],armR));
-  pushBox(out,[-0.25,0,-0.25],[0.25,0.5,0.25],T_AFACE,part(e,[0,1.3,0],Math.max(-0.8,Math.min(0.8,e.pitch||0))));
+  pushBox(out,[-0.125,-0.55,-0.125],[0.125,0,0.125],tex.pants,part(e,[-0.125,0.55,0],sw));
+  pushBox(out,[-0.125,-0.55,-0.125],[0.125,0,0.125],tex.pants,part(e,[0.125,0.55,0],-sw));
+  pushBox(out,[-0.25,0,-0.125],[0.25,0.75,0.125],tex.shirt,part(e,[0,0.55,0],0));
+  pushBox(out,[-0.125,-0.7,-0.125],[0.125,0.05,0.125],tex.arm,part(e,[-0.375,1.25,0],sw*0.8));
+  pushBox(out,[-0.125,-0.7,-0.125],[0.125,0.05,0.125],tex.arm,part(e,[0.375,1.25,0],armR));
+  pushBox(out,[-0.25,0,-0.25],[0.25,0.5,0.25],tex.face,part(e,[0,1.3,0],Math.max(-0.8,Math.min(0.8,e.pitch||0))));
 }
-function T_SKIN2(){return T_ASKIN;}
 onTap(document.getElementById('mpHost'),hostRoom);
 onTap(document.getElementById('mpJoin'),joinRoom);
 codeIn.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
@@ -1662,7 +1863,7 @@ codeIn.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')joi
 // ---------- game flow ----------
 const overlay=document.getElementById('overlay'),overEl=document.getElementById('over');
 function newRun(){
-  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;pendingCook=0;dead=false;items=[];rockets=[];booms=[];fireHeld=false;
+  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];fireHeld=false;
   const mb=STAGES[stage].mobs;if(mb.zero)spawnEnemy('zero');for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');updateHud();
 }
 function gameOver(){
@@ -1685,6 +1886,16 @@ function renderStageSel(){
     if(!lock)onTap(b,()=>{selStage=i;renderStageSel();});stageSelEl.appendChild(b);});
 }
 renderStageSel();
+const appearSelEl=document.getElementById('appearsel');
+function renderAppearSel(){
+  appearSelEl.innerHTML='';
+  APPEARANCES.forEach((a,i)=>{const b=document.createElement('button');b.className='apr'+(i===myAppearance?' on':'');
+    const c=document.createElement('canvas');c.width=c.height=16;
+    c.getContext('2d').drawImage(atlas,a.face*16,0,16,16,0,0,16,16);
+    b.appendChild(c);b.appendChild(document.createTextNode(a.name));
+    onTap(b,()=>{setAppearance(i);renderAppearSel();});appearSelEl.appendChild(b);});
+}
+renderAppearSel();
 if(!/github\.io$|^localhost$|^127\./.test(location.hostname)&&location.protocol!=='file:')document.getElementById('mp').style.display='none';
 window.startGame=()=>{initAudio();if(net.role!=='guest'&&selStage!==stage)goStage(selStage);overlay.style.display='none';started=true;lockMouse();updateGoalHud();};
 onTap(document.getElementById('clearBtn'),()=>{document.getElementById('clear').style.display='none';clearing=false;goStage(0);lockMouse();});
