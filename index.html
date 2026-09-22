@@ -240,6 +240,62 @@ function initAudio(){
 }
 function sfx(name,info){const f=SFX[name];if(!f||!audioCtx)return;try{f(audioCtx,info||{});}catch(e){}}
 
+// ---- 効果音の中身（Web Audioで簡易合成） ----
+let _noiseBuf=null;
+function noiseBuffer(ctx){
+  if(_noiseBuf&&_noiseBuf.ctx===ctx) return _noiseBuf.buf;
+  const buf=ctx.createBuffer(1,Math.max(1,ctx.sampleRate*0.5|0),ctx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  _noiseBuf={ctx,buf};
+  return buf;
+}
+function envGain(g,vol,t0,attack,decay){
+  g.gain.cancelScheduledValues(t0);
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.linearRampToValueAtTime(vol,t0+attack);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+attack+decay);
+}
+SFX.enemyNear=(ctx,info)=>{
+  const t0=ctx.currentTime, vol=0.04+0.16*Math.min(1,info.volume||0.3);
+  if(info.type==='zombie'){
+    const o=ctx.createOscillator(),g=ctx.createGain();o.type='sawtooth';o.frequency.value=68;
+    const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.type='sine';lfo.frequency.value=5.5;lg.gain.value=9;
+    lfo.connect(lg);lg.connect(o.frequency);o.connect(g);g.connect(ctx.destination);
+    envGain(g,vol,t0,0.06,0.5);
+    lfo.start(t0);o.start(t0);lfo.stop(t0+0.6);o.stop(t0+0.6);
+  }else if(info.type==='mimic'){
+    for(let i=0;i<3;i++){
+      const st=t0+i*0.075;
+      const o=ctx.createOscillator(),g=ctx.createGain();o.type='square';
+      o.frequency.value=850+Math.random()*550;o.connect(g);g.connect(ctx.destination);
+      envGain(g,vol*0.7,st,0.004,0.05);
+      o.start(st);o.stop(st+0.07);
+    }
+  }else{
+    const o=ctx.createOscillator(),o2=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine';o2.type='sine';
+    o.frequency.setValueAtTime(320,t0);o.frequency.exponentialRampToValueAtTime(255,t0+0.45);
+    o2.frequency.value=326;
+    o.connect(g);o2.connect(g);g.connect(ctx.destination);
+    envGain(g,vol*0.6,t0,0.08,0.45);
+    o.start(t0);o2.start(t0);o.stop(t0+0.55);o2.stop(t0+0.55);
+  }
+};
+SFX.playerHurt=(ctx,info)=>{
+  const t0=ctx.currentTime, vol=Math.min(0.5,0.16+0.05*(info.dmg||1));
+  const noise=ctx.createBufferSource(),nf=ctx.createBiquadFilter(),ng=ctx.createGain();
+  noise.buffer=noiseBuffer(ctx);nf.type='lowpass';nf.frequency.value=1000;
+  noise.connect(nf);nf.connect(ng);ng.connect(ctx.destination);
+  envGain(ng,vol,t0,0.002,0.15);
+  noise.start(t0);noise.stop(t0+0.16);
+  const o=ctx.createOscillator(),og=ctx.createGain();o.type='triangle';
+  o.frequency.setValueAtTime(170,t0);o.frequency.exponentialRampToValueAtTime(55,t0+0.2);
+  o.connect(og);og.connect(ctx.destination);
+  envGain(og,vol*0.8,t0,0.002,0.22);
+  o.start(t0);o.stop(t0+0.23);
+};
+
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 document.getElementById('help').innerHTML = isTouch
