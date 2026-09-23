@@ -268,7 +268,7 @@ function main(){
 //  playerHurt : プレイヤーがダメージ {dmg, hp}
 //  swing / kick / enemyHit {type} / enemyDie {type} / noEffect（ゾンビにキック以外）
 //  shoot {weapon} / rocketFire / explode / blockBreak / blockPlace / pickup {kind}
-//  cookStart / gameOver
+//  cookStart / gameOver / wombatFuse
 const SFX={};
 let audioCtx=null;
 function initAudio(){
@@ -332,6 +332,14 @@ SFX.playerHurt=(ctx,info)=>{
   envGain(og,vol*0.8,t0,0.002,0.22);
   o.start(t0);o.stop(t0+0.23);
 };
+SFX.wombatFuse=(ctx)=>{
+  const t0=ctx.currentTime,n=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();
+  n.buffer=noiseBuffer(ctx);n.loop=true;f.type='bandpass';f.Q.value=3;
+  f.frequency.setValueAtTime(1800,t0);f.frequency.exponentialRampToValueAtTime(6000,t0+1.2);
+  n.connect(f);f.connect(g);g.connect(ctx.destination);
+  g.gain.setValueAtTime(0.0001,t0);g.gain.linearRampToValueAtTime(0.2,t0+1.1);g.gain.exponentialRampToValueAtTime(0.0001,t0+1.25);
+  n.start(t0);n.stop(t0+1.25);
+};
 
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
@@ -354,11 +362,11 @@ const BLOCKS={
   11:{name:'マグマ岩',t:[42,42,42]},12:{name:'宝石',t:[45,45,45]},13:{name:'ポータル',t:[47,47,47]},14:{name:'溶岩',t:[43,43,43]},15:{name:'光る石',t:[44,44,44]},16:{name:'島の石',t:[46,46,46]},
   17:{name:'かべ紙',t:[48,48,48]},18:{name:'屋根',t:[49,49,49]},19:{name:'宝箱',t:[51,50,50]},20:{name:'コンクリート',t:[52,52,52]},21:{name:'クジラの肉',t:[55,55,55]},22:{name:'ほね',t:[56,56,56]},23:{name:'胃液',t:[57,57,57]},
   24:{name:'ニンジン',t:[78,78,78]},25:{name:'たまねぎ',t:[79,79,79]},26:{name:'キノコ',t:[80,80,80]},
-  27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]}
+  27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]},29:{name:'水晶',t:[93,93,93]}
 };
 const TRANS={5:true,8:true,13:true,28:true};
 const NONSOLID={13:true,14:true,23:true,28:true},HAZARD={14:true,23:true};
-const HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,20,17,18,15,11,16,22,21];
+const HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,20,17,18,15,11,16,22,21,29];
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
 function hash(x,z,s){let h=(Math.imul(x,374761393)+Math.imul(z,668265263)+Math.imul(s,1442695041))|0;h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967295;}
@@ -411,12 +419,12 @@ function generate(seed){
 const STAGES=[
   {name:'草原',icon:'🌳',sky:[0.529,0.808,0.922],fog:[22,62],mobs:{zero:4,zombie:4,mimic:2,cow:3},goal:{type:'kills',n:5,text:'敵をたおす'},spawn:[W/2+0.5,null,D/2+0.5]},
   {name:'マグマの世界',icon:'🌋',sky:[0.36,0.09,0.06],fog:[14,46],mobs:{zero:2,zombie:5,mimic:2,cow:2,sign:2,ghast:1},goal:{type:'gems',n:3,text:'💎 宝石を見つけてこわす'},spawn:[24.5,null,24.5]},
-  {name:'空の島',icon:'🏝️',sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1},goal:{type:'kills',n:8,text:'敵をたおす'},spawn:[24.5,null,24.5]},
+  {name:'空の島',icon:'🏝️',sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1,magai:2},goal:{type:'kills',n:8,text:'敵をたおす'},spawn:[24.5,null,24.5]},
   {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},spawn:[20.5,5,12.5]},
-  {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},spawn:[24.5,4,20.5]},
+  {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0,wombat:1},goal:{type:'boss',n:1,roof:29,text:'屋上のウォンバットをたおす'},spawn:[24.5,4,20.5]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},spawn:[8.5,null,24.5]}
 ];
-let stage=0,goalDone=false,stageStats={kills:0,gems:0,chests:0},skyCol=STAGES[0].sky,fogR=STAGES[0].fog;
+let stage=0,goalDone=false,stageStats={kills:0,gems:0,chests:0,boss:0},skyCol=STAGES[0].sky,fogR=STAGES[0].fog;
 const PROG_KEY='blockcraft-progress-v1';
 let progress={unlocked:0};
 try{const j=JSON.parse(localStorage.getItem(PROG_KEY)||'null');if(j)progress.unlocked=Math.min(STAGES.length-1,j.unlocked|0);}catch(e){}
@@ -502,7 +510,12 @@ function genMansion(rnd){
   }
   fill(23,4,z0,24,5,z0,0);
   ring(x0,29,z0,x1,29,z1,20);
-  for(let i=0;i<6;i++){const x=x0+3+Math.floor(rnd()*(x1-x0-6)),z=z0+3+Math.floor(rnd()*(z1-z0-6));if(x>=13&&x<=19&&z>=13&&z<=19)continue;setB(x,29,z,15);}
+  // 屋上：ウォンバットのすみか（石と水晶）
+  fill(30,29,30,33,29,33,3);
+  setB(30,30,31,29);fill(31,30,32,31,31,32,29);fill(32,30,31,32,31,31,29);
+  fill(33,30,30,33,31,30,3);setB(30,30,33,3);setB(33,30,33,3);
+  for(let i=0;i<6;i++){const x=x0+3+Math.floor(rnd()*(x1-x0-6)),z=z0+3+Math.floor(rnd()*(z1-z0-6));
+    if((x>=13&&x<=19&&z>=13&&z<=19)||(x>=24&&z>=24))continue;setB(x,29,z,15);}
   for(let i=0;i<10;i++){const x=2+Math.floor(rnd()*(W-4)),z=2+Math.floor(rnd()*(D-4));if(x>=x0-2&&x<=x1+2&&z>=z0-2&&z<=z1+2)continue;tree(x,2,z,rnd);}
 }
 function genWhale(rnd,seed){
@@ -547,7 +560,7 @@ let saveTimer=null;
 function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,800);}
 
 // ---------- textures ----------
-const atlas=document.createElement('canvas');atlas.width=1408;atlas.height=16;
+const atlas=document.createElement('canvas');atlas.width=1536;atlas.height=16;
 const ATLAS_TILES=atlas.width/16;
 const actx=atlas.getContext('2d');
 const TR=mulberry32(7);
@@ -715,6 +728,25 @@ paint(86,(x,y)=>{ // とじている
   if(x>=2&&x<=13&&((y>=1&&y<=6)||(y>=9&&y<=14)))return vary([150,110,65],14);
   return vary([110,78,42],16);});
 paint(87,(x,y)=>(x===0||x===15||y===0||y===15)?[90,65,35,255]:[0,0,0,0]); // あいている（わく）
+
+// マガイヤス
+const MAGW=[236,235,231];
+paint(88,(x,y)=>(x===0||y===0)?vary([212,211,207],6):(x%5===2&&y>1&&y<15)?vary([224,223,219],6):vary(MAGW,6)); // 体
+paint(89,(x,y)=>{ // 顔（にっこり）
+  if((x===4||x===5||x===10||x===11)&&(y===5||y===6))return [40,40,40,255];
+  if((y===9&&(x===3||x===12))||(y===10&&(x===4||x===11))||(y===11&&x>=5&&x<=10))return [40,40,40,255];
+  return vary(MAGW,6);});
+// ウォンバット
+const WPINK=[232,150,172],WCREAM=[236,226,176];
+paint(90,(x,y)=>{ // 顔
+  if(y<2||y>12)return vary(WPINK,12);
+  if((x===4||x===5||x===10||x===11)&&y>=4&&y<=7)return [20,20,20,255];
+  if((y===9&&(x===5||x===10))||(y===10&&(x===6||x===9))||(y===11&&(x===7||x===8)))return y===9?[170,170,170,255]:[120,120,120,255];
+  return vary(WCREAM,10);});
+paint(91,()=>vary(WPINK,14)); // 頭の横・うしろ
+paint(92,(x)=>x%4===0?vary([66,112,30],10):vary([90,146,42],16)); // 緑のからだ
+// 水晶
+paint(93,(x,y)=>(x===0||x===15||y===0||y===15)?vary([70,180,200],10):((x+y)%6===0)?[225,255,255,255]:vary([130,228,240],20));
 
 // ステージ用ブロック
 paint(42,()=>TR()<0.1?vary([80,22,24],12):vary([118,38,36],26));
@@ -889,7 +921,47 @@ function ghastVerts(e,out){
     pushBox(out,[-0.05,-0.55,-0.05],[0.05,0,0.05],T_GHASTLEG,part(e,[p[0]+sway,bob+0.3,p[1]],0));
   }
 }
+const T_MAGBODY=[88,88,88,88,88,88],T_MAGHEAD=[88,88,88,88,89,88],T_PLANK=[8,8,8,8,8,8];
+const MAGAI_ATK=0.8;
+function magaiVerts(e,out){
+  const sw=Math.sin(e.walk)*0.25,b=part(e,[0,0,0],0);
+  pushBox(out,[-0.8,0,-0.8],[0.8,0.2,0.8],T_PLANK,b);
+  pushBox(out,[-0.75,0.2,-0.75],[0.75,0.5,0.75],T_MAGBODY,b);
+  pushBox(out,[-0.58,0.5,-0.58],[0.58,0.8,0.58],T_MAGBODY,b);
+  pushBox(out,[-0.42,0.8,-0.42],[0.42,1.1,0.42],T_MAGBODY,b);
+  pushBox(out,[-0.26,1.1,-0.26],[0.26,1.45,0.26],T_MAGBODY,b);
+  pushBox(out,[0.5,0.5,-0.3],[0.78,0.72,0.2],T_MAGBODY,b);
+  pushBox(out,[-0.78,0.5,0.1],[-0.5,0.72,0.55],T_MAGBODY,b);
+  pushBox(out,[-0.55,1.45,-0.14],[0.55,1.65,0.14],T_MAGBODY,b);
+  pushBox(out,[-0.14,1.45,-0.4],[0.14,1.65,0.4],T_MAGBODY,b);
+  for(const s of [-1,1]){
+    const arm=part(e,[s*0.55,1.55,0],s*sw);
+    pushBox(out,s<0?[-0.4,-0.12,-0.12]:[0,-0.12,-0.12],s<0?[0,0.1,0.12]:[0.4,0.1,0.12],T_MAGBODY,arm);
+    pushBox(out,s<0?[-0.65,-0.34,-0.34]:[0.35,-0.34,-0.34],s<0?[-0.35,-0.1,-0.02]:[0.65,-0.1,-0.02],T_MAGBODY,arm);
+  }
+  let ang=0;
+  if(e.atk>0){const t=1-e.atk/MAGAI_ATK;
+    ang=t<0.45?0.4*t/0.45:t<0.62?0.4-1.6*(t-0.45)/0.17:-1.2*(1-(t-0.62)/0.38);}
+  const nk=part(e,[0,1.6,0],ang+Math.sin(e.walk*0.5)*0.05);
+  pushBox(out,[-0.12,0,-0.12],[0.12,0.85,0.12],T_MAGBODY,nk);
+  pushBox(out,[-0.28,0.85,-0.28],[0.28,1.41,0.28],T_MAGHEAD,nk);
+}
+const T_WOMHEAD=[91,91,91,91,90,91],T_WOMGREEN=[92,92,92,92,92,92];
+const WOMBAT_FUSE=1.2;
+function wombatVerts(e,out){
+  const sw=Math.sin(e.walk)*0.5;
+  for(const s of [-1,1]){
+    const leg=part(e,[s*0.26,0.9,0],s*sw);
+    pushBox(out,[-0.1,-0.9,-0.1],[0.1,0,0.1],T_WOMGREEN,leg);
+    pushBox(out,[-0.12,-0.9,-0.32],[0.12,-0.76,0.1],T_WOMGREEN,leg);
+  }
+  pushBox(out,[-0.11,0.5,-0.11],[0.11,1.35,0.11],T_WOMGREEN,part(e,[0,0,0],0));
+  const f=e.atk>0?1-e.atk/WOMBAT_FUSE:0,k=0.4*(1+f*0.25+(f>0?Math.sin(f*40)*0.04:0));
+  pushBox(out,[-k,0,-k],[k,2*k,k],T_WOMHEAD,part(e,[0,1.3,0],Math.sin(e.walk*0.5)*0.06));
+}
 function enemyVerts(e,out){
+  if(e.type==='magai') return magaiVerts(e,out);
+  if(e.type==='wombat') return wombatVerts(e,out);
   if(e.type==='cow') return cowVerts(e,out);
   if(e.type==='zombie') return zombVerts(e,out);
   if(e.type==='mimic') return mimVerts(e,out);
@@ -928,7 +1000,9 @@ function render(){
     for(const e of enemies){const s=out.length/6;enemyVerts(e,out);ranges.push([e,s,out.length/6-s]);}
     bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
     for(const [e,s,n] of ranges){
-      if(e.hurt>0||e.dying>0)gl.uniform3f(LB.tint,1.7,0.45,0.45);else gl.uniform3f(LB.tint,1,1,1);
+      if(e.hurt>0||e.dying>0)gl.uniform3f(LB.tint,1.7,0.45,0.45);
+      else if(e.type==='wombat'&&e.atk>0&&Math.floor(e.atk*(e.atk<0.5?16:8))%2===0)gl.uniform3f(LB.tint,2.2,2.2,2.2);
+      else gl.uniform3f(LB.tint,1,1,1);
       gl.drawArrays(gl.TRIANGLES,s,n);
     }
   }
@@ -980,25 +1054,35 @@ const hits=(x,y,z)=>hitsBox(x,y,z,PR,PH);
 // ---------- enemies & cows ----------
 let enemies=[],kills=0,spawnTimer=0,cowTimer=0,mimicTimer=0,playTime=0,pendingCook=0,pendingCookStew=0,cookTotal=0;
 let items=[],rockets=[],booms=[];
-const MAX_ENEMIES=4,MAX_COWS=3,MAX_MIMIC=2,MAX_ZOMBIE=4;let zombieTimer=0,signTimer=0,ghastTimer=0;
-function enemyDims(type){
-  const cow=type==='cow',mim=type==='mimic',zom=type==='zombie',sign=type==='sign',ghast=type==='ghast';
-  return {r:cow?0.4:sign?0.32:ghast?0.85:0.3,h:cow?1.4:mim?2.5:zom?1.75:sign?2.05:ghast?1.6:1.8};
-}
+const MAX_ENEMIES=4,MAX_COWS=3,MAX_MIMIC=2,MAX_ZOMBIE=4;let zombieTimer=0,signTimer=0,ghastTimer=0,magaiTimer=0;
+const ENEMY_STATS={
+  zero:{r:0.3,h:1.8,hp:10,spd:2.5,dmg:3},
+  cow:{r:0.4,h:1.4,hp:6,spd:2.5,dmg:3},
+  mimic:{r:0.3,h:2.5,hp:14,spd:2.5,dmg:3},
+  zombie:{r:0.3,h:1.75,hp:5,spd:1.8,dmg:2},
+  sign:{r:0.32,h:2.05,hp:12,spd:2.3,dmg:4},
+  ghast:{r:0.85,h:1.6,hp:18,spd:3,dmg:0},
+  magai:{r:0.6,h:3.0,hp:16,spd:2.0,dmg:4},
+  wombat:{r:0.42,h:2.1,hp:20,spd:2.2,dmg:0}
+};
+const WOMBAT_HOME=[26.5,29,27.5];
+function enemyDims(type){return ENEMY_STATS[type]||ENEMY_STATS.zero;}
 let nextEnemyId=1;
-function spawnEnemy(type){
+function spawnEnemy(type,at){
   type=type||'zero';
-  const cow=type==='cow',mim=type==='mimic',zom=type==='zombie',sign=type==='sign',ghast=type==='ghast';
-  const {r,h}=enemyDims(type),hp=cow?6:mim?14:zom?5:sign?12:ghast?18:10;
-  const spd=zom?1.8:sign?2.3:ghast?3:2.5,dmg=zom?2:sign?4:ghast?0:3;
-  for(let tries=0;tries<30;tries++){
-    const x=2.5+Math.floor(Math.random()*(W-4)),z=2.5+Math.floor(Math.random()*(D-4));
-    if(Math.hypot(x-P.x,z-P.z)<(cow?7:14)) continue;
-    const y=randomStandY(x,z,h);if(y==null) continue;
-    if(y>=H-2||hitsBox(x,y,z,r,h)) continue;
+  const {r,h,hp,spd,dmg}=enemyDims(type);
+  const place=(x,y,z)=>{
     enemies.push({id:nextEnemyId++,type,r,h,x,y,z,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:Math.random()*6.28,hp,maxhp:hp,spd,dmg,target:null,fleeX:0,fleeZ:0,walk:0,atk:0,cd:1,hurt:0,dying:0,scale:1,struck:false,
       think:0,moving:false,dirYaw:0,flee:0,seed:Math.random()*6});
     seeEnemy(type);
+  };
+  if(at){place(at[0],standAt(at[0],at[2],at[1]),at[2]);return;}
+  for(let tries=0;tries<30;tries++){
+    const x=2.5+Math.floor(Math.random()*(W-4)),z=2.5+Math.floor(Math.random()*(D-4));
+    if(Math.hypot(x-P.x,z-P.z)<(type==='cow'?7:14)) continue;
+    const y=randomStandY(x,z,h);if(y==null) continue;
+    if(y>=H-2||hitsBox(x,y,z,r,h)) continue;
+    place(x,y,z);
     return;
   }
 }
@@ -1034,6 +1118,7 @@ function damageEnemy(e,dmg,kb,src,how,localFx){
   if(e.type==='cow'){e.flee=2.5;e.fleeX=sx;e.fleeZ=sz;}
   if(e.hp<=0){
     e.dying=0.5;if(localFx)sfx('enemyDie',{type:e.type});
+    if(e.type==='wombat'){stageStats.boss++;if(localFx)toast('🎉 ウォンバットをたおした！');}
     if(e.type==='cow'){
       if(byPlayer){if(localFx){pendingCook=0.7;toast('🥩 肉と 🥛 ミルクを手に入れた！');}}
       else {dropItems(e.x,e.y+0.6,e.z);if(localFx&&Math.hypot(e.x-P.x,e.z-P.z)<24)toast('ミミッカーが牛をおそった！ 肉とミルクが落ちたよ');}
@@ -1065,7 +1150,7 @@ function updateMimic(e,dt){
   if(e.think<=0||(e.target!=='P'&&!mobAlive(e.target))||(e.target==='P'&&dead)){
     e.think=0.5;let best=null,bd=26;
     if(!dead){const d=Math.hypot(P.x-e.x,P.z-e.z);if(d<bd){bd=d;best='P';}}
-    for(const m of enemies){if(m===e||m.type==='mimic'||m.type==='zombie'||m.dying>0)continue;const d=Math.hypot(m.x-e.x,m.z-e.z);if(d<bd){bd=d;best=m;}}
+    for(const m of enemies){if(m===e||m.type==='mimic'||m.type==='zombie'||m.type==='wombat'||m.dying>0)continue;const d=Math.hypot(m.x-e.x,m.z-e.z);if(d<bd){bd=d;best=m;}}
     e.target=best;
   }
   const tg=e.target,tx=tg==='P'?P.x:tg?tg.x:e.x,tz=tg==='P'?P.z:tg?tg.z:e.z,ty=tg==='P'?P.y:tg?tg.y:e.y,tr=tg==='P'?PR:tg?tg.r:0;
@@ -1127,6 +1212,58 @@ function fireGhastball(e){
   rockets.push({x:e.x,y:e.y,z:e.z,vx:dx/l*spd,vy:dy/l*spd,vz:dz/l*spd,yaw:e.yaw,pitch:0,t:0,owner:'ghast'});
   sfx('ghastFire',{});
 }
+function steer(e,dt,sp,turnRate){
+  let dy=e.dirYaw-e.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));e.yaw+=dy*Math.min(1,turnRate*dt);
+  e.vx=-Math.sin(e.yaw)*sp+e.kx;e.vz=-Math.cos(e.yaw)*sp+e.kz;
+  const damp=Math.min(1,5*dt);e.kx-=e.kx*damp;e.kz-=e.kz*damp;
+  e.vy-=26*dt;if(e.vy<-30)e.vy=-30;
+}
+function updateMagai(e,dt){
+  const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||0.001,dyP=P.y-e.y;
+  let sp=0;
+  if(!dead&&dist<30){e.dirYaw=Math.atan2(-dx,-dz);if(e.atk<=0&&dist>1.6)sp=e.spd;}
+  steer(e,dt,sp,6);
+  const blocked=moveBody(e,dt,e.r,e.h);
+  if(blocked&&e.ground&&sp>0)e.vy=8.2;
+  e.walk+=dt*sp*2.5;e.hurt-=dt;e.cd-=dt;
+  if(e.atk>0){
+    e.atk-=dt;
+    if(e.atk<=0.3&&!e.struck){e.struck=true;if(dist<2.5&&dyP>-1&&dyP<2.4)hurtPlayer(e.dmg,e.x,e.z);}
+    if(e.atk<0)e.atk=0;
+  } else if(!dead&&dist<2.1&&dyP>-1&&dyP<2.4&&e.cd<=0){e.atk=MAGAI_ATK;e.cd=1.8;e.struck=false;}
+}
+function updateWombat(e,dt){
+  const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||0.001;
+  const sees=!dead&&dist<18&&Math.abs(P.y-e.y)<3;
+  let sp=0;
+  if(e.atk>0){
+    e.dirYaw=Math.atan2(-dx,-dz);e.atk-=dt;
+    if(!sees||dist>4.5){e.atk=0;e.cd=0.8;}
+    else if(e.atk<=0){e.atk=0;e.cd=2.5;wombatBlast(e);}
+  } else if(sees){
+    e.dirYaw=Math.atan2(-dx,-dz);if(dist>1.6)sp=e.spd;
+    if(dist<2.3&&e.cd<=0){e.atk=WOMBAT_FUSE;sfx('wombatFuse');}
+  } else {
+    e.think-=dt;
+    if(e.think<=0){e.think=2+Math.random()*2;e.dirYaw=Math.random()*Math.PI*2;e.moving=Math.random()<0.6;}
+    sp=e.moving?0.9:0;
+  }
+  steer(e,dt,sp,6);
+  // 屋上から落ちないよう、足元に床がない方向へは進まない
+  if(e.ground&&sp>0){
+    const fx=e.x-Math.sin(e.yaw)*(e.r+0.25),fz=e.z-Math.cos(e.yaw)*(e.r+0.25);
+    if(!solidAt(Math.floor(fx),Math.floor(e.y)-1,Math.floor(fz))){e.vx=e.kx;e.vz=e.kz;e.think=0;}
+  }
+  moveBody(e,dt,e.r,e.h);
+  e.walk+=dt*sp*3;e.hurt-=dt;e.cd-=dt;
+}
+function wombatBlast(e){
+  const cx=e.x,cy=e.y+1,cz=e.z;
+  booms.push({x:cx,y:cy,z:cz,t:0});sfx('explode');
+  const pd=Math.hypot(P.x-cx,P.y+0.9-cy,P.z-cz);
+  if(pd<3.5)hurtPlayer(Math.round(6*(1-pd/3.5))+2,cx,cz,true);
+  if(navigator.vibrate)try{navigator.vibrate(120);}catch(err){}
+}
 function updateEnemies(dt){
   if(net.connected&&net.role==='guest'){
     const k=Math.min(1,dt*12);
@@ -1151,6 +1288,8 @@ function updateEnemies(dt){
   if(signTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='sign').length<(STAGES[stage].mobs.sign||0)){spawnEnemy('sign');signTimer=16;}
   ghastTimer-=dt;
   if(ghastTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='ghast').length<(STAGES[stage].mobs.ghast||0)){spawnEnemy('ghast');ghastTimer=24;}
+  magaiTimer-=dt;
+  if(magaiTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='magai').length<(STAGES[stage].mobs.magai||0)){spawnEnemy('magai');magaiTimer=18;}
   for(const e of enemies){
     if(e.dying>0){e.dying-=dt;e.scale=Math.max(0.01,e.dying/0.5);continue;}
     if(e.type!=='cow'){e.nearCd=(e.nearCd||0)-dt;const nd=Math.hypot(P.x-e.x,P.z-e.z);
@@ -1158,6 +1297,8 @@ function updateEnemies(dt){
     if(e.type==='cow'){updateCow(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='mimic'){updateMimic(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='ghast'){updateGhast(e,dt);if(e.y<-20)e.dying=0.01;continue;}
+    if(e.type==='magai'){updateMagai(e,dt);if(e.y<-20)e.dying=0.01;continue;}
+    if(e.type==='wombat'){updateWombat(e,dt);continue;}
     const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||0.001;
     e.yaw=Math.atan2(-dx,-dz);
     const chase=dist<30&&dist>1.2&&e.atk<=0?1:0;
@@ -1211,9 +1352,11 @@ function checkCells(dt){
   if(portal&&!portalLock){portalLock=true;enterPortal();}
 }
 function goalTarget(){const g=STAGES[stage].goal;return g.type==='reach'?1:g.n;}
+const bossOff=()=>net.connected&&!mpMonsters;
 function goalProgress(){const g=STAGES[stage].goal;
   if(g.type==='kills')return stageStats.kills;if(g.type==='gems')return stageStats.gems;if(g.type==='chests')return stageStats.chests;
-  return (P.y>=g.n-0.1&&P.ground)?1:0;}
+  if(g.type==='boss'&&!bossOff())return stageStats.boss;
+  return (P.y>=(g.roof||g.n)-0.1&&P.ground)?1:0;}
 function checkGoal(){
   if(!goalDone&&goalProgress()>=goalTarget()){
     goalDone=true;
@@ -1226,7 +1369,9 @@ function checkGoal(){
 function updateGoalHud(){
   const st=STAGES[stage],g=st.goal;let t;
   if(goalDone)t=st.icon+' クリア！ 🌀ポータルに入ろう';
-  else if(g.type==='reach'){const f=Math.max(1,Math.min(6,Math.floor((P.y-3)/5)+1));t=st.icon+' '+g.text+'（今 '+(P.y>=g.n-0.1?'屋上':f+'階')+'）';}
+  else if(g.type==='reach'||g.type==='boss'){const roof=g.roof||g.n,f=Math.max(1,Math.min(6,Math.floor((P.y-3)/5)+1));
+    const txt=g.type==='boss'&&bossOff()?'屋上にたどり着く':g.text;
+    t=st.icon+' '+txt+'（今 '+(P.y>=roof-0.1?'屋上':f+'階')+'）';}
   else t=st.icon+' '+g.text+' '+Math.min(goalProgress(),g.n)+'/'+g.n;
   if(t!==lastGoalTxt){lastGoalTxt=t;goalEl.textContent=t;goalEl.classList.toggle('done',goalDone);}
 }
@@ -1243,7 +1388,7 @@ function enterPortal(){
 }
 function goStage(n){
   n=Math.max(0,Math.min(STAGES.length-1,n));
-  stage=n;selStage=n;goalDone=false;stageStats={kills:0,gems:0,chests:0};portalLock=false;lastGoalTxt='';
+  stage=n;selStage=n;goalDone=false;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
   progress.unlocked=Math.max(progress.unlocked,n);saveProgress();
   applyStageLook(n);
   if(n===0){if(!load())generate(20260922);}else genStage(n);
@@ -1403,8 +1548,11 @@ const DEX_ENEMIES=[
   {id:'mimic',name:'ミミッカー',desc:'かみついてくる。牛をおそうこともある。',face:24},
   {id:'cow',name:'うし',desc:'たおすと肉とミルクが手に入る。料理の材料になる。',face:17},
   {id:'sign',name:'はま寿司のかんばん',desc:'マグマの世界に現れる。看板を振り回して攻撃し、当たるとふっとばされる。',face:85},
-  {id:'ghast',name:'ガスト',desc:'マグマの世界を飛び回り、はなれた場所から火の玉を吐いてくる。',face:82}
+  {id:'ghast',name:'ガスト',desc:'マグマの世界を飛び回り、はなれた場所から火の玉を吐いてくる。',face:82},
+  {id:'magai',name:'マガイヤス',desc:'空の島に現れる。長い首をしならせて頭突きしてくる。',face:89},
+  {id:'wombat',name:'ウォンバット',desc:'マンションの屋上にすむボス。近づくと爆発する。たおすと次のステージへ進める。',face:90}
 ];
+const ENEMY_NAME=Object.fromEntries(DEX_ENEMIES.map(d=>[d.id,d.name]));
 const DEX_ITEMS=[
   {id:'meat',name:'肉',desc:'牛をたおすと手に入る。料理して食べよう。',face:29},
   {id:'milk',name:'ミルク',desc:'牛をたおすと手に入る。のむと体力が少し回復する。',face:30},
@@ -1609,7 +1757,7 @@ function updateTags(){
     if(sx<-60||sx>innerWidth+60||sy<-30||sy>innerHeight)continue;
     let t=tagPool[n];
     if(!t){t=document.createElement('div');t.className='etag';t.innerHTML='<span></span><b><i></i></b>';tagBox.appendChild(t);tagPool.push(t);}
-    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=e.type==='cow'?'うし':e.type==='mimic'?'ミミッカー':e.type==='zombie'?'ゾンビ':e.type==='sign'?'はま寿司のかんばん':e.type==='ghast'?'ガスト':'エンティティゼロ';
+    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=ENEMY_NAME[e.type]||ENEMY_NAME.zero;
     n++;
   }
   for(let i=n;i<tagPool.length;i++)tagPool[i].style.display='none';
@@ -2128,8 +2276,10 @@ codeIn.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')joi
 // ---------- game flow ----------
 const overlay=document.getElementById('overlay'),overEl=document.getElementById('over');
 function newRun(){
-  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;signTimer=7;ghastTimer=12;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];fireHeld=false;
-  const mb=STAGES[stage].mobs;if(mb.zero)spawnEnemy('zero');for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');updateHud();
+  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;signTimer=7;ghastTimer=12;magaiTimer=6;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];fireHeld=false;
+  const mb=STAGES[stage].mobs;if(mb.zero)spawnEnemy('zero');for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');
+  if(mb.wombat&&!goalDone)spawnEnemy('wombat',WOMBAT_HOME);
+  updateHud();
 }
 function gameOver(){
   sfx('gameOver');
@@ -2181,7 +2331,8 @@ const againBtn=document.getElementById('again');
 againBtn.addEventListener('click',again);againBtn.addEventListener('touchend',again,{passive:false});
 document.getElementById('reset').addEventListener('click',()=>{
   if(net.role==='guest'){mpSay('ゲストは世界を作り直せません',true);return;}
-  genStage(stage);ensureTable();rescanDoors();buildMesh();newRun();save();goalDone=false;stageStats={kills:0,gems:0,chests:0};updateGoalHud();
+  goalDone=false;stageStats={kills:0,gems:0,chests:0,boss:0};
+  genStage(stage);ensureTable();rescanDoors();buildMesh();newRun();save();updateGoalHud();
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
 });
 addEventListener('resize',resize);
