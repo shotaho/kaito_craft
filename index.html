@@ -1394,7 +1394,7 @@ function explode(x,y,z,byEnemy){
     if(dd<4.5)damageEnemy(e,Math.round(16*(1-dd/4.5))+3,12);}
   const pd=Math.hypot(P.x-x,P.y+0.9-y,P.z-z);
   if(byEnemy){
-    if(pd<3.5)hurtPlayer(Math.round(8*(1-pd/3.5))+3,x,z,true);
+    if(pd<3.5)hurtPlayer(Math.round(5*(1-pd/3.5))+2,x,z,true);
   } else if(pd<3.5){
     const l=Math.hypot(P.x-x,P.z-z)||1;P.kx=(P.x-x)/l*9;P.kz=(P.z-z)/l*9;P.vy=Math.max(P.vy,7);
   }
