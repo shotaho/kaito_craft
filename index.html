@@ -419,12 +419,18 @@ function genMagma(rnd,seed){
   for(let i=0;i<30;i++){const x=Math.floor(rnd()*W),z=Math.floor(rnd()*D),l=2+Math.floor(rnd()*4);fill(x,H-l,z,x,H-1,z,11);setB(x,H-l-1,z,15);}
   let g=0;for(let t=0;t<200&&g<5;t++){const x=3+Math.floor(rnd()*(W-6)),z=3+Math.floor(rnd()*(D-6));const y=topY(x,z);
     if(world[idx(x,y,z)]===11&&Math.hypot(x-24,z-24)>6){setB(x,y,z,12);g++;}}
+  let w=0;for(let t=0;t<200&&w<6;t++){const x=3+Math.floor(rnd()*(W-6)),z=3+Math.floor(rnd()*(D-6));const y=topY(x,z);
+    if(world[idx(x,y,z)]===11&&Math.hypot(x-24,z-24)>6){const hh=1+Math.floor(rnd()*2);fill(x,y+1,z,x,y+hh,z,4);w++;}}
 }
 function genSky(rnd,seed){
   const island=(cx,cz,cy,R,o)=>{for(let z=0;z<D;z++)for(let x=0;x<W;x++){const d=Math.hypot(x-cx,z-cz);if(d>=R)continue;
     const top=cy+Math.floor(vnoise(x,z,5,seed+o)*2),depth=Math.floor((R-d)*0.9+vnoise(x,z,3,seed+o+1)*3);fill(x,Math.max(0,top-depth),z,x,top,z,16);}};
   island(24,24,13,11,0);
-  for(let i=0;i<6;i++){const a=i/6*Math.PI*2+rnd()*0.4,dist=15+rnd()*3;island(24+Math.cos(a)*dist,24+Math.sin(a)*dist,10+Math.floor(rnd()*9),3+Math.floor(rnd()*2),i*10+5);}
+  for(let i=0;i<6;i++){const a=i/6*Math.PI*2+rnd()*0.4,dist=15+rnd()*3;
+    const cx=24+Math.cos(a)*dist,cz=24+Math.sin(a)*dist;
+    island(cx,cz,10+Math.floor(rnd()*9),3+Math.floor(rnd()*2),i*10+5);
+    if(rnd()<0.7){const tx=Math.round(cx),tz=Math.round(cz);if(tx>0&&tz>0&&tx<W-1&&tz<D-1){const ty=topY(tx,tz);if(world[idx(tx,ty,tz)]===16)tree(tx,ty,tz,rnd);}}
+  }
   for(let i=0;i<4;i++){const a=i/4*Math.PI*2+0.6,x=Math.round(24+Math.cos(a)*6),z=Math.round(24+Math.sin(a)*6);const y=topY(x,z),hh=4+Math.floor(rnd()*4);fill(x,y+1,z,x,y+hh,z,16);setB(x,y+hh+1,z,15);}
 }
 function genHouse(rnd){
@@ -479,6 +485,9 @@ function genWhale(rnd,seed){
   for(let x=6;x<W-3;x+=6){const r=rad(x);for(let y=10;y<H-1;y++)for(let z=1;z<D-1;z++){const d=Math.hypot((y-15)/0.85,z-24);if(d>=r-1.2&&d<r+0.3)setB(x,y,z,22);}}
   for(let z=1;z<D-1;z++)for(let x=1;x<W-1;x++){let y=1;while(y<H-1&&world[idx(x,y,z)]!==0)y++;if(y>=H-1)continue;
     if(vnoise(x,z,6,seed)<0.3&&Math.hypot(x-8,z-24)>5)setB(x,y-1,z,23);}
+  let dbr=0;for(let t=0;t<300&&dbr<10;t++){const x=2+Math.floor(rnd()*(W-4)),z=2+Math.floor(rnd()*(D-4));
+    let y=1;while(y<H-1&&world[idx(x,y,z)]!==0)y++;if(y>=H-1)continue;
+    if(world[idx(x,y-1,z)]!==0&&world[idx(x,y-1,z)]!==23&&Math.hypot(x-8,z-24)>5){setB(x,y,z,dbr%2===0?4:3);dbr++;}}
 }
 function isHaz(x,y,z){return !!HAZARD[getB(x,y,z)];}
 function standAt(x,z,yHint){
