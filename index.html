@@ -193,6 +193,7 @@ body.touch #held.gun{right:40%;bottom:-6px}
       <p class="mpt">2人で遊ぶ（同じWi‑Fi・テスト版）</p>
       <div class="mprow"><button id="mpHost" class="mpb">部屋を作る</button></div>
       <div class="mprow"><input id="mpCode" type="text" inputmode="numeric" maxlength="4" placeholder="部屋番号" autocomplete="off"><button id="mpJoin" class="mpb">入る</button></div>
+      <label class="mprow" style="justify-content:center;gap:6px;cursor:pointer;font-size:13px;color:#333"><input id="mpMonsters" type="checkbox" style="width:16px;height:16px">モンスターを出す（部屋を作る側の設定）</label>
       <p id="mpMsg"></p>
     </div>
     <button id="reset">世界を作り直す</button>
@@ -979,17 +980,22 @@ const hits=(x,y,z)=>hitsBox(x,y,z,PR,PH);
 let enemies=[],kills=0,spawnTimer=0,cowTimer=0,mimicTimer=0,playTime=0,pendingCook=0,pendingCookStew=0,cookTotal=0;
 let items=[],rockets=[],booms=[];
 const MAX_ENEMIES=4,MAX_COWS=3,MAX_MIMIC=2,MAX_ZOMBIE=4;let zombieTimer=0,signTimer=0,ghastTimer=0;
+function enemyDims(type){
+  const cow=type==='cow',mim=type==='mimic',zom=type==='zombie',sign=type==='sign',ghast=type==='ghast';
+  return {r:cow?0.4:sign?0.32:ghast?0.85:0.3,h:cow?1.4:mim?2.5:zom?1.75:sign?2.05:ghast?1.6:1.8};
+}
+let nextEnemyId=1;
 function spawnEnemy(type){
   type=type||'zero';
   const cow=type==='cow',mim=type==='mimic',zom=type==='zombie',sign=type==='sign',ghast=type==='ghast';
-  const r=cow?0.4:sign?0.32:ghast?0.85:0.3,h=cow?1.4:mim?2.5:zom?1.75:sign?2.05:ghast?1.6:1.8,hp=cow?6:mim?14:zom?5:sign?12:ghast?18:10;
+  const {r,h}=enemyDims(type),hp=cow?6:mim?14:zom?5:sign?12:ghast?18:10;
   const spd=zom?1.8:sign?2.3:ghast?3:2.5,dmg=zom?2:sign?4:ghast?0:3;
   for(let tries=0;tries<30;tries++){
     const x=2.5+Math.floor(Math.random()*(W-4)),z=2.5+Math.floor(Math.random()*(D-4));
     if(Math.hypot(x-P.x,z-P.z)<(cow?7:14)) continue;
     const y=randomStandY(x,z,h);if(y==null) continue;
     if(y>=H-2||hitsBox(x,y,z,r,h)) continue;
-    enemies.push({type,r,h,x,y,z,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:Math.random()*6.28,hp,maxhp:hp,spd,dmg,target:null,fleeX:0,fleeZ:0,walk:0,atk:0,cd:1,hurt:0,dying:0,scale:1,struck:false,
+    enemies.push({id:nextEnemyId++,type,r,h,x,y,z,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:Math.random()*6.28,hp,maxhp:hp,spd,dmg,target:null,fleeX:0,fleeZ:0,walk:0,atk:0,cd:1,hurt:0,dying:0,scale:1,struck:false,
       think:0,moving:false,dirYaw:0,flee:0,seed:Math.random()*6});
     seeEnemy(type);
     return;
@@ -1008,26 +1014,30 @@ function hurtPlayer(dmg,fromX,fromZ,noKnock){
 let toastTimer=null;
 function toast(t){const el=document.getElementById('toast');el.textContent=t;el.style.opacity=1;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.style.opacity=0,1800);}
 let immuneT=0;
-function damageEnemy(e,dmg,kb,src,how){
+function damageEnemy(e,dmg,kb,src,how,localFx){
+  if(localFx===undefined)localFx=true;
   if(e.dying>0||e.hp<=0) return;
   if(e.type==='zombie'&&how!=='kick'){
-    if(!src){const n=performance.now();if(n-immuneT>2500){immuneT=n;toast('ゾンビにはキックしか効かない！ 🦶');}
-      const dx=e.x-P.x,dz=e.z-P.z,l=Math.hypot(dx,dz)||1;e.kx=dx/l*1.5;e.kz=dz/l*1.5;sfx('noEffect',{type:e.type});}
+    if(!src){
+      if(localFx){const n=performance.now();if(n-immuneT>2500){immuneT=n;toast('ゾンビにはキックしか効かない！ 🦶');}sfx('noEffect',{type:e.type});}
+      const dx=e.x-P.x,dz=e.z-P.z,l=Math.hypot(dx,dz)||1;e.kx=dx/l*1.5;e.kz=dz/l*1.5;
+    }
     return;
   }
-  sfx('enemyHit',{type:e.type});
   const byPlayer=!src,sx=src?src.x:P.x,sz=src?src.z:P.z;
+  if(byPlayer&&net.role==='guest')netSend({t:'hit',id:e.id,dmg,kb,how});
+  if(localFx)sfx('enemyHit',{type:e.type});
   e.hp-=dmg;e.hurt=0.25;
   const dx=e.x-sx,dz=e.z-sz,l=Math.hypot(dx,dz)||1;
   e.kx=dx/l*kb;e.kz=dz/l*kb;e.vy=Math.max(e.vy,kb>8?6.5:4.5);e.atk=0;
   if(e.type==='cow'){e.flee=2.5;e.fleeX=sx;e.fleeZ=sz;}
   if(e.hp<=0){
-    e.dying=0.5;sfx('enemyDie',{type:e.type});
+    e.dying=0.5;if(localFx)sfx('enemyDie',{type:e.type});
     if(e.type==='cow'){
-      if(byPlayer){pendingCook=0.7;toast('🥩 肉と 🥛 ミルクを手に入れた！');}
-      else {dropItems(e.x,e.y+0.6,e.z);if(Math.hypot(e.x-P.x,e.z-P.z)<24)toast('ミミッカーが牛をおそった！ 肉とミルクが落ちたよ');}
-    } else if(byPlayer){kills++;stageStats.kills++;}
-    updateHud();
+      if(byPlayer){if(localFx){pendingCook=0.7;toast('🥩 肉と 🥛 ミルクを手に入れた！');}}
+      else {dropItems(e.x,e.y+0.6,e.z);if(localFx&&Math.hypot(e.x-P.x,e.z-P.z)<24)toast('ミミッカーが牛をおそった！ 肉とミルクが落ちたよ');}
+    } else if(byPlayer){if(localFx)kills++;stageStats.kills++;}
+    if(localFx)updateHud();
   }
 }
 function dropItems(x,y,z){
@@ -1117,7 +1127,16 @@ function fireGhastball(e){
   sfx('ghastFire',{});
 }
 function updateEnemies(dt){
-  if(net.connected){if(enemies.length)enemies=[];if(items.length)items=[];return;}
+  if(net.connected&&net.role==='guest'){
+    const k=Math.min(1,dt*12);
+    for(const e of enemies){
+      if(e.tx!==undefined){e.x+=(e.tx-e.x)*k;e.y+=(e.ty-e.y)*k;e.z+=(e.tz-e.z)*k;
+        let dy=e.tyaw-e.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));e.yaw+=dy*k;}
+      if(e.hurt>0)e.hurt-=dt;
+    }
+    return;
+  }
+  if(net.connected&&!mpMonsters){if(enemies.length)enemies=[];if(items.length)items=[];return;}
   spawnTimer-=dt;cowTimer-=dt;
   const aliveZ=enemies.filter(e=>e.dying<=0&&e.type==='zero').length;
   const aliveC=enemies.filter(e=>e.dying<=0&&e.type==='cow').length;
@@ -1313,7 +1332,6 @@ function breakBlock(){
   if(paused()) return;
   const r=raycast(6); if(!r) return;
   const [x,y,z]=r.hit,id=world[idx(x,y,z)];
-  if(id===10){toast('🛠️ 作業台は🧱ボタン（右クリック）で使えるよ');return;}
   if(id===13){toast('🌀 ポータルは中に入ると次のステージへ進むよ');return;}
   if((id===3||id===9)&&!inv.own.pickaxe){
     const key=x+','+y+','+z; if(mineKey!==key){mineKey=key;mineN=0;}
@@ -1922,8 +1940,12 @@ function drawCook(){
 
 // ---------- 2人プレイ（PeerJS・テスト版） ----------
 const PEER_PREFIX='bcraft-mp-v1-';
-const net={role:null,peer:null,conn:null,code:null,connected:false,busy:false,sendT:0,out:[]};
+const net={role:null,peer:null,conn:null,code:null,connected:false,busy:false,sendT:0,mobSendT:0,out:[]};
 let remote=null;
+const MPMON_KEY='blockcraft-mpmon-v1';
+let mpMonsters=true;
+try{const v=localStorage.getItem(MPMON_KEY);if(v!==null)mpMonsters=v==='1';}catch(e){}
+function setMpMonsters(v){mpMonsters=v;try{localStorage.setItem(MPMON_KEY,v?'1':'0');}catch(e){}}
 const mpMsgEl=document.getElementById('mpMsg'),codeIn=document.getElementById('mpCode'),roomEl=document.getElementById('room');
 const remoteTag=document.createElement('div');remoteTag.className='etag';remoteTag.textContent='ともだち';document.getElementById('tags').appendChild(remoteTag);
 function mpSay(t,err){mpMsgEl.innerHTML=t;mpMsgEl.style.color=err?'#c62828':'';}
@@ -2023,6 +2045,21 @@ function onNet(m){
     if(net.role==='host'&&goalDone)goStage(stage+1);
   } else if(m.t==='full'){
     mpCleanup();mpFail('その部屋はもう2人いっぱいです');
+  } else if(m.t==='mobs'){
+    if(net.role!=='guest'||!Array.isArray(m.e))return;
+    const seen=new Set();
+    for(const a of m.e){
+      const [id,type,x,y,z,eyaw,hp,maxhp,walk,atk,dying,hurt,scale]=a;
+      seen.add(id);
+      let e=enemies.find(en=>en.id===id);
+      if(!e){const dims=enemyDims(type);e={id,type,x,y,z,yaw:eyaw,r:dims.r,h:dims.h,kx:0,kz:0};enemies.push(e);}
+      e.type=type;e.tx=x;e.ty=y;e.tz=z;e.tyaw=eyaw;e.hp=hp;e.maxhp=maxhp;e.walk=walk;e.atk=atk;e.dying=dying;e.hurt=hurt;e.scale=scale;
+    }
+    enemies=enemies.filter(en=>seen.has(en.id));
+  } else if(m.t==='hit'){
+    if(net.role!=='host')return;
+    const e=enemies.find(en=>en.id===m.id);
+    if(e)damageEnemy(e,m.dmg,m.kb,null,m.how,false);
   }
 }
 function netTick(dt){
@@ -2036,6 +2073,12 @@ function netTick(dt){
   net.sendT-=dt;
   if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3),ap:myAppearance});}
   if(net.out.length){netSend({t:'blk',c:net.out});net.out=[];}
+  if(net.role==='host'&&mpMonsters){
+    net.mobSendT-=dt;
+    if(net.mobSendT<=0){net.mobSendT=0.1;
+      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1])});
+    }
+  }
 }
 const APPEARANCES=[
   {name:'ノーマル',face:36,side:37,top:38,skin:41,shirt:39,pants:40,arm:41},
@@ -2101,6 +2144,9 @@ function renderAppearSel(){
     onTap(b,()=>{setAppearance(i);renderAppearSel();});appearSelEl.appendChild(b);});
 }
 renderAppearSel();
+const mpMonstersEl=document.getElementById('mpMonsters');
+mpMonstersEl.checked=mpMonsters;
+mpMonstersEl.addEventListener('change',()=>setMpMonsters(mpMonstersEl.checked));
 if(!/github\.io$|^localhost$|^127\./.test(location.hostname)&&location.protocol!=='file:')document.getElementById('mp').style.display='none';
 window.startGame=()=>{initAudio();menuOpen=false;if(net.role!=='guest'&&selStage!==stage)goStage(selStage);overlay.style.display='none';started=true;lockMouse();updateGoalHud();};
 function openMenu(){
