@@ -56,6 +56,9 @@ body{background:#87ceeb;color:var(--ui-fg);font-family:"Hiragino Maru Gothic Pro
 #goal{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:14px;padding:5px 12px;border-radius:14px;pointer-events:none;white-space:nowrap;z-index:3}
 body.touch #goal{top:calc(84px + env(safe-area-inset-top,0px));font-size:12px}
 #goal.done{background:rgba(123,31,162,.8)}
+#btnMenu{display:none;position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,.5);align-items:center;justify-content:center;z-index:4;cursor:pointer}
+body.touch #btnMenu{display:flex}
+#btnMenu:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
 #appearsel{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:4px 0 4px}
 .apr{font:inherit;font-size:11px;font-weight:800;padding:6px 2px;border-radius:8px;border:3px solid transparent;background:rgba(0,0,0,.08);color:var(--ui-fg);cursor:pointer;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:3px}
 .apr canvas{width:36px;height:36px;image-rendering:pixelated;border-radius:6px;background:rgba(0,0,0,.06)}
@@ -209,6 +212,7 @@ body.touch #held.gun{right:40%;bottom:-6px}
   </div>
 </div>
 <div id="goal"></div>
+<div id="btnMenu" aria-label="メニューを開く" role="button">☰</div>
 <div id="over" class="overlay">
   <div class="card">
     <h1>ゲームオーバー</h1>
@@ -306,8 +310,8 @@ SFX.playerHurt=(ctx,info)=>{
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 document.getElementById('help').innerHTML = isTouch
- ? '<tr><td>移動</td><td>画面の左下をなぞる</td></tr><tr><td>見回す</td><td>ボタンのない所をなぞる</td></tr><tr><td>⚔️ / 🦶</td><td>剣でこうげき / キック</td></tr><tr><td>⛏️ / 🧱</td><td>こわす / おく（作業台に🧱で工作）</td></tr><tr><td>左のボタン</td><td>武器・ピッケルの持ちかえ（銃は⚔️おしっぱなし）</td></tr><tr><td>⬆️</td><td>ジャンプ（段差は自動で登る）</td></tr>'
- : '<tr><td>WASD</td><td>移動</td></tr><tr><td>マウス</td><td>見回す</td></tr><tr><td>左クリック</td><td>剣でこうげき（敵がいない時はこわす）</td></tr><tr><td>F</td><td>キック</td></tr><tr><td>右クリック</td><td>おく／作業台で工作</td></tr><tr><td>Q</td><td>武器の持ちかえ（銃はおしっぱなしで連射）</td></tr><tr><td>スペース</td><td>ジャンプ</td></tr><tr><td>1〜0 / ホイール</td><td>ブロック選択</td></tr>';
+ ? '<tr><td>移動</td><td>画面の左下をなぞる</td></tr><tr><td>見回す</td><td>ボタンのない所をなぞる</td></tr><tr><td>⚔️ / 🦶</td><td>剣でこうげき / キック</td></tr><tr><td>⛏️ / 🧱</td><td>こわす / おく（作業台に🧱で工作）</td></tr><tr><td>左のボタン</td><td>武器・ピッケルの持ちかえ（銃は⚔️おしっぱなし）</td></tr><tr><td>⬆️</td><td>ジャンプ（段差は自動で登る）</td></tr><tr><td>☰</td><td>メニューを開く</td></tr>'
+ : '<tr><td>WASD</td><td>移動</td></tr><tr><td>マウス</td><td>見回す</td></tr><tr><td>左クリック</td><td>剣でこうげき（敵がいない時はこわす）</td></tr><tr><td>F</td><td>キック</td></tr><tr><td>右クリック</td><td>おく／作業台で工作</td></tr><tr><td>Q</td><td>武器の持ちかえ（銃はおしっぱなしで連射）</td></tr><tr><td>スペース</td><td>ジャンプ</td></tr><tr><td>1〜0 / ホイール</td><td>ブロック選択</td></tr><tr><td>Esc</td><td>メニューを開く／とじる</td></tr>';
 
 // ---------- world ----------
 const W=48, D=48, H=32;
@@ -1133,8 +1137,8 @@ function findTarget(reach){
 // ---------- input ----------
 const keys={};
 let started=false,locked=false,jumpHeld=false,dead=false,cooking=false,crafting=false;
-let clearing=false,portalLock=false,hazT=0,lastGoalTxt='';
-const paused=()=>cooking||crafting||clearing;
+let clearing=false,portalLock=false,hazT=0,lastGoalTxt='',menuOpen=false;
+const paused=()=>cooking||crafting||clearing||menuOpen;
 function checkCells(dt){
   const x0=Math.floor(P.x-PR),x1=Math.floor(P.x+PR-1e-4),y0=Math.floor(P.y),y1=Math.floor(P.y+PH-1e-4),z0=Math.floor(P.z-PR),z1=Math.floor(P.z+PR-1e-4);
   let haz=false,portal=false;
@@ -1978,7 +1982,16 @@ function renderAppearSel(){
 }
 renderAppearSel();
 if(!/github\.io$|^localhost$|^127\./.test(location.hostname)&&location.protocol!=='file:')document.getElementById('mp').style.display='none';
-window.startGame=()=>{initAudio();if(net.role!=='guest'&&selStage!==stage)goStage(selStage);overlay.style.display='none';started=true;lockMouse();updateGoalHud();};
+window.startGame=()=>{initAudio();menuOpen=false;if(net.role!=='guest'&&selStage!==stage)goStage(selStage);overlay.style.display='none';started=true;lockMouse();updateGoalHud();};
+function openMenu(){
+  if(!started||dead||cooking||crafting||clearing) return;
+  menuOpen=true;resetTouch();for(const k in keys)keys[k]=false;
+  if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
+  selStage=stage;renderStageSel();renderAppearSel();
+  overlay.style.display='flex';
+}
+onTap(document.getElementById('btnMenu'),openMenu);
+addEventListener('keydown',e=>{if(e.code==='Escape'&&started&&!dead){if(menuOpen)window.startGame();else openMenu();}});
 onTap(document.getElementById('clearBtn'),()=>{document.getElementById('clear').style.display='none';clearing=false;goStage(0);lockMouse();});
 function again(e){if(e)e.preventDefault();initAudio();overEl.style.display='none';newRun();started=true;lockMouse();}
 const againBtn=document.getElementById('again');
