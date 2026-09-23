@@ -214,7 +214,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <p id="mpMsg"></p>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.7.0</p>
+    <p id="ver">ver 1.7.1</p>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -2167,6 +2167,10 @@ function loadPeerJS(cb){
 }
 function mpFail(t){mpSay(t,true);net.busy=false;}
 function mpCleanup(){try{if(net.peer)net.peer.destroy();}catch(e){}net.peer=null;net.conn=null;net.role=null;net.code=null;net.connected=false;net.busy=false;remote=null;roomHud();}
+// スリープや別アプリから戻ったとき、通信サーバーとの接続が切れていたらつなぎ直す
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&net.peer&&net.peer.disconnected&&!net.peer.destroyed)try{net.peer.reconnect();}catch(e){}
+});
 function hostRoom(){
   if(net.busy||net.peer) return;
   net.busy=true;mpSay('部屋を準備しています…');
@@ -2197,8 +2201,16 @@ function joinRoom(){
     const peer=new Peer();net.peer=peer;
     peer.on('open',()=>{
       net.role='guest';net.code=code;
-      setupConn(peer.connect(PEER_PREFIX+code,{reliable:true}));
-      setTimeout(()=>{if(!net.connected&&net.role==='guest'){mpCleanup();mpFail('つながりませんでした。番号と、2台が同じWi‑Fiかを確認してね');}},15000);
+      const conn=peer.connect(PEER_PREFIX+code,{reliable:true}),pc=conn.peerConnection;
+      setupConn(conn);
+      setTimeout(()=>{if(net.connected||net.role!=='guest'||net.conn!==conn)return;
+        // 返事(answer)が来ていれば signalingState は stable になる
+        const answered=pc&&pc.signalingState==='stable',ice=pc?pc.iceConnectionState:'';
+        mpCleanup();
+        mpFail(!pc?'つながりませんでした。番号と、2台が同じWi‑Fiかを確認してね'
+          :!answered?'ホストから返事がありませんでした。ホストは画面を開いたまま（スリープや別のアプリにしないで）にして、もう一度「入る」を押してね'
+          :'2台の間で直接つながれませんでした（'+ice+'）。Wi‑Fiが端末どうしの通信を止めているかも。ゲスト用Wi‑Fiでないか確認するか、片方をテザリングにして試してね');
+      },15000);
     });
     peer.on('error',err=>{
       const t=err.type==='peer-unavailable'?'その番号の部屋が見つかりません。番号を確認してね':'つながりませんでした（'+err.type+'）';
