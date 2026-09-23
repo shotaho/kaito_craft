@@ -372,7 +372,8 @@ const SAVE_KEY='blockcraft-world-v1';
 let world=new Uint8Array(W*D*H);
 const idx=(x,y,z)=>(y*D+z)*W+x;
 function getB(x,y,z){ if(x<0||z<0||x>=W||z>=D||y<0||y>=H) return 0; return world[idx(x,y,z)]; }
-function solidAt(x,y,z){ if(x<0||z<0||x>=W||z>=D||y<0) return true; if(y>=H) return false; const b=world[idx(x,y,z)]; return b!==0&&!NONSOLID[b]; }
+let voidBelow=false; // 空の島：世界の下は何もなく、落ちるとゲームオーバー
+function solidAt(x,y,z){ if(x<0||z<0||x>=W||z>=D) return true; if(y<0) return !voidBelow; if(y>=H) return false; const b=world[idx(x,y,z)]; return b!==0&&!NONSOLID[b]; }
 
 const BLOCKS={
   1:{name:'草ブロック',t:[0,1,2]}, 2:{name:'土',t:[2,2,2]}, 3:{name:'石',t:[3,3,3]},
@@ -381,7 +382,7 @@ const BLOCKS={
   11:{name:'マグマ岩',t:[42,42,42]},12:{name:'宝石',t:[45,45,45]},13:{name:'ポータル',t:[47,47,47]},14:{name:'溶岩',t:[43,43,43]},15:{name:'光る石',t:[44,44,44]},16:{name:'島の石',t:[46,46,46]},
   17:{name:'かべ紙',t:[48,48,48]},18:{name:'屋根',t:[49,49,49]},19:{name:'宝箱',t:[51,50,50]},20:{name:'コンクリート',t:[52,52,52]},21:{name:'クジラの肉',t:[55,55,55]},22:{name:'ほね',t:[56,56,56]},23:{name:'胃液',t:[57,57,57]},
   24:{name:'ニンジン',t:[78,78,78]},25:{name:'たまねぎ',t:[79,79,79]},26:{name:'キノコ',t:[80,80,80]},
-  27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]},29:{name:'水晶',t:[93,93,93]}
+  27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]},29:{name:'水晶',t:[93,93,93]},30:{name:'岩盤',t:[94,94,94]}
 };
 const TRANS={5:true,8:true,13:true,28:true};
 const NONSOLID={13:true,14:true,23:true,28:true},HAZARD={14:true,23:true};
@@ -438,7 +439,7 @@ function generate(seed){
 const STAGES=[
   {name:'草原',icon:'🌳',sky:[0.529,0.808,0.922],fog:[22,62],mobs:{zero:4,zombie:4,mimic:2,cow:3},goal:{type:'kills',n:5,text:'敵をたおす'},spawn:[W/2+0.5,null,D/2+0.5]},
   {name:'マグマの世界',icon:'🌋',sky:[0.36,0.09,0.06],fog:[14,46],mobs:{zero:2,zombie:5,mimic:2,cow:2,sign:2,ghast:1},goal:{type:'gems',n:3,text:'💎 宝石を見つけてこわす'},spawn:[24.5,null,24.5]},
-  {name:'空の島',icon:'🏝️',sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1,magai:2},goal:{type:'kills',n:8,text:'敵をたおす'},spawn:[24.5,null,24.5]},
+  {name:'空の島',icon:'🏝️',void:true,sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1,magai:2},goal:{type:'kills',n:8,text:'敵をたおす'},spawn:[24.5,null,24.5]},
   {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},spawn:[20.5,5,12.5]},
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0,wombat:1},goal:{type:'boss',n:1,roof:29,text:'屋上のウォンバットをたおす'},spawn:[24.5,4,20.5]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},spawn:[8.5,null,24.5]}
@@ -448,7 +449,7 @@ const PROG_KEY='blockcraft-progress-v1';
 let progress={unlocked:0};
 try{const j=JSON.parse(localStorage.getItem(PROG_KEY)||'null');if(j)progress.unlocked=Math.min(STAGES.length-1,j.unlocked|0);}catch(e){}
 function saveProgress(){try{localStorage.setItem(PROG_KEY,JSON.stringify(progress));}catch(e){}}
-function applyStageLook(n){skyCol=STAGES[n].sky;fogR=STAGES[n].fog;document.body.style.background=`rgb(${skyCol.map(v=>v*255|0).join(',')})`;}
+function applyStageLook(n){voidBelow=!!STAGES[n].void;skyCol=STAGES[n].sky;fogR=STAGES[n].fog;document.body.style.background=`rgb(${skyCol.map(v=>v*255|0).join(',')})`;}
 function setB(x,y,z,id){if(x>=0&&z>=0&&y>=0&&x<W&&z<D&&y<H)world[idx(x,y,z)]=id;}
 function fill(x0,y0,z0,x1,y1,z1,id){for(let y=y0;y<=y1;y++)for(let z=z0;z<=z1;z++)for(let x=x0;x<=x1;x++)setB(x,y,z,id);}
 function ring(x0,y0,z0,x1,y1,z1,id){for(let y=y0;y<=y1;y++)for(let z=z0;z<=z1;z++)for(let x=x0;x<=x1;x++)if(x===x0||x===x1||z===z0||z===z1)setB(x,y,z,id);}
@@ -458,10 +459,12 @@ function tree(x,y,z,rnd){const th=4+Math.floor(rnd()*2);
   for(let i=1;i<=th;i++)setB(x,y+i,z,4);}
 function genStage(n,seed){
   seed=seed||((Math.random()*1e9)|0);
-  if(n===0) return generate(seed);
-  world=new Uint8Array(W*D*H);const rnd=mulberry32(seed);
-  [null,genMagma,genSky,genHouse,genMansion,genWhale][n](rnd,seed);
+  if(n===0) generate(seed);
+  else{world=new Uint8Array(W*D*H);const rnd=mulberry32(seed);
+    [null,genMagma,genSky,genHouse,genMansion,genWhale][n](rnd,seed);}
+  addBedrock(n);
 }
+function addBedrock(n){if(!STAGES[n].void)fill(0,0,0,W-1,0,D-1,30);}
 function genMagma(rnd,seed){
   for(let z=0;z<D;z++)for(let x=0;x<W;x++){
     const h=Math.floor(5+vnoise(x,z,10,seed)*6+vnoise(x,z,4,seed+3)*2);
@@ -764,6 +767,8 @@ paint(90,(x,y)=>{ // 顔
   return vary(WCREAM,10);});
 paint(91,()=>vary(WPINK,14)); // 頭の横・うしろ
 paint(92,(x)=>x%4===0?vary([66,112,30],10):vary([90,146,42],16)); // 緑のからだ
+// 岩盤（いちばん下の、こわせない層）
+paint(94,()=>TR()<0.3?vary([38,38,42],10):vary([86,86,92],24));
 // 水晶
 paint(93,(x,y)=>(x===0||x===15||y===0||y===15)?vary([70,180,200],10):((x+y)%6===0)?[225,255,255,255]:vary([130,228,240],20));
 
@@ -1438,7 +1443,7 @@ function goStage(n){
   stage=n;selStage=n;goalDone=false;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
   progress.unlocked=Math.max(progress.unlocked,n);saveProgress();
   applyStageLook(n);
-  if(n===0){if(!load())generate(20260922);}else genStage(n);
+  if(n===0){if(!load())generate(20260922);addBedrock(0);}else genStage(n);
   ensureTable();rescanDoors();buildMesh();newRun();renderStageSel();updateGoalHud();
   toast(STAGES[n].icon+' ステージ'+(n+1)+'　'+STAGES[n].name);
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
@@ -1470,6 +1475,7 @@ function step(dt){
     const ax=P.x+(-sy*f+cy*s)*0.5, az=P.z+(-cy*f-sy*s)*0.5;
     if(!hits(ax,P.y+1.05,az)) P.vy=8.2;
   }
+  if(voidBelow&&P.y<-6){P.hp=0;updateHud();gameOver('空から落ちてしまった！');return;}
   if(P.y<-20){spawn();hurtPlayer(4,P.x,P.z);}
   swordCd-=dt;kickCd-=dt;
   P.safe-=dt;
@@ -1526,6 +1532,7 @@ function breakBlock(){
   const r=raycast(6); if(!r) return;
   const [x,y,z]=r.hit,id=world[idx(x,y,z)];
   if(id===13){toast('🌀 ポータルは中に入ると次のステージへ進むよ');return;}
+  if(id===30){toast('岩盤はこわせないよ');return;}
   if((id===3||id===9)&&!inv.own.pickaxe){
     const key=x+','+y+','+z; if(mineKey!==key){mineKey=key;mineN=0;}
     mineN++; if(weapon==='sword'||weapon==='pickaxe')replay(heldEl,'swing');netAct('swing');
@@ -1746,7 +1753,7 @@ function explode(x,y,z,byEnemy,rid){
   const R=2.3;let changed=false;
   for(let yy=Math.floor(y-R);yy<=Math.floor(y+R);yy++)for(let zz=Math.floor(z-R);zz<=Math.floor(z+R);zz++)for(let xx=Math.floor(x-R);xx<=Math.floor(x+R);xx++){
     if(yy<1||yy>=H||xx<0||zz<0||xx>=W||zz>=D)continue;
-    const id=world[idx(xx,yy,zz)];if(!id||id===10||id===12||id===13||id===19)continue;
+    const id=world[idx(xx,yy,zz)];if(!id||id===10||id===12||id===13||id===19||id===30)continue;
     if(Math.hypot(xx+0.5-x,yy+0.5-y,zz+0.5-z)<=R){world[idx(xx,yy,zz)]=0;changed=true;netBlock(xx,yy,zz,0);}
   }
   if(changed){buildMesh();queueSave();}
@@ -2465,12 +2472,12 @@ function newRun(){
   if(mb.wombat&&!goalDone)spawnEnemy('wombat',WOMBAT_HOME);
   updateHud();
 }
-function gameOver(){
+function gameOver(cause){
   sfx('gameOver');
   dead=true;started=false;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
   const m=Math.floor(playTime/60),s=Math.floor(playTime%60);
-  document.getElementById('result').textContent=`エンティティゼロを ${kills} 体たおした。生きのびた時間は ${m}分${s}秒。料理スコアは ${cookTotal} 点。`;
+  document.getElementById('result').textContent=(cause?cause+' ':'')+`エンティティゼロを ${kills} 体たおした。生きのびた時間は ${m}分${s}秒。料理スコアは ${cookTotal} 点。`;
   overEl.style.display='flex';
 }
 function lockMouse(){ if(!isTouch){try{const r=canvas.requestPointerLock();if(r&&r.catch)r.catch(()=>{});}catch(e){}} }
@@ -2524,6 +2531,7 @@ addEventListener('resize',resize);
 // ---------- start ----------
 applyStageLook(0);
 if(!load()) generate(20260922);
+addBedrock(0);
 ensureTable();rescanDoors();
 buildMesh();newRun();select(0);nameEl.style.opacity=0;rebuildWbar();
 
