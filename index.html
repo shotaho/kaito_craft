@@ -949,11 +949,11 @@ function spawnEnemy(type){
     return;
   }
 }
-function hurtPlayer(dmg,fromX,fromZ){
+function hurtPlayer(dmg,fromX,fromZ,noKnock){
   if(dead||paused()||P.inv>0) return;
   P.hp=Math.max(0,P.hp-dmg);P.safe=5;sfx('playerHurt',{dmg,hp:P.hp});
-  const dx=P.x-fromX,dz=P.z-fromZ,l=Math.hypot(dx,dz)||1;
-  P.kx=dx/l*7;P.kz=dz/l*7;P.vy=Math.max(P.vy,5);
+  if(!noKnock){const dx=P.x-fromX,dz=P.z-fromZ,l=Math.hypot(dx,dz)||1;
+    P.kx=dx/l*7;P.kz=dz/l*7;P.vy=Math.max(P.vy,5);}
   hurtEl.style.transition='none';hurtEl.style.opacity=1;requestAnimationFrame(()=>{hurtEl.style.transition='';hurtEl.style.opacity=0;});
   if(navigator.vibrate)try{navigator.vibrate(60);}catch(e){}
   updateHud();
@@ -1394,7 +1394,7 @@ function explode(x,y,z,byEnemy){
     if(dd<4.5)damageEnemy(e,Math.round(16*(1-dd/4.5))+3,12);}
   const pd=Math.hypot(P.x-x,P.y+0.9-y,P.z-z);
   if(byEnemy){
-    if(pd<3.5)hurtPlayer(Math.round(8*(1-pd/3.5))+3,x,z);
+    if(pd<3.5)hurtPlayer(Math.round(8*(1-pd/3.5))+3,x,z,true);
   } else if(pd<3.5){
     const l=Math.hypot(P.x-x,P.z-z)||1;P.kx=(P.x-x)/l*9;P.kz=(P.z-z)/l*9;P.vy=Math.max(P.vy,7);
   }
