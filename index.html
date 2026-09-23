@@ -141,6 +141,18 @@ body.touch #held.gun{right:40%;bottom:-6px}
 .rc .cost{font-size:12px;opacity:.85;line-height:1.4}
 .rc button{margin-left:auto;flex:none;font:inherit;font-weight:800;padding:9px 14px;border:none;border-radius:8px;background:#1e88e5;color:#fff;cursor:pointer}
 .rc button:disabled{background:#9e9e9e;cursor:default}
+#dex{display:none;z-index:12;background:rgba(30,20,50,.7)}
+#dex .card{width:min(94vw,440px);max-height:88vh;padding:14px}
+#dex h2{margin:0 0 4px}
+#dexTabs{display:flex;gap:8px;margin:8px 0 10px;justify-content:center}
+.dxtab{font:inherit;font-weight:800;font-size:14px;padding:6px 18px;border-radius:20px;border:2px solid var(--ui-border);background:rgba(0,0,0,.06);color:var(--ui-fg);cursor:pointer}
+.dxtab.on{background:#7b5fc7;color:#fff;border-color:#7b5fc7}
+#dexGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:56vh;overflow-y:auto;margin-bottom:10px}
+.dxc{background:rgba(0,0,0,.06);border-radius:10px;padding:8px}
+.dxc canvas{width:48px;height:48px;image-rendering:pixelated;display:block;margin:0 auto 4px;border-radius:6px;background:rgba(0,0,0,.1)}
+.dxc.unseen canvas{filter:brightness(0) opacity(.5)}
+.dxc .dxname{font-weight:800;font-size:13px;text-align:center}
+.dxc .dxdesc{font-size:11px;opacity:.8;line-height:1.35;margin-top:3px}
 @media (prefers-reduced-motion: reduce){#name,#hurt{transition:none}}
 </style>
 </head>
@@ -174,6 +186,7 @@ body.touch #held.gun{right:40%;bottom:-6px}
     <p class="mpt" style="margin:8px 0 4px">🧑 見た目（2人プレイの相手に見える姿）</p>
     <div id="appearsel"></div>
     <div id="stagesel"></div>
+    <button id="openDex" class="big" style="background:#7b5fc7;box-shadow:0 4px 0 #4d3a86;margin-bottom:8px">📖 図鑑</button>
     <button id="start" class="big">あそぶ</button>
     <p id="msg" style="display:none;font-size:13px;color:#c0392b;font-weight:700"></p>
     <div id="mp">
@@ -202,6 +215,17 @@ body.touch #held.gun{right:40%;bottom:-6px}
     <p id="mats"></p>
     <div id="recipes"></div>
     <button id="craftClose" class="big">とじる</button>
+  </div>
+</div>
+<div id="dex" class="overlay">
+  <div class="card">
+    <h2>📖 図鑑</h2>
+    <div id="dexTabs">
+      <button id="dexTabEnemy" class="dxtab">敵</button>
+      <button id="dexTabItem" class="dxtab">アイテム</button>
+    </div>
+    <div id="dexGrid"></div>
+    <button id="dexClose" class="big">とじる</button>
   </div>
 </div>
 <div id="clear" class="overlay">
@@ -967,6 +991,7 @@ function spawnEnemy(type){
     if(y>=H-2||hitsBox(x,y,z,r,h)) continue;
     enemies.push({type,r,h,x,y,z,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:Math.random()*6.28,hp,maxhp:hp,spd,dmg,target:null,fleeX:0,fleeZ:0,walk:0,atk:0,cd:1,hurt:0,dying:0,scale:1,struck:false,
       think:0,moving:false,dirYaw:0,flee:0,seed:Math.random()*6});
+    seeEnemy(type);
     return;
   }
 }
@@ -1016,6 +1041,7 @@ function updateItems(dt){
     if(it.y<-20)it.life=0;
     if(it.life>0&&!dead&&it.t>0.5&&Math.hypot(it.x-P.x,it.z-P.z)<1.3&&Math.abs(it.y-P.y)<2){
       it.life=0;
+      seeItem(it.kind);
       if(it.kind==='milk'){P.hp=Math.min(MAXHP,P.hp+3);updateHud();toast('🥛 ミルクをごくごく！ 体力+3');sfx('pickup',{kind:'milk'});}
       else {toast('🥩 肉をひろった！ 料理しよう');pendingCook=0.4;sfx('pickup',{kind:'meat'});}
     }
@@ -1298,8 +1324,8 @@ function breakBlock(){
   world[idx(x,y,z)]=0;sfx('blockBreak',{id});netBlock(x,y,z,0);
   if(id===27||id===28)removeDoor(x,y,z);
   if(id===4||id===7)inv.wood++; if(id===3||id===9||id===11||id===16||id===20)inv.stone++;
-  if(id===12){stageStats.gems++;toast('💎 宝石を見つけた！');}
-  if(id===19){stageStats.chests++;inv.wood+=3;inv.stone+=3;saveInv();updateHud();toast('📦 宝箱！ 🪵+3 🪨+3');}
+  if(id===12){stageStats.gems++;seeItem('gem');toast('💎 宝石を見つけた！');}
+  if(id===19){stageStats.chests++;inv.wood+=3;inv.stone+=3;saveInv();updateHud();seeItem('chest');toast('📦 宝箱！ 🪵+3 🪨+3');}
   if(id===24||id===25||id===26)harvestCrop(id);
   if(id===4||id===7||id===3||id===9||id===11||id===16||id===20){saveInv();updateHud();}
   buildMesh(); queueSave();
@@ -1342,7 +1368,7 @@ function saveInv(){try{localStorage.setItem(INV_KEY,JSON.stringify(inv));}catch(
 const CROP_LABEL={24:'🥕 ニンジン',25:'🧅 たまねぎ',26:'🍄 キノコ'},CROP_KEY={24:'carrot',25:'onion',26:'mushroom'};
 function harvestCrop(id){
   const kind=CROP_KEY[id];
-  inv[kind]++;saveInv();updateHud();
+  inv[kind]++;saveInv();updateHud();seeItem(kind);
   if(inv.carrot>=1&&inv.onion>=1&&inv.mushroom>=1){
     toast(CROP_LABEL[id]+'を収穫！ 具材がそろった、シチューを作ろう！');
     pendingCookStew=0.6;
@@ -1350,6 +1376,56 @@ function harvestCrop(id){
     toast(CROP_LABEL[id]+'を収穫した！');
   }
 }
+
+// ---------- 図鑑 ----------
+const DEX_ENEMIES=[
+  {id:'zero',name:'エンティティゼロ',desc:'いろいろなステージに現れる。近づいて剣でこうげきしてくる。',face:11},
+  {id:'zombie',name:'ゾンビ',desc:'キックでしかダメージを与えられない。それ以外の攻撃は効かない。',face:32},
+  {id:'mimic',name:'ミミッカー',desc:'かみついてくる。牛をおそうこともある。',face:24},
+  {id:'cow',name:'うし',desc:'たおすと肉とミルクが手に入る。料理の材料になる。',face:17},
+  {id:'sign',name:'はま寿司のかんばん',desc:'マグマの世界に現れる。看板を振り回して攻撃し、当たるとふっとばされる。',face:85},
+  {id:'ghast',name:'ガスト',desc:'マグマの世界を飛び回り、はなれた場所から火の玉を吐いてくる。',face:82}
+];
+const DEX_ITEMS=[
+  {id:'meat',name:'肉',desc:'牛をたおすと手に入る。料理して食べよう。',face:29},
+  {id:'milk',name:'ミルク',desc:'牛をたおすと手に入る。のむと体力が少し回復する。',face:30},
+  {id:'gem',name:'宝石',desc:'マグマの世界の岩の中に埋まっている。',face:45},
+  {id:'chest',name:'宝箱',desc:'大きな家にかくされている。木と石が手に入る。',face:50},
+  {id:'carrot',name:'ニンジン',desc:'草原に生えている。シチューの材料。',face:78},
+  {id:'onion',name:'たまねぎ',desc:'草原に生えている。シチューの材料。',face:79},
+  {id:'mushroom',name:'キノコ',desc:'草原に生えている。シチューの材料。',face:80}
+];
+const DEX_KEY='blockcraft-dex-v1';
+let dexSeen={enemy:{},item:{}};
+try{const j=JSON.parse(localStorage.getItem(DEX_KEY)||'null');if(j)dexSeen={enemy:j.enemy||{},item:j.item||{}};}catch(e){}
+function saveDex(){try{localStorage.setItem(DEX_KEY,JSON.stringify(dexSeen));}catch(e){}}
+function seeEnemy(type){if(!dexSeen.enemy[type]){dexSeen.enemy[type]=true;saveDex();}}
+function seeItem(id){if(!dexSeen.item[id]){dexSeen.item[id]=true;saveDex();}}
+let dexTab='enemy';
+const dexEl=document.getElementById('dex'),dexGridEl=document.getElementById('dexGrid');
+const dexTabEnemyEl=document.getElementById('dexTabEnemy'),dexTabItemEl=document.getElementById('dexTabItem');
+function renderDex(){
+  const list=dexTab==='enemy'?DEX_ENEMIES:DEX_ITEMS;
+  const seen=dexTab==='enemy'?dexSeen.enemy:dexSeen.item;
+  dexGridEl.innerHTML='';
+  for(const e of list){
+    const known=!!seen[e.id];
+    const card=document.createElement('div');card.className='dxc'+(known?'':' unseen');
+    const c=document.createElement('canvas');c.width=c.height=16;
+    c.getContext('2d').drawImage(atlas,e.face*16,0,16,16,0,0,16,16);
+    card.appendChild(c);
+    const nm=document.createElement('div');nm.className='dxname';nm.textContent=known?e.name:'？？？';card.appendChild(nm);
+    const ds=document.createElement('div');ds.className='dxdesc';ds.textContent=known?e.desc:'まだ出会っていない';card.appendChild(ds);
+    dexGridEl.appendChild(card);
+  }
+  dexTabEnemyEl.classList.toggle('on',dexTab==='enemy');
+  dexTabItemEl.classList.toggle('on',dexTab==='item');
+}
+function openDex(){dexTab='enemy';renderDex();dexEl.style.display='flex';}
+onTap(document.getElementById('openDex'),openDex);
+onTap(dexTabEnemyEl,()=>{dexTab='enemy';renderDex();});
+onTap(dexTabItemEl,()=>{dexTab='item';renderDex();});
+onTap(document.getElementById('dexClose'),()=>{dexEl.style.display='none';});
 const RECIPES=[
   {id:'pickaxe',name:'ピッケル',desc:'石とレンガを1回でこわせる',wood:3,stone:2},
   {id:'pistol',name:'ピストル',desc:'ボタンを押すたびに1発ずつねらいうち',wood:2,stone:3},
