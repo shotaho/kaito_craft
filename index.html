@@ -81,6 +81,7 @@ body.touch #btnMenu{display:flex}
 #mpCode{width:120px;font:inherit;font-size:20px;font-weight:800;text-align:center;letter-spacing:.2em;padding:8px;border-radius:8px;border:2px solid var(--ui-border);background:#fff;color:#222;-webkit-user-select:text;user-select:text}
 #mpMsg{min-height:1.4em;font-size:13px;font-weight:700}
 #mpMsg b{font-size:22px;letter-spacing:.1em}
+#mpLog{display:none;margin:6px 0 0;padding:6px 8px;max-height:210px;overflow:auto;text-align:left;font:11px/1.45 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-all;background:rgba(0,0,0,.07);border-radius:6px;-webkit-user-select:text;user-select:text}
 #ver{margin:6px 0 0;font-size:11px;opacity:.55}
 #reset{margin-top:12px;display:block;margin-left:auto;margin-right:auto;font:inherit;font-size:12px;background:none;border:none;color:var(--ui-fg);opacity:.7;text-decoration:underline;cursor:pointer}
 #over{display:none}
@@ -212,9 +213,10 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <div class="mprow"><input id="mpCode" type="text" inputmode="numeric" maxlength="4" placeholder="部屋番号" autocomplete="off"><button id="mpJoin" class="mpb">入る</button></div>
       <label class="mprow" style="justify-content:center;gap:6px;cursor:pointer;font-size:13px;color:#333"><input id="mpMonsters" type="checkbox" style="width:16px;height:16px">モンスターを出す（部屋を作る側の設定）</label>
       <p id="mpMsg"></p>
+      <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.7.0</p>
+    <p id="ver">ver 1.7.1</p>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -2167,6 +2169,41 @@ function loadPeerJS(cb){
 }
 function mpFail(t){mpSay(t,true);net.busy=false;}
 function mpCleanup(){try{if(net.peer)net.peer.destroy();}catch(e){}net.peer=null;net.conn=null;net.role=null;net.code=null;net.connected=false;net.busy=false;remote=null;roomHud();}
+// ---- 通信ログ（原因の切り分け用。ホスト・ゲストそれぞれの画面に表示） ----
+const mpLogEl=document.getElementById('mpLog'),netLog=[];let netT0=0;
+const UA=navigator.userAgent,DEVICE=(/iPhone|iPad|iPod/.test(UA)||(/Macintosh/.test(UA)&&navigator.maxTouchPoints>1))?'iOS':/Android/.test(UA)?'Android':'PC';
+function nlog(s){
+  if(!netT0){netT0=performance.now();netLog.push('端末 '+DEVICE+' / '+(UA.match(/(CriOS|FxiOS|EdgA|Chrome|Firefox|Version)\/[\d.]+/)||['?'])[0]);}
+  const who=net.role==='host'?'H':net.role==='guest'?'G':'-';
+  netLog.push(((performance.now()-netT0)/1000).toFixed(1)+'s '+who+' '+s);
+  if(netLog.length>40)netLog.splice(1,1);
+  mpLogEl.textContent=netLog.slice(0,1).concat(netLog.slice(1).slice(-15)).join('\n');mpLogEl.style.display='block';
+}
+function pcStats(pc){
+  return pc.getStats().then(st=>{const L={},R={};let pairs=0,ok=0;
+    st.forEach(r=>{if(r.type==='local-candidate')L[r.candidateType]=(L[r.candidateType]||0)+1;
+      else if(r.type==='remote-candidate')R[r.candidateType]=(R[r.candidateType]||0)+1;
+      else if(r.type==='candidate-pair'){pairs++;if(r.state==='succeeded')ok++;}});
+    const f=o=>Object.keys(o).map(k=>k+o[k]).join(' ')||'なし';
+    nlog('統計 自分['+f(L)+'] 相手['+f(R)+'] 組'+pairs+' 成功'+ok);}).catch(e=>nlog('統計とれず '+(e&&e.name)));
+}
+function watchConn(conn){
+  const pc=conn.peerConnection;
+  if(!pc){nlog('PC なし');return;}
+  const seen={};
+  pc.addEventListener('icecandidate',e=>{
+    if(!e.candidate||!e.candidate.candidate)return;
+    const c=e.candidate.candidate,k=((c.match(/ typ (\w+)/)||[])[1]||'?')+(/ [\w-]+\.local /.test(c)?'(mdns)':'');
+    if(!seen[k]){seen[k]=1;nlog('自分の候補 '+k);}});
+  pc.addEventListener('icegatheringstatechange',()=>{if(pc.iceGatheringState==='complete')nlog('候補集め 完了');});
+  pc.addEventListener('signalingstatechange',()=>nlog('SIG '+pc.signalingState));
+  pc.addEventListener('iceconnectionstatechange',()=>{nlog('ICE '+pc.iceConnectionState);if(pc.iceConnectionState==='failed')pcStats(pc);});
+  pc.addEventListener('connectionstatechange',()=>nlog('PC '+pc.connectionState));
+}
+document.addEventListener('visibilitychange',()=>{
+  if(!net.peer)return;
+  nlog('画面 '+(document.visibilityState==='visible'?'もどった':'かくれた')+(document.visibilityState==='visible'?' サーバー'+(net.peer.disconnected?'切断中':'接続中'):''));
+});
 function hostRoom(){
   if(net.busy||net.peer) return;
   net.busy=true;mpSay('部屋を準備しています…');
@@ -2174,41 +2211,60 @@ function hostRoom(){
     const tryOpen=(n)=>{
       const code=String(1000+Math.floor(Math.random()*9000));
       const peer=new Peer(PEER_PREFIX+code);
-      peer.on('open',()=>{net.peer=peer;net.role='host';net.code=code;net.busy=false;roomHud();
+      peer.on('open',()=>{net.peer=peer;net.role='host';net.code=code;net.busy=false;roomHud();nlog('サーバー接続OK 部屋'+code);
         mpSay('部屋番号 <b>'+code+'</b><br>相手の端末で「入る」にこの番号を入れてね。先に「あそぶ」で始めてもOK');});
       peer.on('connection',conn=>{
+        nlog('ゲストから接続要求');watchConn(conn);
         if(net.conn&&net.conn!==conn){try{net.conn.close();}catch(e){}}
         setupConn(conn);});
-      peer.on('disconnected',()=>{try{peer.reconnect();}catch(e){}});
+      peer.on('disconnected',()=>{nlog('サーバー切断→つなぎ直し');try{peer.reconnect();}catch(e){}});
       peer.on('error',err=>{
+        nlog('エラー H-'+err.type+(net.peer===peer?'（部屋を開いた後）':''));
         if(err.type==='unavailable-id'&&n<5){try{peer.destroy();}catch(e){}tryOpen(n+1);return;}
-        if(!net.peer){mpFail('部屋を作れませんでした（'+err.type+'）');try{peer.destroy();}catch(e){}}
-        else toast('通信エラー：'+err.type);});
+        if(!net.peer){mpFail('部屋を作れませんでした（コード H-'+err.type+'）');try{peer.destroy();}catch(e){}}
+        else toast('通信エラー：H-'+err.type);});
     };
-    tryOpen(0);
+    nlog('部屋を作る');tryOpen(0);
   });
 }
 function joinRoom(){
   const code=(codeIn.value||'').replace(/\D/g,'');
   if(code.length!==4){mpSay('4けたの部屋番号を入れてね',true);return;}
   if(net.busy||net.peer) return;
-  net.busy=true;mpSay('つないでいます…');
+  net.busy=true;mpSay('つないでいます…');nlog('入る 部屋'+code);
   loadPeerJS(()=>{
     const peer=new Peer();net.peer=peer;
     peer.on('open',()=>{
-      net.role='guest';net.code=code;
-      setupConn(peer.connect(PEER_PREFIX+code,{reliable:true}));
-      setTimeout(()=>{if(!net.connected&&net.role==='guest'){mpCleanup();mpFail('つながりませんでした。番号と、2台が同じWi‑Fiかを確認してね');}},15000);
+      net.role='guest';net.code=code;nlog('サーバー接続OK');
+      const conn=peer.connect(PEER_PREFIX+code,{reliable:true}),pc=conn.peerConnection;
+      nlog('ホストへ接続要求');watchConn(conn);
+      setupConn(conn);
+      setTimeout(()=>{if(net.connected||net.role!=='guest'||net.conn!==conn)return;
+        // 返事(answer)が来ていれば signalingState は stable になる
+        const answered=pc&&pc.signalingState==='stable',ice=pc?pc.iceConnectionState:'';
+        const code=!pc?'G-0':!answered?'G-1':'G-2';
+        nlog('15秒たってもつながらない '+code+(pc?' SIG '+pc.signalingState+' ICE '+ice:''));
+        const finish=()=>{mpCleanup();
+          mpFail((!pc?'つながりませんでした。番号と、2台が同じWi‑Fiかを確認してね'
+            :!answered?'ホストから返事がありませんでした。ホストは画面を開いたまま（スリープや別のアプリにしないで）にして、もう一度「入る」を押してね'
+            :'2台の間で直接つながれませんでした（'+ice+'）。Wi‑Fiが端末どうしの通信を止めているかも。ゲスト用Wi‑Fiでないか確認するか、片方をテザリングにして試してね')+'（コード '+code+'）');};
+        if(pc)pcStats(pc).then(finish);else finish();
+      },15000);
     });
+    peer.on('disconnected',()=>nlog('サーバー切断'));
     peer.on('error',err=>{
-      const t=err.type==='peer-unavailable'?'その番号の部屋が見つかりません。番号を確認してね':'つながりませんでした（'+err.type+'）';
-      if(!net.connected){mpCleanup();mpFail(t);} else toast('通信エラー：'+err.type);
+      nlog('エラー G-'+err.type);
+      const t=err.type==='peer-unavailable'?'その番号の部屋が見つかりません。番号を確認してね（コード G-peer-unavailable）':'つながりませんでした（コード G-'+err.type+'）';
+      if(!net.connected){mpCleanup();mpFail(t);} else toast('通信エラー：G-'+err.type);
     });
   });
 }
 function setupConn(conn){
   net.conn=conn;
+  conn.on('close',()=>nlog('データ通路 とじた'));
+  conn.on('error',e=>nlog('データ通路 エラー '+(e&&e.type||e)));
   conn.on('open',()=>{
+    nlog('データ通路 ひらいた ✓');
     net.connected=true;net.busy=false;enemies=[];items=[];roomHud();
     if(net.role==='host'){netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});toast('🙌 ともだちが入ってきた！');mpSay('ともだちがつながりました');}
     else mpSay('つながった！ 世界を受け取っています…');
