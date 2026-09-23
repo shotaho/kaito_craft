@@ -1220,7 +1220,7 @@ function kick(){
 
 // ---------- 武器と作業台 ----------
 const INV_KEY='blockcraft-inv-v1';
-let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,mg:false,rocket:false,minigun:false}};
+let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,rocket:false,minigun:false}};
 try{const j=JSON.parse(localStorage.getItem(INV_KEY)||'null');if(j&&j.own)inv={wood:j.wood|0,stone:j.stone|0,carrot:j.carrot|0,onion:j.onion|0,mushroom:j.mushroom|0,own:Object.assign(inv.own,j.own)};}catch(e){}
 function saveInv(){try{localStorage.setItem(INV_KEY,JSON.stringify(inv));}catch(e){}}
 const CROP_LABEL={24:'🥕 ニンジン',25:'🧅 たまねぎ',26:'🍄 キノコ'},CROP_KEY={24:'carrot',25:'onion',26:'mushroom'};
@@ -1236,23 +1236,25 @@ function harvestCrop(id){
 }
 const RECIPES=[
   {id:'pickaxe',name:'ピッケル',desc:'石とレンガを1回でこわせる',wood:3,stone:2},
+  {id:'pistol',name:'ピストル',desc:'ボタンを押すたびに1発ずつねらいうち',wood:2,stone:3},
   {id:'mg',name:'マシンガン',desc:'⚔️おしっぱなしで連射',wood:4,stone:8},
   {id:'rocket',name:'ロケットランチャー',desc:'ばくはつで敵もブロックもふっとばす',wood:6,stone:12},
   {id:'minigun',name:'ミニガン',desc:'回りだすと超連射',wood:8,stone:16}];
-const WNAME={sword:'剣',mg:'マシンガン',minigun:'ミニガン',rocket:'ロケットランチャー',pickaxe:'ピッケル'};
+const WNAME={sword:'剣',pistol:'ピストル',mg:'マシンガン',minigun:'ミニガン',rocket:'ロケットランチャー',pickaxe:'ピッケル'};
 function drawIcon(c,id){
   c.clearRect(0,0,16,16);
   const px=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h);};
   if(id==='sword'){for(let i=5;i<=14;i++){px(i,15-i,1,1,'#9fb6c1');px(i-1,15-i,1,1,'#5f7883');px(i,16-i,1,1,'#5f7883');}
     px(14,0,1,1,'#5f7883');for(let k=-2;k<=2;k++)px(4+k,11+k,1,1,'#4b6470');for(let i=1;i<=3;i++)px(i,15-i,1,1,'#7a5230');px(0,15,1,1,'#4b3520');}
   else if(id==='pickaxe'){px(2,2,12,2,'#8a8f94');px(1,4,2,2,'#6d7277');px(13,4,2,2,'#6d7277');px(3,1,10,1,'#aab0b5');for(let i=0;i<11;i++)px(7,4+i,2,1,i%3?'#7a5230':'#5c3d22');}
+  else if(id==='pistol'){px(8,2,2,6,'#333');px(7,4,4,1,'#555');px(6,7,6,4,'#4a4a4a');px(6,7,6,1,'#6a6a6a');px(6,10,3,5,'#7a5230');px(9,10,2,2,'#222');}
   else if(id==='mg'){px(7,0,2,8,'#2e2e2e');px(6,2,4,1,'#555');px(5,8,6,5,'#444');px(5,8,6,1,'#666');px(6,13,2,3,'#222');px(9,12,2,4,'#7a5230');}
   else if(id==='minigun'){for(const x of [4,7,10])px(x,0,2,9,'#333');px(3,3,10,2,'#777');px(3,9,10,4,'#555');px(3,9,10,1,'#888');px(7,13,3,3,'#7a5230');px(11,10,3,5,'#c9a227');}
   else if(id==='rocket'){px(5,1,6,13,'#5d7a3a');px(5,1,6,1,'#2c3a1c');px(6,2,4,1,'#222');px(5,5,6,1,'#4a6330');px(5,10,6,1,'#4a6330');px(7,14,2,2,'#333');px(10,8,2,4,'#7a5230');px(6,0,4,1,'#e53935');}
 }
 let weapon='sword',fireHeld=false,fireCd=0,spin=0;
 const wbar=document.getElementById('wbar'),flashEl=document.getElementById('flash');
-function ownedWeapons(){return ['sword',...['pickaxe','mg','minigun','rocket'].filter(w=>inv.own[w])];}
+function ownedWeapons(){return ['sword',...['pickaxe','pistol','mg','minigun','rocket'].filter(w=>inv.own[w])];}
 function onTap(el,fn){let last=0;const h=e=>{e.preventDefault();e.stopPropagation();const n=Date.now();if(n-last<350)return;last=n;fn();};
   el.addEventListener('touchstart',h,{passive:false});el.addEventListener('click',h);}
 function rebuildWbar(){
@@ -1272,7 +1274,7 @@ function selectWeapon(w){
 function cycleWeapon(){const l=ownedWeapons();selectWeapon(l[(l.indexOf(weapon)+1)%l.length]);}
 function attackDown(){
   if(dead||paused()) return;
-  if(weapon==='sword') primaryTouch(); else if(weapon==='pickaxe') pickAttack(); else if(weapon==='rocket') fireRocket(); else fireHeld=true;
+  if(weapon==='sword') primaryTouch(); else if(weapon==='pickaxe') pickAttack(); else if(weapon==='rocket') fireRocket(); else if(weapon==='pistol') firePistol(); else fireHeld=true;
 }
 function attackUp(){fireHeld=false;}
 function primaryTouch(){swordAttack();}
@@ -1307,6 +1309,9 @@ function fireRocket(){
   if(fireCd>0) return; fireCd=1.0; muzzle();sfx('rocketFire');
   const d=fwd();
   rockets.push({x:cam[0]+d[0]*0.8,y:cam[1]+d[1]*0.8-0.1,z:cam[2]+d[2]*0.8,vx:d[0]*22,vy:d[1]*22,vz:d[2]*22,yaw,pitch,t:0});
+}
+function firePistol(){
+  if(fireCd>0||dead||paused()) return; fireCd=0.35; shoot(3);
 }
 function explode(x,y,z){
   booms.push({x,y,z,t:0});sfx('explode');
@@ -1444,7 +1449,7 @@ addEventListener('mousemove',e=>{
 });
 addEventListener('mouseup',()=>{
   attackUp();
-  if(drag&&drag.moved<6&&started){ if(drag.button===0){if(weapon==='sword')primary();else if(weapon==='pickaxe')pickAttack();else if(weapon==='rocket')fireRocket();else if(!paused())shoot(2);} else if(drag.button===2)placeBlock(); }
+  if(drag&&drag.moved<6&&started){ if(drag.button===0){if(weapon==='sword')primary();else if(weapon==='pickaxe')pickAttack();else if(weapon==='rocket')fireRocket();else if(weapon==='pistol')firePistol();else if(!paused())shoot(2);} else if(drag.button===2)placeBlock(); }
   drag=null;
 });
 
