@@ -1975,7 +1975,7 @@ function hostRoom(){
       peer.on('open',()=>{net.peer=peer;net.role='host';net.code=code;net.busy=false;roomHud();
         mpSay('部屋番号 <b>'+code+'</b><br>相手の端末で「入る」にこの番号を入れてね。先に「あそぶ」で始めてもOK');});
       peer.on('connection',conn=>{
-        if(net.conn&&net.conn.open){conn.on('open',()=>{conn.send({t:'full'});setTimeout(()=>conn.close(),500);});return;}
+        if(net.conn&&net.conn!==conn){try{net.conn.close();}catch(e){}}
         setupConn(conn);});
       peer.on('disconnected',()=>{try{peer.reconnect();}catch(e){}});
       peer.on('error',err=>{
@@ -2012,8 +2012,9 @@ function setupConn(conn){
     else mpSay('つながった！ 世界を受け取っています…');
   });
   conn.on('data',onNet);
-  conn.on('close',onNetClose);
-  conn.on('error',onNetClose);
+  const closeIfCurrent=()=>{if(net.conn===conn)onNetClose();};
+  conn.on('close',closeIfCurrent);
+  conn.on('error',closeIfCurrent);
 }
 function onNetClose(){
   if(!net.connected&&net.role!=='guest')return;
@@ -2043,8 +2044,6 @@ function onNet(m){
     if(remote)remote.swing=0.3;
   } else if(m.t==='portal'){
     if(net.role==='host'&&goalDone)goStage(stage+1);
-  } else if(m.t==='full'){
-    mpCleanup();mpFail('その部屋はもう2人いっぱいです');
   } else if(m.t==='mobs'){
     if(net.role!=='guest'||!Array.isArray(m.e))return;
     const seen=new Set();
