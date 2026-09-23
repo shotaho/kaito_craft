@@ -56,6 +56,9 @@ body{background:#87ceeb;color:var(--ui-fg);font-family:"Hiragino Maru Gothic Pro
 #goal{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:14px;padding:5px 12px;border-radius:14px;pointer-events:none;white-space:nowrap;z-index:3}
 body.touch #goal{top:calc(84px + env(safe-area-inset-top,0px));font-size:12px}
 #goal.done{background:rgba(123,31,162,.8)}
+#btnMenu{display:none;position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,.5);align-items:center;justify-content:center;z-index:4;cursor:pointer}
+body.touch #btnMenu{display:flex}
+#btnMenu:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
 #appearsel{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:4px 0 4px}
 .apr{font:inherit;font-size:11px;font-weight:800;padding:6px 2px;border-radius:8px;border:3px solid transparent;background:rgba(0,0,0,.08);color:var(--ui-fg);cursor:pointer;line-height:1.3;display:flex;flex-direction:column;align-items:center;gap:3px}
 .apr canvas{width:36px;height:36px;image-rendering:pixelated;border-radius:6px;background:rgba(0,0,0,.06)}
@@ -138,6 +141,18 @@ body.touch #held.gun{right:40%;bottom:-6px}
 .rc .cost{font-size:12px;opacity:.85;line-height:1.4}
 .rc button{margin-left:auto;flex:none;font:inherit;font-weight:800;padding:9px 14px;border:none;border-radius:8px;background:#1e88e5;color:#fff;cursor:pointer}
 .rc button:disabled{background:#9e9e9e;cursor:default}
+#dex{display:none;z-index:12;background:rgba(30,20,50,.7)}
+#dex .card{width:min(94vw,440px);max-height:88vh;padding:14px}
+#dex h2{margin:0 0 4px}
+#dexTabs{display:flex;gap:8px;margin:8px 0 10px;justify-content:center}
+.dxtab{font:inherit;font-weight:800;font-size:14px;padding:6px 18px;border-radius:20px;border:2px solid var(--ui-border);background:rgba(0,0,0,.06);color:var(--ui-fg);cursor:pointer}
+.dxtab.on{background:#7b5fc7;color:#fff;border-color:#7b5fc7}
+#dexGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:56vh;overflow-y:auto;margin-bottom:10px}
+.dxc{background:rgba(0,0,0,.06);border-radius:10px;padding:8px}
+.dxc canvas{width:48px;height:48px;image-rendering:pixelated;display:block;margin:0 auto 4px;border-radius:6px;background:rgba(0,0,0,.1)}
+.dxc.unseen canvas{filter:brightness(0) opacity(.5)}
+.dxc .dxname{font-weight:800;font-size:13px;text-align:center}
+.dxc .dxdesc{font-size:11px;opacity:.8;line-height:1.35;margin-top:3px}
 @media (prefers-reduced-motion: reduce){#name,#hurt{transition:none}}
 </style>
 </head>
@@ -171,6 +186,7 @@ body.touch #held.gun{right:40%;bottom:-6px}
     <p class="mpt" style="margin:8px 0 4px">🧑 見た目（2人プレイの相手に見える姿）</p>
     <div id="appearsel"></div>
     <div id="stagesel"></div>
+    <button id="openDex" class="big" style="background:#7b5fc7;box-shadow:0 4px 0 #4d3a86;margin-bottom:8px">📖 図鑑</button>
     <button id="start" class="big">あそぶ</button>
     <p id="msg" style="display:none;font-size:13px;color:#c0392b;font-weight:700"></p>
     <div id="mp">
@@ -201,6 +217,17 @@ body.touch #held.gun{right:40%;bottom:-6px}
     <button id="craftClose" class="big">とじる</button>
   </div>
 </div>
+<div id="dex" class="overlay">
+  <div class="card">
+    <h2>📖 図鑑</h2>
+    <div id="dexTabs">
+      <button id="dexTabEnemy" class="dxtab">敵</button>
+      <button id="dexTabItem" class="dxtab">アイテム</button>
+    </div>
+    <div id="dexGrid"></div>
+    <button id="dexClose" class="big">とじる</button>
+  </div>
+</div>
 <div id="clear" class="overlay">
   <div class="card">
     <h1>🎉 ぜんぶクリア！</h1>
@@ -209,6 +236,7 @@ body.touch #held.gun{right:40%;bottom:-6px}
   </div>
 </div>
 <div id="goal"></div>
+<div id="btnMenu" aria-label="メニューを開く" role="button">☰</div>
 <div id="over" class="overlay">
   <div class="card">
     <h1>ゲームオーバー</h1>
@@ -306,8 +334,8 @@ SFX.playerHurt=(ctx,info)=>{
 const isTouch = ('ontouchstart' in window) || matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 document.getElementById('help').innerHTML = isTouch
- ? '<tr><td>移動</td><td>画面の左下をなぞる</td></tr><tr><td>見回す</td><td>ボタンのない所をなぞる</td></tr><tr><td>⚔️ / 🦶</td><td>剣でこうげき / キック</td></tr><tr><td>⛏️ / 🧱</td><td>こわす / おく（作業台に🧱で工作）</td></tr><tr><td>左のボタン</td><td>武器・ピッケルの持ちかえ（銃は⚔️おしっぱなし）</td></tr><tr><td>⬆️</td><td>ジャンプ（段差は自動で登る）</td></tr>'
- : '<tr><td>WASD</td><td>移動</td></tr><tr><td>マウス</td><td>見回す</td></tr><tr><td>左クリック</td><td>剣でこうげき（敵がいない時はこわす）</td></tr><tr><td>F</td><td>キック</td></tr><tr><td>右クリック</td><td>おく／作業台で工作</td></tr><tr><td>Q</td><td>武器の持ちかえ（銃はおしっぱなしで連射）</td></tr><tr><td>スペース</td><td>ジャンプ</td></tr><tr><td>1〜0 / ホイール</td><td>ブロック選択</td></tr>';
+ ? '<tr><td>移動</td><td>画面の左下をなぞる</td></tr><tr><td>見回す</td><td>ボタンのない所をなぞる</td></tr><tr><td>⚔️ / 🦶</td><td>剣でこうげき / キック</td></tr><tr><td>⛏️ / 🧱</td><td>こわす / おく（作業台に🧱で工作）</td></tr><tr><td>左のボタン</td><td>武器・ピッケルの持ちかえ（銃は⚔️おしっぱなし）</td></tr><tr><td>⬆️</td><td>ジャンプ（段差は自動で登る）</td></tr><tr><td>☰</td><td>メニューを開く</td></tr>'
+ : '<tr><td>WASD</td><td>移動</td></tr><tr><td>マウス</td><td>見回す</td></tr><tr><td>左クリック</td><td>剣でこうげき（敵がいない時はこわす）</td></tr><tr><td>F</td><td>キック</td></tr><tr><td>右クリック</td><td>おく／作業台で工作</td></tr><tr><td>Q</td><td>武器の持ちかえ（銃はおしっぱなしで連射）</td></tr><tr><td>スペース</td><td>ジャンプ</td></tr><tr><td>1〜0 / ホイール</td><td>ブロック選択</td></tr><tr><td>Esc</td><td>メニューを開く／とじる</td></tr>';
 
 // ---------- world ----------
 const W=48, D=48, H=32;
@@ -323,11 +351,12 @@ const BLOCKS={
   7:{name:'木の板',t:[8,8,8]}, 8:{name:'ガラス',t:[9,9,9]}, 9:{name:'レンガ',t:[10,10,10]}, 10:{name:'作業台',t:[22,23,8]},
   11:{name:'マグマ岩',t:[42,42,42]},12:{name:'宝石',t:[45,45,45]},13:{name:'ポータル',t:[47,47,47]},14:{name:'溶岩',t:[43,43,43]},15:{name:'光る石',t:[44,44,44]},16:{name:'島の石',t:[46,46,46]},
   17:{name:'かべ紙',t:[48,48,48]},18:{name:'屋根',t:[49,49,49]},19:{name:'宝箱',t:[51,50,50]},20:{name:'コンクリート',t:[52,52,52]},21:{name:'クジラの肉',t:[55,55,55]},22:{name:'ほね',t:[56,56,56]},23:{name:'胃液',t:[57,57,57]},
-  24:{name:'ニンジン',t:[78,78,78]},25:{name:'たまねぎ',t:[79,79,79]},26:{name:'キノコ',t:[80,80,80]}
+  24:{name:'ニンジン',t:[78,78,78]},25:{name:'たまねぎ',t:[79,79,79]},26:{name:'キノコ',t:[80,80,80]},
+  27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]}
 };
-const TRANS={5:true,8:true,13:true};
-const NONSOLID={13:true,14:true,23:true},HAZARD={14:true,23:true};
-const HOTBAR=[1,2,3,4,7,9,8,5,6,10];
+const TRANS={5:true,8:true,13:true,28:true};
+const NONSOLID={13:true,14:true,23:true,28:true},HAZARD={14:true,23:true};
+const HOTBAR=[1,2,3,4,7,9,8,5,6,10,27];
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
 function hash(x,z,s){let h=(Math.imul(x,374761393)+Math.imul(z,668265263)+Math.imul(s,1442695041))|0;h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967295;}
@@ -379,7 +408,7 @@ function generate(seed){
 // ---------- ステージ ----------
 const STAGES=[
   {name:'草原',icon:'🌳',sky:[0.529,0.808,0.922],fog:[22,62],mobs:{zero:4,zombie:4,mimic:2,cow:3},goal:{type:'kills',n:5,text:'敵をたおす'},spawn:[W/2+0.5,null,D/2+0.5]},
-  {name:'マグマの世界',icon:'🌋',sky:[0.36,0.09,0.06],fog:[14,46],mobs:{zero:2,zombie:5,mimic:2,cow:2},goal:{type:'gems',n:3,text:'💎 宝石を見つけてこわす'},spawn:[24.5,null,24.5]},
+  {name:'マグマの世界',icon:'🌋',sky:[0.36,0.09,0.06],fog:[14,46],mobs:{zero:2,zombie:5,mimic:2,cow:2,sign:2,ghast:1},goal:{type:'gems',n:3,text:'💎 宝石を見つけてこわす'},spawn:[24.5,null,24.5]},
   {name:'空の島',icon:'🏝️',sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1},goal:{type:'kills',n:8,text:'敵をたおす'},spawn:[24.5,null,24.5]},
   {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},spawn:[20.5,5,12.5]},
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},spawn:[24.5,4,20.5]},
@@ -415,12 +444,18 @@ function genMagma(rnd,seed){
   for(let i=0;i<30;i++){const x=Math.floor(rnd()*W),z=Math.floor(rnd()*D),l=2+Math.floor(rnd()*4);fill(x,H-l,z,x,H-1,z,11);setB(x,H-l-1,z,15);}
   let g=0;for(let t=0;t<200&&g<5;t++){const x=3+Math.floor(rnd()*(W-6)),z=3+Math.floor(rnd()*(D-6));const y=topY(x,z);
     if(world[idx(x,y,z)]===11&&Math.hypot(x-24,z-24)>6){setB(x,y,z,12);g++;}}
+  let w=0;for(let t=0;t<200&&w<6;t++){const x=3+Math.floor(rnd()*(W-6)),z=3+Math.floor(rnd()*(D-6));const y=topY(x,z);
+    if(world[idx(x,y,z)]===11&&Math.hypot(x-24,z-24)>6){const hh=1+Math.floor(rnd()*2);fill(x,y+1,z,x,y+hh,z,4);w++;}}
 }
 function genSky(rnd,seed){
   const island=(cx,cz,cy,R,o)=>{for(let z=0;z<D;z++)for(let x=0;x<W;x++){const d=Math.hypot(x-cx,z-cz);if(d>=R)continue;
     const top=cy+Math.floor(vnoise(x,z,5,seed+o)*2),depth=Math.floor((R-d)*0.9+vnoise(x,z,3,seed+o+1)*3);fill(x,Math.max(0,top-depth),z,x,top,z,16);}};
   island(24,24,13,11,0);
-  for(let i=0;i<6;i++){const a=i/6*Math.PI*2+rnd()*0.4,dist=15+rnd()*3;island(24+Math.cos(a)*dist,24+Math.sin(a)*dist,10+Math.floor(rnd()*9),3+Math.floor(rnd()*2),i*10+5);}
+  for(let i=0;i<6;i++){const a=i/6*Math.PI*2+rnd()*0.4,dist=15+rnd()*3;
+    const cx=24+Math.cos(a)*dist,cz=24+Math.sin(a)*dist;
+    island(cx,cz,10+Math.floor(rnd()*9),3+Math.floor(rnd()*2),i*10+5);
+    if(rnd()<0.7){const tx=Math.round(cx),tz=Math.round(cz);if(tx>0&&tz>0&&tx<W-1&&tz<D-1){const ty=topY(tx,tz);if(world[idx(tx,ty,tz)]===16)tree(tx,ty,tz,rnd);}}
+  }
   for(let i=0;i<4;i++){const a=i/4*Math.PI*2+0.6,x=Math.round(24+Math.cos(a)*6),z=Math.round(24+Math.sin(a)*6);const y=topY(x,z),hh=4+Math.floor(rnd()*4);fill(x,y+1,z,x,y+hh,z,16);setB(x,y+hh+1,z,15);}
 }
 function genHouse(rnd){
@@ -475,6 +510,9 @@ function genWhale(rnd,seed){
   for(let x=6;x<W-3;x+=6){const r=rad(x);for(let y=10;y<H-1;y++)for(let z=1;z<D-1;z++){const d=Math.hypot((y-15)/0.85,z-24);if(d>=r-1.2&&d<r+0.3)setB(x,y,z,22);}}
   for(let z=1;z<D-1;z++)for(let x=1;x<W-1;x++){let y=1;while(y<H-1&&world[idx(x,y,z)]!==0)y++;if(y>=H-1)continue;
     if(vnoise(x,z,6,seed)<0.3&&Math.hypot(x-8,z-24)>5)setB(x,y-1,z,23);}
+  let dbr=0;for(let t=0;t<300&&dbr<10;t++){const x=2+Math.floor(rnd()*(W-4)),z=2+Math.floor(rnd()*(D-4));
+    let y=1;while(y<H-1&&world[idx(x,y,z)]!==0)y++;if(y>=H-1)continue;
+    if(world[idx(x,y-1,z)]!==0&&world[idx(x,y-1,z)]!==23&&Math.hypot(x-8,z-24)>5){setB(x,y,z,dbr%2===0?4:3);dbr++;}}
 }
 function isHaz(x,y,z){return !!HAZARD[getB(x,y,z)];}
 function standAt(x,z,yHint){
@@ -507,7 +545,7 @@ let saveTimer=null;
 function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,800);}
 
 // ---------- textures ----------
-const atlas=document.createElement('canvas');atlas.width=1312;atlas.height=16;
+const atlas=document.createElement('canvas');atlas.width=1408;atlas.height=16;
 const ATLAS_TILES=atlas.width/16;
 const actx=atlas.getContext('2d');
 const TR=mulberry32(7);
@@ -652,6 +690,29 @@ paint(80,(x,y)=>{ // キノコ
     return ((x*3+y*5)%11===0)?[255,250,240,255]:vary([196,86,52],18);}
   if(x>=6&&x<=9)return vary([238,228,208],14);
   return vary([222,214,150],14);});
+
+// マグマ世界の新しい敵：ガスト・かんばん
+const GHASTW=[236,236,238],GHASTSH=[196,198,202];
+paint(81,(x,y)=>((x+y)%5===0)?vary(GHASTSH,10):vary(GHASTW,10)); // ガスト：体
+paint(82,(x,y)=>{ // ガスト：顔
+  if((y>=4&&y<=6&&x>=2&&x<=5)||(y>=4&&y<=6&&x>=10&&x<=13))return [20,20,20,255];
+  if(y>=10&&y<=12&&x>=4&&x<=11)return (y===10)?[10,10,10,255]:vary([40,40,40],10);
+  return vary(GHASTW,10);});
+paint(83,()=>vary([222,222,226],10)); // ガスト：足
+
+const SIGNBG=[238,229,206],SIGNLN=[214,202,172],SIGNINK=[30,26,24];
+paint(84,(x,y)=>(x%4===0||y%5===0)?vary(SIGNLN,8):vary(SIGNBG,10)); // かんばん：ふち・うら
+paint(85,(x,y)=>{ // かんばん：おもて（文字）
+  const chars=[[1,4,3,11],[6,4,8,11],[11,4,13,11]];
+  if(chars.some(c=>x>=c[0]&&x<=c[2]&&y>=c[1]&&y<=c[3]&&((x+y)%3!==0)))return [...SIGNINK,255];
+  return vary(SIGNBG,8);});
+
+// とびら
+paint(86,(x,y)=>{ // とじている
+  if(Math.hypot(x-11,y-8)<1.3)return [70,50,25,255];
+  if(x>=2&&x<=13&&((y>=1&&y<=6)||(y>=9&&y<=14)))return vary([150,110,65],14);
+  return vary([110,78,42],16);});
+paint(87,(x,y)=>(x===0||x===15||y===0||y===15)?[90,65,35,255]:[0,0,0,0]); // あいている（わく）
 
 // ステージ用ブロック
 paint(42,()=>TR()<0.1?vary([80,22,24],12):vary([118,38,36],26));
@@ -807,10 +868,31 @@ function zombVerts(e,out){
   pushBox(out,[-0.125,-0.7,-0.125],[0.125,0.05,0.125],T_ZLIMB,part(e,[0.375,1.25,0],arm-sw*0.15));
   pushBox(out,[-0.22,0,-0.22],[0.22,0.44,0.22],T_ZFACE,part(e,[0,1.3,0],Math.sin(e.walk*0.7)*0.08));
 }
+const T_SIGNPOLE=T_WOOD,T_SIGNFRONT=[84,84,84,84,85,84];
+function signVerts(e,out){
+  let ang=0;
+  if(e.atk>0){const t=1-e.atk/0.55;ang=Math.sin(Math.max(0,Math.min(1,t))*Math.PI)*1.3;}
+  const bob=Math.sin(e.walk*1.4)*0.06;
+  const root=part(e,[0,bob,0],ang);
+  pushBox(out,[-0.06,0,-0.06],[0.06,1.35,0.06],T_SIGNPOLE,root);
+  pushBox(out,[-0.55,1.3,-0.09],[0.55,1.95,0.09],T_SIGNFRONT,root);
+}
+const T_GHASTBODY=[81,81,81,81,82,81],T_GHASTLEG=[83,83,83,83,83,83];
+const GHAST_LEGS=[[-0.28,-0.28],[-0.1,-0.36],[0.1,-0.36],[0.28,-0.28],[0,-0.4]];
+function ghastVerts(e,out){
+  const bob=Math.sin(e.walk*0.8+e.seed)*0.12;
+  pushBox(out,[-0.45,0.3,-0.45],[0.45,1.05,0.45],T_GHASTBODY,part(e,[0,bob,0],0));
+  for(let i=0;i<GHAST_LEGS.length;i++){
+    const p=GHAST_LEGS[i],sway=Math.sin(e.walk*2+i*1.3+e.seed)*0.09;
+    pushBox(out,[-0.05,-0.55,-0.05],[0.05,0,0.05],T_GHASTLEG,part(e,[p[0]+sway,bob+0.3,p[1]],0));
+  }
+}
 function enemyVerts(e,out){
   if(e.type==='cow') return cowVerts(e,out);
   if(e.type==='zombie') return zombVerts(e,out);
   if(e.type==='mimic') return mimVerts(e,out);
+  if(e.type==='sign') return signVerts(e,out);
+  if(e.type==='ghast') return ghastVerts(e,out);
   const sw=Math.sin(e.walk)*0.7;
   let armR=0.35-sw*0.5;
   if(e.atk>0){const t=1-e.atk/0.55;armR=t<0.6?0.35+2.3*(t/0.6):2.65-(t-0.6)/0.4*2.5;}
@@ -852,7 +934,9 @@ function render(){
     const out=[];
     for(const it of items){const o={x:it.x,y:it.y+0.1+Math.sin(it.t*3)*0.06,z:it.z,yaw:it.t*2,scale:1};
       pushBox(out,[-0.16,0,-0.16],[0.16,0.3,0.16],it.kind==='meat'?T_MEAT:T_MILK,part(o,[0,0,0],0));}
-    for(const r of rockets){const o={x:r.x,y:r.y,z:r.z,yaw:r.yaw,scale:1};pushBox(out,[-0.08,-0.08,-0.32],[0.08,0.08,0.32],T_ROCKET,part(o,[0,0,0],r.pitch));}
+    for(const r of rockets){const o={x:r.x,y:r.y,z:r.z,yaw:r.yaw,scale:1};
+      if(r.owner==='ghast')pushBox(out,[-0.18,-0.18,-0.18],[0.18,0.18,0.18],T_BOOM,part(o,[0,0,0],r.t*6));
+      else pushBox(out,[-0.08,-0.08,-0.32],[0.08,0.08,0.32],T_ROCKET,part(o,[0,0,0],r.pitch));}
     for(const b of booms){const sz=0.4+b.t/0.4*2.6;const o={x:b.x,y:b.y,z:b.z,yaw:b.t*4,scale:1};pushBox(out,[-sz,-sz,-sz],[sz,sz,sz],T_BOOM,part(o,[0,0,0],b.t*3));}
     bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
     gl.uniform3f(LB.tint,1.1,1.1,1.1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);
@@ -894,11 +978,12 @@ const hits=(x,y,z)=>hitsBox(x,y,z,PR,PH);
 // ---------- enemies & cows ----------
 let enemies=[],kills=0,spawnTimer=0,cowTimer=0,mimicTimer=0,playTime=0,pendingCook=0,pendingCookStew=0,cookTotal=0;
 let items=[],rockets=[],booms=[];
-const MAX_ENEMIES=4,MAX_COWS=3,MAX_MIMIC=2,MAX_ZOMBIE=4;let zombieTimer=0;
+const MAX_ENEMIES=4,MAX_COWS=3,MAX_MIMIC=2,MAX_ZOMBIE=4;let zombieTimer=0,signTimer=0,ghastTimer=0;
 function spawnEnemy(type){
   type=type||'zero';
-  const cow=type==='cow',mim=type==='mimic',zom=type==='zombie',r=cow?0.4:0.3,h=cow?1.4:mim?2.5:zom?1.75:1.8,hp=cow?6:mim?14:zom?5:10;
-  const spd=zom?1.8:2.5,dmg=zom?2:3;
+  const cow=type==='cow',mim=type==='mimic',zom=type==='zombie',sign=type==='sign',ghast=type==='ghast';
+  const r=cow?0.4:sign?0.32:ghast?0.85:0.3,h=cow?1.4:mim?2.5:zom?1.75:sign?2.05:ghast?1.6:1.8,hp=cow?6:mim?14:zom?5:sign?12:ghast?18:10;
+  const spd=zom?1.8:sign?2.3:ghast?3:2.5,dmg=zom?2:sign?4:ghast?0:3;
   for(let tries=0;tries<30;tries++){
     const x=2.5+Math.floor(Math.random()*(W-4)),z=2.5+Math.floor(Math.random()*(D-4));
     if(Math.hypot(x-P.x,z-P.z)<(cow?7:14)) continue;
@@ -906,14 +991,15 @@ function spawnEnemy(type){
     if(y>=H-2||hitsBox(x,y,z,r,h)) continue;
     enemies.push({type,r,h,x,y,z,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:Math.random()*6.28,hp,maxhp:hp,spd,dmg,target:null,fleeX:0,fleeZ:0,walk:0,atk:0,cd:1,hurt:0,dying:0,scale:1,struck:false,
       think:0,moving:false,dirYaw:0,flee:0,seed:Math.random()*6});
+    seeEnemy(type);
     return;
   }
 }
-function hurtPlayer(dmg,fromX,fromZ){
+function hurtPlayer(dmg,fromX,fromZ,noKnock){
   if(dead||paused()||P.inv>0) return;
   P.hp=Math.max(0,P.hp-dmg);P.safe=5;sfx('playerHurt',{dmg,hp:P.hp});
-  const dx=P.x-fromX,dz=P.z-fromZ,l=Math.hypot(dx,dz)||1;
-  P.kx=dx/l*7;P.kz=dz/l*7;P.vy=Math.max(P.vy,5);
+  if(!noKnock){const dx=P.x-fromX,dz=P.z-fromZ,l=Math.hypot(dx,dz)||1;
+    P.kx=dx/l*7;P.kz=dz/l*7;P.vy=Math.max(P.vy,5);}
   hurtEl.style.transition='none';hurtEl.style.opacity=1;requestAnimationFrame(()=>{hurtEl.style.transition='';hurtEl.style.opacity=0;});
   if(navigator.vibrate)try{navigator.vibrate(60);}catch(e){}
   updateHud();
@@ -955,6 +1041,7 @@ function updateItems(dt){
     if(it.y<-20)it.life=0;
     if(it.life>0&&!dead&&it.t>0.5&&Math.hypot(it.x-P.x,it.z-P.z)<1.3&&Math.abs(it.y-P.y)<2){
       it.life=0;
+      seeItem(it.kind);
       if(it.kind==='milk'){P.hp=Math.min(MAXHP,P.hp+3);updateHud();toast('🥛 ミルクをごくごく！ 体力+3');sfx('pickup',{kind:'milk'});}
       else {toast('🥩 肉をひろった！ 料理しよう');pendingCook=0.4;sfx('pickup',{kind:'meat'});}
     }
@@ -1006,6 +1093,29 @@ function updateCow(e,dt){
   e.walk+=dt*(sp>0?sp*3:1);
   e.hurt-=dt;
 }
+function updateGhast(e,dt){
+  const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||0.001;
+  e.yaw=Math.atan2(-dx,-dz);
+  const dirx=dx/dist,dirz=dz/dist;
+  const radial=dist<7?-1:dist>13?1:0;
+  const strafe=Math.sin(e.walk*0.6+e.seed);
+  const sp=e.spd*0.55;
+  e.vx=(dirx*radial-dirz*strafe*0.6)*sp;
+  e.vz=(dirz*radial+dirx*strafe*0.6)*sp;
+  const targetY=P.y+4.2+Math.sin(e.walk*0.4+e.seed)*1.2;
+  e.vy=Math.max(-3,Math.min(3,(targetY-e.y)*1.4));
+  const nx=e.x+e.vx*dt,nz=e.z+e.vz*dt,ny=e.y+e.vy*dt;
+  if(!hitsBox(nx,e.y,e.z,e.r,e.h))e.x=nx;
+  if(!hitsBox(e.x,e.y,nz,e.r,e.h))e.z=nz;
+  if(!hitsBox(e.x,ny,e.z,e.r,e.h))e.y=ny;
+  e.walk+=dt;e.hurt-=dt;e.cd-=dt;
+  if(e.cd<=0&&dist<22){e.cd=2.2+Math.random()*1.3;fireGhastball(e);}
+}
+function fireGhastball(e){
+  const dx=P.x-e.x,dy=(P.y+0.9)-e.y,dz=P.z-e.z,l=Math.hypot(dx,dy,dz)||1,spd=10;
+  rockets.push({x:e.x,y:e.y,z:e.z,vx:dx/l*spd,vy:dy/l*spd,vz:dz/l*spd,yaw:e.yaw,pitch:0,t:0,owner:'ghast'});
+  sfx('ghastFire',{});
+}
 function updateEnemies(dt){
   if(net.connected){if(enemies.length)enemies=[];if(items.length)items=[];return;}
   spawnTimer-=dt;cowTimer-=dt;
@@ -1017,12 +1127,17 @@ function updateEnemies(dt){
   if(zombieTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='zombie').length<STAGES[stage].mobs.zombie){spawnEnemy('zombie');zombieTimer=8;}
   mimicTimer-=dt;
   if(mimicTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='mimic').length<STAGES[stage].mobs.mimic){spawnEnemy('mimic');mimicTimer=22;}
+  signTimer-=dt;
+  if(signTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='sign').length<(STAGES[stage].mobs.sign||0)){spawnEnemy('sign');signTimer=16;}
+  ghastTimer-=dt;
+  if(ghastTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='ghast').length<(STAGES[stage].mobs.ghast||0)){spawnEnemy('ghast');ghastTimer=24;}
   for(const e of enemies){
     if(e.dying>0){e.dying-=dt;e.scale=Math.max(0.01,e.dying/0.5);continue;}
     if(e.type!=='cow'){e.nearCd=(e.nearCd||0)-dt;const nd=Math.hypot(P.x-e.x,P.z-e.z);
       if(nd<10&&e.nearCd<=0){e.nearCd=2.5+Math.random();sfx('enemyNear',{type:e.type,dist:nd,volume:1-nd/10});}}
     if(e.type==='cow'){updateCow(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='mimic'){updateMimic(e,dt);if(e.y<-20)e.dying=0.01;continue;}
+    if(e.type==='ghast'){updateGhast(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||0.001;
     e.yaw=Math.atan2(-dx,-dz);
     const chase=dist<30&&dist>1.2&&e.atk<=0?1:0;
@@ -1065,8 +1180,8 @@ function findTarget(reach){
 // ---------- input ----------
 const keys={};
 let started=false,locked=false,jumpHeld=false,dead=false,cooking=false,crafting=false;
-let clearing=false,portalLock=false,hazT=0,lastGoalTxt='';
-const paused=()=>cooking||crafting||clearing;
+let clearing=false,portalLock=false,hazT=0,lastGoalTxt='',menuOpen=false;
+const paused=()=>cooking||crafting||clearing||menuOpen;
 function checkCells(dt){
   const x0=Math.floor(P.x-PR),x1=Math.floor(P.x+PR-1e-4),y0=Math.floor(P.y),y1=Math.floor(P.y+PH-1e-4),z0=Math.floor(P.z-PR),z1=Math.floor(P.z+PR-1e-4);
   let haz=false,portal=false;
@@ -1112,7 +1227,7 @@ function goStage(n){
   progress.unlocked=Math.max(progress.unlocked,n);saveProgress();
   applyStageLook(n);
   if(n===0){if(!load())generate(20260922);}else genStage(n);
-  ensureTable();buildMesh();newRun();renderStageSel();updateGoalHud();
+  ensureTable();rescanDoors();buildMesh();newRun();renderStageSel();updateGoalHud();
   toast(STAGES[n].icon+' ステージ'+(n+1)+'　'+STAGES[n].name);
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
 }
@@ -1148,7 +1263,7 @@ function step(dt){
   P.safe-=dt;
   if(P.safe<=0&&P.hp<MAXHP){P.hp=Math.min(MAXHP,P.hp+1);P.safe=3;updateHud();}
   playTime+=dt;P.inv-=dt;
-  updateEnemies(dt);updateItems(dt);updateWeapons(dt);
+  updateEnemies(dt);updateItems(dt);updateWeapons(dt);if(doors.length)updateDoors();
   if(net.role!=='guest')checkGoal();
   if(pendingCook>0){pendingCook-=dt;if(pendingCook<=0)startCooking();}
   if(pendingCookStew>0){pendingCookStew-=dt;if(pendingCookStew<=0){if(!cooking)startCooking('stew');else pendingCookStew=0.1;}}
@@ -1169,6 +1284,31 @@ function raycast(max){
   return null;
 }
 let mineKey=null,mineN=0;
+// ---------- とびら ----------
+let doors=[];
+function addDoor(x,y,z){doors.push({x,y,z});}
+function removeDoor(x,y,z){doors=doors.filter(d=>!(d.x===x&&d.y===y&&d.z===z));}
+function rescanDoors(){
+  doors=[];
+  for(let i=0;i<world.length;i++){
+    if(world[i]===27||world[i]===28){
+      world[i]=27;
+      const y=Math.floor(i/(D*W)),rem=i%(D*W),z=Math.floor(rem/W),x=rem%W;
+      doors.push({x,y,z});
+    }
+  }
+}
+function updateDoors(){
+  let changed=false;
+  for(const d of doors){
+    const cur=world[idx(d.x,d.y,d.z)];
+    if(cur!==27&&cur!==28)continue;
+    const dist=Math.hypot(P.x-(d.x+0.5),P.y-d.y,P.z-(d.z+0.5));
+    if(cur===27&&dist<1.8){world[idx(d.x,d.y,d.z)]=28;netBlock(d.x,d.y,d.z,28);changed=true;}
+    else if(cur===28&&dist>2.6){world[idx(d.x,d.y,d.z)]=27;netBlock(d.x,d.y,d.z,27);changed=true;}
+  }
+  if(changed)buildMesh();
+}
 function breakBlock(){
   if(paused()) return;
   const r=raycast(6); if(!r) return;
@@ -1182,9 +1322,10 @@ function breakBlock(){
   }
   mineKey=null;
   world[idx(x,y,z)]=0;sfx('blockBreak',{id});netBlock(x,y,z,0);
+  if(id===27||id===28)removeDoor(x,y,z);
   if(id===4||id===7)inv.wood++; if(id===3||id===9||id===11||id===16||id===20)inv.stone++;
-  if(id===12){stageStats.gems++;toast('💎 宝石を見つけた！');}
-  if(id===19){stageStats.chests++;inv.wood+=3;inv.stone+=3;saveInv();updateHud();toast('📦 宝箱！ 🪵+3 🪨+3');}
+  if(id===12){stageStats.gems++;seeItem('gem');toast('💎 宝石を見つけた！');}
+  if(id===19){stageStats.chests++;inv.wood+=3;inv.stone+=3;saveInv();updateHud();seeItem('chest');toast('📦 宝箱！ 🪵+3 🪨+3');}
   if(id===24||id===25||id===26)harvestCrop(id);
   if(id===4||id===7||id===3||id===9||id===11||id===16||id===20){saveInv();updateHud();}
   buildMesh(); queueSave();
@@ -1203,6 +1344,7 @@ function placeBlock(){
     if(ny>P.y&&ny-P.y<=1.01&&!hits(P.x,ny,P.z)){P.y=ny;P.vy=0;}
     else {world[idx(x,y,z)]=0;return;}
   }
+  if(HOTBAR[sel]===27)addDoor(x,y,z);
   sfx('blockPlace');netBlock(x,y,z,HOTBAR[sel]);
   buildMesh(); queueSave();
 }
@@ -1220,13 +1362,13 @@ function kick(){
 
 // ---------- 武器と作業台 ----------
 const INV_KEY='blockcraft-inv-v1';
-let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,mg:false,rocket:false,minigun:false}};
+let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,rocket:false,minigun:false}};
 try{const j=JSON.parse(localStorage.getItem(INV_KEY)||'null');if(j&&j.own)inv={wood:j.wood|0,stone:j.stone|0,carrot:j.carrot|0,onion:j.onion|0,mushroom:j.mushroom|0,own:Object.assign(inv.own,j.own)};}catch(e){}
 function saveInv(){try{localStorage.setItem(INV_KEY,JSON.stringify(inv));}catch(e){}}
 const CROP_LABEL={24:'🥕 ニンジン',25:'🧅 たまねぎ',26:'🍄 キノコ'},CROP_KEY={24:'carrot',25:'onion',26:'mushroom'};
 function harvestCrop(id){
   const kind=CROP_KEY[id];
-  inv[kind]++;saveInv();updateHud();
+  inv[kind]++;saveInv();updateHud();seeItem(kind);
   if(inv.carrot>=1&&inv.onion>=1&&inv.mushroom>=1){
     toast(CROP_LABEL[id]+'を収穫！ 具材がそろった、シチューを作ろう！');
     pendingCookStew=0.6;
@@ -1234,25 +1376,77 @@ function harvestCrop(id){
     toast(CROP_LABEL[id]+'を収穫した！');
   }
 }
+
+// ---------- 図鑑 ----------
+const DEX_ENEMIES=[
+  {id:'zero',name:'エンティティゼロ',desc:'いろいろなステージに現れる。近づいて剣でこうげきしてくる。',face:11},
+  {id:'zombie',name:'ゾンビ',desc:'キックでしかダメージを与えられない。それ以外の攻撃は効かない。',face:32},
+  {id:'mimic',name:'ミミッカー',desc:'かみついてくる。牛をおそうこともある。',face:24},
+  {id:'cow',name:'うし',desc:'たおすと肉とミルクが手に入る。料理の材料になる。',face:17},
+  {id:'sign',name:'はま寿司のかんばん',desc:'マグマの世界に現れる。看板を振り回して攻撃し、当たるとふっとばされる。',face:85},
+  {id:'ghast',name:'ガスト',desc:'マグマの世界を飛び回り、はなれた場所から火の玉を吐いてくる。',face:82}
+];
+const DEX_ITEMS=[
+  {id:'meat',name:'肉',desc:'牛をたおすと手に入る。料理して食べよう。',face:29},
+  {id:'milk',name:'ミルク',desc:'牛をたおすと手に入る。のむと体力が少し回復する。',face:30},
+  {id:'gem',name:'宝石',desc:'マグマの世界の岩の中に埋まっている。',face:45},
+  {id:'chest',name:'宝箱',desc:'大きな家にかくされている。木と石が手に入る。',face:50},
+  {id:'carrot',name:'ニンジン',desc:'草原に生えている。シチューの材料。',face:78},
+  {id:'onion',name:'たまねぎ',desc:'草原に生えている。シチューの材料。',face:79},
+  {id:'mushroom',name:'キノコ',desc:'草原に生えている。シチューの材料。',face:80}
+];
+const DEX_KEY='blockcraft-dex-v1';
+let dexSeen={enemy:{},item:{}};
+try{const j=JSON.parse(localStorage.getItem(DEX_KEY)||'null');if(j)dexSeen={enemy:j.enemy||{},item:j.item||{}};}catch(e){}
+function saveDex(){try{localStorage.setItem(DEX_KEY,JSON.stringify(dexSeen));}catch(e){}}
+function seeEnemy(type){if(!dexSeen.enemy[type]){dexSeen.enemy[type]=true;saveDex();}}
+function seeItem(id){if(!dexSeen.item[id]){dexSeen.item[id]=true;saveDex();}}
+let dexTab='enemy';
+const dexEl=document.getElementById('dex'),dexGridEl=document.getElementById('dexGrid');
+const dexTabEnemyEl=document.getElementById('dexTabEnemy'),dexTabItemEl=document.getElementById('dexTabItem');
+function renderDex(){
+  const list=dexTab==='enemy'?DEX_ENEMIES:DEX_ITEMS;
+  const seen=dexTab==='enemy'?dexSeen.enemy:dexSeen.item;
+  dexGridEl.innerHTML='';
+  for(const e of list){
+    const known=!!seen[e.id];
+    const card=document.createElement('div');card.className='dxc'+(known?'':' unseen');
+    const c=document.createElement('canvas');c.width=c.height=16;
+    c.getContext('2d').drawImage(atlas,e.face*16,0,16,16,0,0,16,16);
+    card.appendChild(c);
+    const nm=document.createElement('div');nm.className='dxname';nm.textContent=known?e.name:'？？？';card.appendChild(nm);
+    const ds=document.createElement('div');ds.className='dxdesc';ds.textContent=known?e.desc:'まだ出会っていない';card.appendChild(ds);
+    dexGridEl.appendChild(card);
+  }
+  dexTabEnemyEl.classList.toggle('on',dexTab==='enemy');
+  dexTabItemEl.classList.toggle('on',dexTab==='item');
+}
+function openDex(){dexTab='enemy';renderDex();dexEl.style.display='flex';}
+onTap(document.getElementById('openDex'),openDex);
+onTap(dexTabEnemyEl,()=>{dexTab='enemy';renderDex();});
+onTap(dexTabItemEl,()=>{dexTab='item';renderDex();});
+onTap(document.getElementById('dexClose'),()=>{dexEl.style.display='none';});
 const RECIPES=[
   {id:'pickaxe',name:'ピッケル',desc:'石とレンガを1回でこわせる',wood:3,stone:2},
+  {id:'pistol',name:'ピストル',desc:'ボタンを押すたびに1発ずつねらいうち',wood:2,stone:3},
   {id:'mg',name:'マシンガン',desc:'⚔️おしっぱなしで連射',wood:4,stone:8},
   {id:'rocket',name:'ロケットランチャー',desc:'ばくはつで敵もブロックもふっとばす',wood:6,stone:12},
   {id:'minigun',name:'ミニガン',desc:'回りだすと超連射',wood:8,stone:16}];
-const WNAME={sword:'剣',mg:'マシンガン',minigun:'ミニガン',rocket:'ロケットランチャー',pickaxe:'ピッケル'};
+const WNAME={sword:'剣',pistol:'ピストル',mg:'マシンガン',minigun:'ミニガン',rocket:'ロケットランチャー',pickaxe:'ピッケル'};
 function drawIcon(c,id){
   c.clearRect(0,0,16,16);
   const px=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h);};
   if(id==='sword'){for(let i=5;i<=14;i++){px(i,15-i,1,1,'#9fb6c1');px(i-1,15-i,1,1,'#5f7883');px(i,16-i,1,1,'#5f7883');}
     px(14,0,1,1,'#5f7883');for(let k=-2;k<=2;k++)px(4+k,11+k,1,1,'#4b6470');for(let i=1;i<=3;i++)px(i,15-i,1,1,'#7a5230');px(0,15,1,1,'#4b3520');}
   else if(id==='pickaxe'){px(2,2,12,2,'#8a8f94');px(1,4,2,2,'#6d7277');px(13,4,2,2,'#6d7277');px(3,1,10,1,'#aab0b5');for(let i=0;i<11;i++)px(7,4+i,2,1,i%3?'#7a5230':'#5c3d22');}
+  else if(id==='pistol'){px(8,2,2,6,'#333');px(7,4,4,1,'#555');px(6,7,6,4,'#4a4a4a');px(6,7,6,1,'#6a6a6a');px(6,10,3,5,'#7a5230');px(9,10,2,2,'#222');}
   else if(id==='mg'){px(7,0,2,8,'#2e2e2e');px(6,2,4,1,'#555');px(5,8,6,5,'#444');px(5,8,6,1,'#666');px(6,13,2,3,'#222');px(9,12,2,4,'#7a5230');}
   else if(id==='minigun'){for(const x of [4,7,10])px(x,0,2,9,'#333');px(3,3,10,2,'#777');px(3,9,10,4,'#555');px(3,9,10,1,'#888');px(7,13,3,3,'#7a5230');px(11,10,3,5,'#c9a227');}
   else if(id==='rocket'){px(5,1,6,13,'#5d7a3a');px(5,1,6,1,'#2c3a1c');px(6,2,4,1,'#222');px(5,5,6,1,'#4a6330');px(5,10,6,1,'#4a6330');px(7,14,2,2,'#333');px(10,8,2,4,'#7a5230');px(6,0,4,1,'#e53935');}
 }
 let weapon='sword',fireHeld=false,fireCd=0,spin=0;
 const wbar=document.getElementById('wbar'),flashEl=document.getElementById('flash');
-function ownedWeapons(){return ['sword',...['pickaxe','mg','minigun','rocket'].filter(w=>inv.own[w])];}
+function ownedWeapons(){return ['sword',...['pickaxe','pistol','mg','minigun','rocket'].filter(w=>inv.own[w])];}
 function onTap(el,fn){let last=0;const h=e=>{e.preventDefault();e.stopPropagation();const n=Date.now();if(n-last<350)return;last=n;fn();};
   el.addEventListener('touchstart',h,{passive:false});el.addEventListener('click',h);}
 function rebuildWbar(){
@@ -1272,7 +1466,7 @@ function selectWeapon(w){
 function cycleWeapon(){const l=ownedWeapons();selectWeapon(l[(l.indexOf(weapon)+1)%l.length]);}
 function attackDown(){
   if(dead||paused()) return;
-  if(weapon==='sword') primaryTouch(); else if(weapon==='pickaxe') pickAttack(); else if(weapon==='rocket') fireRocket(); else fireHeld=true;
+  if(weapon==='sword') primaryTouch(); else if(weapon==='pickaxe') pickAttack(); else if(weapon==='rocket') fireRocket(); else if(weapon==='pistol') firePistol(); else fireHeld=true;
 }
 function attackUp(){fireHeld=false;}
 function primaryTouch(){swordAttack();}
@@ -1308,7 +1502,10 @@ function fireRocket(){
   const d=fwd();
   rockets.push({x:cam[0]+d[0]*0.8,y:cam[1]+d[1]*0.8-0.1,z:cam[2]+d[2]*0.8,vx:d[0]*22,vy:d[1]*22,vz:d[2]*22,yaw,pitch,t:0});
 }
-function explode(x,y,z){
+function firePistol(){
+  if(fireCd>0||dead||paused()) return; fireCd=0.35; shoot(3);
+}
+function explode(x,y,z,byEnemy){
   booms.push({x,y,z,t:0});sfx('explode');
   const R=2.3;let changed=false;
   for(let yy=Math.floor(y-R);yy<=Math.floor(y+R);yy++)for(let zz=Math.floor(z-R);zz<=Math.floor(z+R);zz++)for(let xx=Math.floor(x-R);xx<=Math.floor(x+R);xx++){
@@ -1320,7 +1517,11 @@ function explode(x,y,z){
   for(const e of enemies){if(e.dying>0)continue;const dd=Math.hypot(e.x-x,e.y+e.h/2-y,e.z-z);
     if(dd<4.5)damageEnemy(e,Math.round(16*(1-dd/4.5))+3,12);}
   const pd=Math.hypot(P.x-x,P.y+0.9-y,P.z-z);
-  if(pd<3.5){const l=Math.hypot(P.x-x,P.z-z)||1;P.kx=(P.x-x)/l*9;P.kz=(P.z-z)/l*9;P.vy=Math.max(P.vy,7);}
+  if(byEnemy){
+    if(pd<3.5)hurtPlayer(Math.round(5*(1-pd/3.5))+2,x,z,true);
+  } else if(pd<3.5){
+    const l=Math.hypot(P.x-x,P.z-z)||1;P.kx=(P.x-x)/l*9;P.kz=(P.z-z)/l*9;P.vy=Math.max(P.vy,7);
+  }
   if(navigator.vibrate)try{navigator.vibrate(120);}catch(e){}
 }
 function updateWeapons(dt){
@@ -1332,10 +1533,14 @@ function updateWeapons(dt){
     for(let k=0;k<4&&!boom;k++){
       r.x+=r.vx*dt/4;r.y+=r.vy*dt/4;r.z+=r.vz*dt/4;
       if(solidAt(Math.floor(r.x),Math.floor(r.y),Math.floor(r.z))&&r.y<H)boom=true;
-      for(const e of enemies){if(e.dying>0)continue;if(Math.abs(r.x-e.x)<e.r+0.25&&Math.abs(r.z-e.z)<e.r+0.25&&r.y>e.y&&r.y<e.y+e.h){boom=true;break;}}
+      if(r.owner==='ghast'){
+        if(!dead&&Math.abs(r.x-P.x)<PR+0.3&&Math.abs(r.z-P.z)<PR+0.3&&r.y>P.y-0.3&&r.y<P.y+PH+0.3)boom=true;
+      } else {
+        for(const e of enemies){if(e.dying>0)continue;if(Math.abs(r.x-e.x)<e.r+0.25&&Math.abs(r.z-e.z)<e.r+0.25&&r.y>e.y&&r.y<e.y+e.h){boom=true;break;}}
+      }
     }
     if(r.t>3)boom=true;
-    if(boom){r.dead=true;explode(r.x,r.y,r.z);}
+    if(boom){r.dead=true;explode(r.x,r.y,r.z,r.owner==='ghast');}
   }
   rockets=rockets.filter(r=>!r.dead);
   for(const b of booms)b.t+=dt;
@@ -1385,7 +1590,7 @@ function updateTags(){
     if(sx<-60||sx>innerWidth+60||sy<-30||sy>innerHeight)continue;
     let t=tagPool[n];
     if(!t){t=document.createElement('div');t.className='etag';t.innerHTML='<span></span><b><i></i></b>';tagBox.appendChild(t);tagPool.push(t);}
-    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=e.type==='cow'?'うし':e.type==='mimic'?'ミミッカー':e.type==='zombie'?'ゾンビ':'エンティティゼロ';
+    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=e.type==='cow'?'うし':e.type==='mimic'?'ミミッカー':e.type==='zombie'?'ゾンビ':e.type==='sign'?'はま寿司のかんばん':e.type==='ghast'?'ガスト':'エンティティゼロ';
     n++;
   }
   for(let i=n;i<tagPool.length;i++)tagPool[i].style.display='none';
@@ -1405,7 +1610,7 @@ HOTBAR.forEach((id,i)=>{
   const c=document.createElement('canvas');c.width=c.height=16;
   c.getContext('2d').drawImage(atlas,BLOCKS[id].t[1]*16,0,16,16,0,0,16,16);
   d.appendChild(c);
-  if(!isTouch){const n=document.createElement('span');n.textContent=(i+1)%10;d.appendChild(n);}
+  if(!isTouch&&i<10){const n=document.createElement('span');n.textContent=(i+1)%10;d.appendChild(n);}
   const pick=e=>{e.preventDefault();e.stopPropagation();select(i);};
   d.addEventListener('touchstart',pick,{passive:false});
   d.addEventListener('mousedown',pick);
@@ -1444,7 +1649,7 @@ addEventListener('mousemove',e=>{
 });
 addEventListener('mouseup',()=>{
   attackUp();
-  if(drag&&drag.moved<6&&started){ if(drag.button===0){if(weapon==='sword')primary();else if(weapon==='pickaxe')pickAttack();else if(weapon==='rocket')fireRocket();else if(!paused())shoot(2);} else if(drag.button===2)placeBlock(); }
+  if(drag&&drag.moved<6&&started){ if(drag.button===0){if(weapon==='sword')primary();else if(weapon==='pickaxe')pickAttack();else if(weapon==='rocket')fireRocket();else if(weapon==='pistol')firePistol();else if(!paused())shoot(2);} else if(drag.button===2)placeBlock(); }
   drag=null;
 });
 
@@ -1800,7 +2005,7 @@ function onNet(m){
   if(!m||typeof m!=='object')return;
   if(m.t==='world'){
     if(typeof m.s==='number'&&m.s!==stage){stage=m.s;applyStageLook(stage);goalDone=false;portalLock=false;lastGoalTxt='';}
-    if(decodeWorld(m.w)){buildMesh();P.x=m.x+1;P.z=m.z;P.y=standAt(P.x,P.z,Math.floor(m.y));P.vx=P.vy=P.vz=0;portalLock=false;updateGoalHud();}
+    if(decodeWorld(m.w)){rescanDoors();buildMesh();P.x=m.x+1;P.z=m.z;P.y=standAt(P.x,P.z,Math.floor(m.y));P.vx=P.vy=P.vz=0;portalLock=false;updateGoalHud();}
     mpSay('つながった！ いっしょに遊べます');
     if(!started&&!dead)window.startGame();
     toast('🙌 ホストの世界に入った！');
@@ -1863,7 +2068,7 @@ codeIn.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')joi
 // ---------- game flow ----------
 const overlay=document.getElementById('overlay'),overEl=document.getElementById('over');
 function newRun(){
-  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];fireHeld=false;
+  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;signTimer=7;ghastTimer=12;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];fireHeld=false;
   const mb=STAGES[stage].mobs;if(mb.zero)spawnEnemy('zero');for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');updateHud();
 }
 function gameOver(){
@@ -1897,14 +2102,23 @@ function renderAppearSel(){
 }
 renderAppearSel();
 if(!/github\.io$|^localhost$|^127\./.test(location.hostname)&&location.protocol!=='file:')document.getElementById('mp').style.display='none';
-window.startGame=()=>{initAudio();if(net.role!=='guest'&&selStage!==stage)goStage(selStage);overlay.style.display='none';started=true;lockMouse();updateGoalHud();};
+window.startGame=()=>{initAudio();menuOpen=false;if(net.role!=='guest'&&selStage!==stage)goStage(selStage);overlay.style.display='none';started=true;lockMouse();updateGoalHud();};
+function openMenu(){
+  if(!started||dead||cooking||crafting||clearing) return;
+  menuOpen=true;resetTouch();for(const k in keys)keys[k]=false;
+  if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
+  selStage=stage;renderStageSel();renderAppearSel();
+  overlay.style.display='flex';
+}
+onTap(document.getElementById('btnMenu'),openMenu);
+addEventListener('keydown',e=>{if(e.code==='Escape'&&started&&!dead){if(menuOpen)window.startGame();else openMenu();}});
 onTap(document.getElementById('clearBtn'),()=>{document.getElementById('clear').style.display='none';clearing=false;goStage(0);lockMouse();});
 function again(e){if(e)e.preventDefault();initAudio();overEl.style.display='none';newRun();started=true;lockMouse();}
 const againBtn=document.getElementById('again');
 againBtn.addEventListener('click',again);againBtn.addEventListener('touchend',again,{passive:false});
 document.getElementById('reset').addEventListener('click',()=>{
   if(net.role==='guest'){mpSay('ゲストは世界を作り直せません',true);return;}
-  genStage(stage);ensureTable();buildMesh();newRun();save();goalDone=false;stageStats={kills:0,gems:0,chests:0};updateGoalHud();
+  genStage(stage);ensureTable();rescanDoors();buildMesh();newRun();save();goalDone=false;stageStats={kills:0,gems:0,chests:0};updateGoalHud();
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
 });
 addEventListener('resize',resize);
@@ -1912,7 +2126,7 @@ addEventListener('resize',resize);
 // ---------- start ----------
 applyStageLook(0);
 if(!load()) generate(20260922);
-ensureTable();
+ensureTable();rescanDoors();
 buildMesh();newRun();select(0);nameEl.style.opacity=0;rebuildWbar();
 
 const crossEl=document.getElementById('cross');
