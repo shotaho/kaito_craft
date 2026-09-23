@@ -216,7 +216,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.7.1</p>
+    <p id="ver">ver 1.7.2</p>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -2200,9 +2200,17 @@ function watchConn(conn){
   pc.addEventListener('iceconnectionstatechange',()=>{nlog('ICE '+pc.iceConnectionState);if(pc.iceConnectionState==='failed')pcStats(pc);});
   pc.addEventListener('connectionstatechange',()=>nlog('PC '+pc.connectionState));
 }
+// iPhoneは画面オフ・別アプリでページが止まり、通信サーバーとの接続が気づかないうちに切れる。
+// ホストは画面が戻ったら必ずつなぎ直す（同じIDなので部屋番号は変わらず、遊んでいる相手との通信も切れない）
+let hiddenAt=0;
 document.addEventListener('visibilitychange',()=>{
-  if(!net.peer)return;
-  nlog('画面 '+(document.visibilityState==='visible'?'もどった':'かくれた')+(document.visibilityState==='visible'?' サーバー'+(net.peer.disconnected?'切断中':'接続中'):''));
+  if(document.visibilityState==='hidden'){hiddenAt=performance.now();if(net.peer)nlog('画面 かくれた');return;}
+  const p=net.peer;if(!p)return;
+  const away=(performance.now()-hiddenAt)/1000;
+  nlog('画面 もどった（'+away.toFixed(0)+'秒）サーバー'+(p.disconnected?'切断中':'接続中'));
+  if(net.role!=='host'||p.destroyed)return;
+  if(p.disconnected){nlog('画面復帰 → つなぎ直し');try{p.reconnect();}catch(e){nlog('つなぎ直し失敗 '+(e&&e.message));}}
+  else if(away>3){nlog('画面復帰 → 念のためつなぎ直し');p.disconnect();}
 });
 function hostRoom(){
   if(net.busy||net.peer) return;
@@ -2210,19 +2218,30 @@ function hostRoom(){
   loadPeerJS(()=>{
     const tryOpen=(n)=>{
       const code=String(1000+Math.floor(Math.random()*9000));
-      const peer=new Peer(PEER_PREFIX+code);
-      peer.on('open',()=>{net.peer=peer;net.role='host';net.code=code;net.busy=false;roomHud();nlog('サーバー接続OK 部屋'+code);
+      const peer=new Peer(PEER_PREFIX+code);let retry=0,retryTimer=0;
+      peer.on('open',()=>{net.peer=peer;net.role='host';net.code=code;net.busy=false;retry=0;roomHud();nlog('サーバー接続OK 部屋'+code);
         mpSay('部屋番号 <b>'+code+'</b><br>相手の端末で「入る」にこの番号を入れてね。先に「あそぶ」で始めてもOK');});
       peer.on('connection',conn=>{
         nlog('ゲストから接続要求');watchConn(conn);
         if(net.conn&&net.conn!==conn){try{net.conn.close();}catch(e){}}
         setupConn(conn);});
-      peer.on('disconnected',()=>{nlog('サーバー切断→つなぎ直し');try{peer.reconnect();}catch(e){}});
+      peer.on('disconnected',()=>{
+        if(net.peer!==peer||peer.destroyed)return;
+        clearTimeout(retryTimer);
+        const d=retry===0?0.3:Math.min(10,retry*2);retry++;
+        nlog('サーバー切断 → '+d+'秒後につなぎ直し');
+        retryTimer=setTimeout(()=>{
+          if(net.peer!==peer||peer.destroyed||!peer.disconnected)return;
+          if(document.visibilityState==='hidden'){nlog('画面が戻ったらつなぎ直す');return;}
+          try{peer.reconnect();}catch(e){nlog('つなぎ直し失敗 '+(e&&e.message));}
+        },d*1000);
+      });
       peer.on('error',err=>{
         nlog('エラー H-'+err.type+(net.peer===peer?'（部屋を開いた後）':''));
+        // 部屋を開いた後は作り直さない。サーバーとの切断は disconnected でつなぎ直す
+        if(net.peer===peer){if(!/^(network|unavailable-id|socket-error|socket-closed|server-error)$/.test(err.type))toast('通信エラー：H-'+err.type);return;}
         if(err.type==='unavailable-id'&&n<5){try{peer.destroy();}catch(e){}tryOpen(n+1);return;}
-        if(!net.peer){mpFail('部屋を作れませんでした（コード H-'+err.type+'）');try{peer.destroy();}catch(e){}}
-        else toast('通信エラー：H-'+err.type);});
+        if(!net.peer){mpFail('部屋を作れませんでした（コード H-'+err.type+'）');try{peer.destroy();}catch(e){}}});
     };
     nlog('部屋を作る');tryOpen(0);
   });
