@@ -1313,7 +1313,6 @@ function breakBlock(){
   if(paused()) return;
   const r=raycast(6); if(!r) return;
   const [x,y,z]=r.hit,id=world[idx(x,y,z)];
-  if(id===10){toast('🛠️ 作業台は🧱ボタン（右クリック）で使えるよ');return;}
   if(id===13){toast('🌀 ポータルは中に入ると次のステージへ進むよ');return;}
   if((id===3||id===9)&&!inv.own.pickaxe){
     const key=x+','+y+','+z; if(mineKey!==key){mineKey=key;mineN=0;}
