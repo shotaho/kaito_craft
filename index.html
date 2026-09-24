@@ -57,6 +57,9 @@ body{background:#87ceeb;color:var(--ui-fg);font-family:"Hiragino Maru Gothic Pro
 #goal{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:14px;padding:5px 12px;border-radius:14px;pointer-events:none;white-space:nowrap;z-index:3}
 body.touch #goal{top:calc(84px + env(safe-area-inset-top,0px));font-size:12px}
 #goal.done{background:rgba(123,31,162,.8)}
+#goal.boss{background:rgba(183,28,28,.85)}
+#bossbar{display:none;position:fixed;left:50%;transform:translateX(-50%);width:min(70vw,340px);height:12px;background:rgba(0,0,0,.55);border:2px solid rgba(255,255,255,.8);border-radius:7px;overflow:hidden;pointer-events:none;z-index:3}
+#bossbar i{display:block;height:100%;width:100%;background:linear-gradient(#ff6f61,#d32f2f);transition:width .15s}
 #btnMenu{display:none;position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,.5);align-items:center;justify-content:center;z-index:4;cursor:pointer}
 body.touch #btnMenu{display:flex}
 #btnMenu:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
@@ -216,7 +219,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.8.0</p>
+    <p id="ver">ver 1.9.0</p>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -257,6 +260,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
   </div>
 </div>
 <div id="goal"></div>
+<div id="bossbar"><i></i></div>
 <div id="btnMenu" aria-label="メニューを開く" role="button">☰</div>
 <div id="over" class="overlay">
   <div class="card">
@@ -437,12 +441,12 @@ function generate(seed){
 }
 // ---------- ステージ ----------
 const STAGES=[
-  {name:'草原',icon:'🌳',sky:[0.529,0.808,0.922],fog:[22,62],mobs:{zero:4,zombie:4,mimic:2,cow:3},goal:{type:'kills',n:5,text:'敵をたおす'},spawn:[W/2+0.5,null,D/2+0.5]},
-  {name:'マグマの世界',icon:'🌋',sky:[0.36,0.09,0.06],fog:[14,46],mobs:{zero:2,zombie:5,mimic:2,cow:2,sign:2,ghast:1},goal:{type:'gems',n:3,text:'💎 宝石を見つけてこわす'},spawn:[24.5,null,24.5]},
-  {name:'空の島',icon:'🏝️',void:true,sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1,magai:2},goal:{type:'kills',n:8,text:'敵をたおす'},spawn:[24.5,null,24.5]},
-  {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},spawn:[20.5,5,12.5]},
-  {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0,wombat:1},goal:{type:'boss',n:1,roof:29,text:'屋上のウォンバットをたおす'},spawn:[24.5,4,20.5]},
-  {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},spawn:[8.5,null,24.5]}
+  {name:'草原',icon:'🌳',sky:[0.529,0.808,0.922],fog:[22,62],mobs:{zero:4,zombie:4,mimic:2,cow:3},goal:{type:'kills',n:5,text:'敵をたおす'},boss:{type:'saika',hp:40},spawn:[W/2+0.5,null,D/2+0.5]},
+  {name:'マグマの世界',icon:'🌋',sky:[0.36,0.09,0.06],fog:[14,46],mobs:{zero:2,zombie:5,mimic:2,cow:2,sign:2,ghast:1},goal:{type:'gems',n:3,text:'💎 宝石を見つけてこわす'},boss:{type:'ghast',name:'キングガスト',hp:45,base:1.8},spawn:[24.5,null,24.5]},
+  {name:'空の島',icon:'🏝️',void:true,sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1,magai:2},goal:{type:'kills',n:8,text:'敵をたおす'},boss:{type:'magai',name:'ボス・マガイヤス',hp:50,base:1.5,dmg:6},spawn:[24.5,null,24.5]},
+  {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},boss:{type:'mimic',name:'ボス・ミミッカー',hp:45,base:1.6,dmg:6},spawn:[20.5,5,12.5]},
+  {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},boss:{type:'wombat',hp:30,base:1.25,at:[26.5,29,27.5]},spawn:[24.5,4,20.5]},
+  {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},boss:{type:'sign',name:'ボス・はま寿司のかんばん',hp:50,base:1.8,dmg:6},spawn:[8.5,null,24.5]}
 ];
 let stage=0,goalDone=false,stageStats={kills:0,gems:0,chests:0,boss:0},skyCol=STAGES[0].sky,fogR=STAGES[0].fog;
 const PROG_KEY='blockcraft-progress-v1';
@@ -559,10 +563,10 @@ function standAt(x,z,yHint){
   for(let y=H-2;y>=1;y--)if(ok(y))return y;
   return H-1;
 }
-function randomStandY(x,z,h){
+function randomStandY(x,z,h,low){
   const X=Math.floor(x),Z=Math.floor(z),hh=Math.ceil(h),c=[];
   for(let y=1;y<H-hh;y++){if(!solidAt(X,y-1,Z)||isHaz(X,y,Z))continue;let ok=true;for(let k=0;k<hh;k++)if(solidAt(X,y+k,Z)){ok=false;break;}if(ok)c.push(y);}
-  return c.length?c[Math.floor(Math.random()*c.length)]:null;
+  return c.length?(low?c[0]:c[Math.floor(Math.random()*c.length)]):null;
 }
 function ensureTable(){
   for(let i=0;i<world.length;i++)if(world[i]===10)return;
@@ -582,7 +586,7 @@ let saveTimer=null;
 function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,800);}
 
 // ---------- textures ----------
-const atlas=document.createElement('canvas');atlas.width=1536;atlas.height=16;
+const atlas=document.createElement('canvas');atlas.width=1664;atlas.height=16;
 const ATLAS_TILES=atlas.width/16;
 const actx=atlas.getContext('2d');
 const TR=mulberry32(7);
@@ -767,6 +771,15 @@ paint(90,(x,y)=>{ // 顔
   return vary(WCREAM,10);});
 paint(91,()=>vary(WPINK,14)); // 頭の横・うしろ
 paint(92,(x)=>x%4===0?vary([66,112,30],10):vary([90,146,42],16)); // 緑のからだ
+// サイカットカー（草原のボス）
+const SAIY=[236,196,40];
+paint(95,()=>{const v=TR();return v<0.12?vary([250,216,78],10):v<0.22?vary([212,166,30],10):vary(SAIY,14);}); // 体
+paint(96,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5); // 目
+  if(d<3.4)return [18,18,22,255];if(d<4.6)return vary([176,180,186],10);if(d<5.8)return vary([116,120,128],10);if(d<6.6)return [62,64,70,255];return vary(SAIY,14);});
+paint(97,(x,y)=>{if(x<1||x>14||y<1||y>14)return [110,24,24,255]; // 口（ギザギザの歯）
+  const tri=Math.abs((x%6)-3);if(x>=2&&x<=13&&(y===5+tri||y===6+tri))return [16,12,12,255];return vary([196,42,42],14);});
+paint(98,(x,y)=>(x<1||x>14||y<1||y>14)?[110,24,24,255]:vary([190,40,40],14)); // 口の横
+paint(99,(x)=>x<3?vary([116,118,124],8):vary([172,174,180],14)); // 金属の足
 // 岩盤（いちばん下の、こわせない層）
 paint(94,()=>TR()<0.3?vary([38,38,42],10):vary([86,86,92],24));
 // 水晶
@@ -984,7 +997,24 @@ function wombatVerts(e,out){
   const f=e.atk>0?1-e.atk/WOMBAT_FUSE:0,k=0.4*(1+f*0.25+(f>0?Math.sin(f*40)*0.04:0));
   pushBox(out,[-k,0,-k],[k,2*k,k],T_WOMHEAD,part(e,[0,1.3,0],Math.sin(e.walk*0.5)*0.06));
 }
+const T_SAIKA=[95,95,95,95,95,95],T_SAIKA_EYE=[96,96,96,96,96,96],T_SAIKA_MOUTH=[98,98,98,98,97,98],T_SAIKA_LEG=[99,99,99,99,99,99];
+function saikaVerts(e,out){
+  const sw=Math.sin(e.walk)*0.45;
+  for(const [lx,lz,ph] of [[-0.25,-0.6,1],[0.25,-0.6,-1],[-0.25,0.6,-1],[0.25,0.6,1]])
+    pushBox(out,[-0.08,-1.35,-0.08],[0.08,0,0.08],T_SAIKA_LEG,part(e,[lx,1.35,lz],sw*ph));
+  // 口：ふだんは小さく、こうげきのときは大きくひらいて前につき出す
+  let m=1,lean=0;
+  if(e.atk>0){const t=1-e.atk/SAIKA_ATK;m=t<0.55?1+2.2*t/0.55:t<0.85?3.2:3.2-2.2*(t-0.85)/0.15;lean=t<0.55?0.12*t/0.55:t<0.85?-0.2:0;}
+  const body=part(e,[0,1.35,0],lean);
+  pushBox(out,[-0.45,0,-1.0],[0.45,0.9,1.0],T_SAIKA,body);
+  pushBox(out,[-0.4,0.9,-0.3],[0.4,1.35,0.55],T_SAIKA,body);
+  pushBox(out,[-0.48,0.42,-0.9],[-0.44,0.74,-0.58],T_SAIKA_EYE,body);
+  pushBox(out,[0.44,0.42,-0.9],[0.48,0.74,-0.58],T_SAIKA_EYE,body);
+  const mw=0.2*m,mh=0.16*m,md=0.14+0.2*(m-1);
+  pushBox(out,[-mw,0.2-mh*0.9,-1.0-md],[mw,0.2+mh*0.9,-0.98],T_SAIKA_MOUTH,body);
+}
 function enemyVerts(e,out){
+  if(e.type==='saika') return saikaVerts(e,out);
   if(e.type==='magai') return magaiVerts(e,out);
   if(e.type==='wombat') return wombatVerts(e,out);
   if(e.type==='cow') return cowVerts(e,out);
@@ -1093,28 +1123,30 @@ const ENEMY_STATS={
   sign:{r:0.32,h:2.05,hp:12,spd:2.3,dmg:4},
   ghast:{r:0.85,h:1.6,hp:18,spd:3,dmg:0},
   magai:{r:0.6,h:3.0,hp:16,spd:2.0,dmg:4},
-  wombat:{r:0.42,h:2.1,hp:20,spd:2.2,dmg:0}
+  wombat:{r:0.42,h:2.1,hp:20,spd:2.2,dmg:0},
+  saika:{r:0.7,h:2.75,hp:40,spd:2.4,dmg:6}
 };
-const WOMBAT_HOME=[26.5,29,27.5];
 function enemyDims(type){return ENEMY_STATS[type]||ENEMY_STATS.zero;}
 let nextEnemyId=1;
-function spawnEnemy(type,at){
-  type=type||'zero';
-  const {r,h,hp,spd,dmg}=enemyDims(type);
+function spawnEnemy(type,at,opt){
+  type=type||'zero';opt=opt||{};
+  const st=enemyDims(type),base=opt.base||1,r=st.r*base,h=st.h*base,hp=opt.hp||st.hp,spd=st.spd,dmg=opt.dmg||st.dmg;
   const place=(x,y,z)=>{
-    enemies.push({id:nextEnemyId++,type,r,h,x,y,z,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:Math.random()*6.28,hp,maxhp:hp,spd,dmg,target:null,fleeX:0,fleeZ:0,walk:0,atk:0,cd:1,hurt:0,dying:0,scale:1,struck:false,
-      think:0,moving:false,dirYaw:0,flee:0,seed:Math.random()*6});
-    seeEnemy(type);
+    const e={id:nextEnemyId++,type,r,h,x,y,z,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:Math.random()*6.28,hp,maxhp:hp,spd,dmg,target:null,fleeX:0,fleeZ:0,walk:0,atk:0,cd:1,hurt:0,dying:0,scale:base,base,boss:!!opt.boss,struck:false,
+      think:0,moving:false,dirYaw:0,flee:0,seed:Math.random()*6};
+    enemies.push(e);seeEnemy(type);return e;
   };
-  if(at){place(at[0],standAt(at[0],at[2],at[1]),at[2]);return;}
-  for(let tries=0;tries<30;tries++){
+  if(at)return place(at[0],standAt(at[0],at[2],at[1]),at[2]);
+  for(let tries=0;tries<60;tries++){
     const x=2.5+Math.floor(Math.random()*(W-4)),z=2.5+Math.floor(Math.random()*(D-4));
-    if(Math.hypot(x-P.x,z-P.z)<(type==='cow'?7:14)) continue;
-    const y=randomStandY(x,z,h);if(y==null) continue;
+    if(Math.hypot(x-P.x,z-P.z)<(type==='cow'?7:tries<40?14:6)) continue;
+    const y=randomStandY(x,z,h,opt.low);if(y==null) continue;
     if(y>=H-2||hitsBox(x,y,z,r,h)) continue;
-    place(x,y,z);
-    return;
+    // 空の島のボスは、まわりにも床がある場所（島のまんなか寄り）に出す
+    if(opt.boss&&voidBelow&&[[2.5,0],[-2.5,0],[0,2.5],[0,-2.5]].some(o=>!solidAt(Math.floor(x+o[0]),y-1,Math.floor(z+o[1])))) continue;
+    return place(x,y,z);
   }
+  return null;
 }
 function hurtPlayer(dmg,fromX,fromZ,noKnock){
   if(dead||paused()||P.inv>0) return;
@@ -1144,11 +1176,12 @@ function damageEnemy(e,dmg,kb,src,how,localFx){
   if(localFx)sfx('enemyHit',{type:e.type});
   e.hp-=dmg;e.hurt=0.25;
   const dx=e.x-sx,dz=e.z-sz,l=Math.hypot(dx,dz)||1;
-  e.kx=dx/l*kb;e.kz=dz/l*kb;e.vy=Math.max(e.vy,kb>8?6.5:4.5);e.atk=0;
+  const kbm=e.boss?0.3:1;
+  e.kx=dx/l*kb*kbm;e.kz=dz/l*kb*kbm;e.vy=Math.max(e.vy,(kb>8?6.5:4.5)*(e.boss?0.5:1));if(!e.boss)e.atk=0;
   if(e.type==='cow'){e.flee=2.5;e.fleeX=sx;e.fleeZ=sz;}
   if(e.hp<=0){
     e.dying=0.5;if(localFx)sfx('enemyDie',{type:e.type});
-    if(e.type==='wombat'){stageStats.boss++;if(localFx)toast('🎉 ウォンバットをたおした！');}
+    if(e.boss)bossDown(localFx);
     if(e.type==='cow'){
       if(byPlayer){if(localFx){pendingCook=0.7;toast('🥩 肉と 🥛 ミルクを手に入れた！');}}
       else {dropItems(e.x,e.y+0.6,e.z);if(localFx&&Math.hypot(e.x-P.x,e.z-P.z)<24)toast('ミミッカーが牛をおそった！ 肉とミルクが落ちたよ');}
@@ -1198,7 +1231,7 @@ function updateMimic(e,dt){
     tg=best;e.target=best&&best.key?best.key:best;
   }
   const tx=tg?tg.x:e.x,tz=tg?tg.z:e.z,ty=tg?tg.y:e.y,tr=tg?tg.r:0;
-  const dx=tx-e.x,dz=tz-e.z,dist=Math.hypot(dx,dz)||0.001,reach=0.85+tr;
+  const b=e.base||1,dx=tx-e.x,dz=tz-e.z,dist=Math.hypot(dx,dz)||0.001,reach=0.85*b+tr;
   let sp=0;
   if(tg){e.dirYaw=Math.atan2(-dx,-dz);if(dist>reach&&e.atk<=0)sp=2.9;}
   else{if(Math.random()<dt*0.3)e.dirYaw=Math.random()*6.28;sp=0.8;}
@@ -1212,9 +1245,9 @@ function updateMimic(e,dt){
   if(e.atk>0){
     e.atk-=dt;
     if(e.atk<=0.2&&!e.struck){e.struck=true;
-      if(tg&&dist<reach+0.9&&Math.abs(ty-e.y)<2){ if(tg.key)hurtTarget(tg,4,e.x,e.z); else damageEnemy(tg,4,5,e); }}
+      if(tg&&dist<reach+0.9&&Math.abs(ty-e.y)<2*b){ if(tg.key)hurtTarget(tg,e.boss?e.dmg:4,e.x,e.z); else damageEnemy(tg,4,5,e); }}
     if(e.atk<0)e.atk=0;
-  } else if(tg&&dist<reach&&Math.abs(ty-e.y)<2&&e.cd<=0){e.atk=0.45;e.cd=1.1;e.struck=false;}
+  } else if(tg&&dist<reach&&Math.abs(ty-e.y)<2*b&&e.cd<=0){e.atk=0.45;e.cd=1.1;e.struck=false;}
 }
 function updateCow(e,dt){
   let sp=0;
@@ -1250,11 +1283,14 @@ function updateGhast(e,dt){
   if(!hitsBox(e.x,e.y,nz,e.r,e.h))e.z=nz;
   if(!hitsBox(e.x,ny,e.z,e.r,e.h))e.y=ny;
   e.walk+=dt;e.hurt-=dt;e.cd-=dt;
-  if(tg&&e.cd<=0&&dist<22){e.cd=2.2+Math.random()*1.3;fireGhastball(e,tg);}
+  if(tg&&e.cd<=0&&dist<(e.boss?28:22)){
+    if(e.boss){e.cd=1.8+Math.random()*0.8;for(const side of [-2.2,0,2.2])fireGhastball(e,tg,side);}
+    else{e.cd=2.2+Math.random()*1.3;fireGhastball(e,tg,0);}}
 }
-function fireGhastball(e,tg){
-  const dx=tg.x-e.x,dy=(tg.y+0.9)-e.y,dz=tg.z-e.z,l=Math.hypot(dx,dy,dz)||1,spd=10;
-  rockets.push({x:e.x,y:e.y,z:e.z,vx:dx/l*spd,vy:dy/l*spd,vz:dz/l*spd,yaw:e.yaw,pitch:0,t:0,owner:'ghast'});
+function fireGhastball(e,tg,side){
+  const hx=tg.x-e.x,hz=tg.z-e.z,hl=Math.hypot(hx,hz)||1,ox=-hz/hl*side,oz=hx/hl*side;
+  const y0=e.y+e.h*0.45,dx=tg.x+ox-e.x,dy=(tg.y+0.9)-y0,dz=tg.z+oz-e.z,l=Math.hypot(dx,dy,dz)||1,spd=10;
+  rockets.push({x:e.x,y:y0,z:e.z,vx:dx/l*spd,vy:dy/l*spd,vz:dz/l*spd,yaw:e.yaw,pitch:0,t:0,owner:'ghast'});
   sfx('ghastFire',{});
 }
 function steer(e,dt,sp,turnRate){
@@ -1267,29 +1303,33 @@ function updateMagai(e,dt){
   const tg=nearestPlayer(e);
   const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyP=tg?tg.y-e.y:99;
   let sp=0;
-  if(tg&&dist<30){e.dirYaw=Math.atan2(-dx,-dz);if(e.atk<=0&&dist>1.6)sp=e.spd;}
+  const b=e.base||1;
+  if(tg&&dist<30){e.dirYaw=Math.atan2(-dx,-dz);if(e.atk<=0&&dist>1.6*b)sp=e.spd;}
   steer(e,dt,sp,6);
+  // 空の島のボスは島のふちで止まる（自分から落ちない）
+  if(e.boss&&voidBelow&&e.ground&&sp>0){const fx=e.x-Math.sin(e.yaw)*(e.r+0.4),fz=e.z-Math.cos(e.yaw)*(e.r+0.4);
+    if(!solidAt(Math.floor(fx),Math.floor(e.y)-1,Math.floor(fz))){e.vx=e.kx;e.vz=e.kz;sp=0;}}
   const blocked=moveBody(e,dt,e.r,e.h);
   if(blocked&&e.ground&&sp>0)e.vy=8.2;
   e.walk+=dt*sp*2.5;e.hurt-=dt;e.cd-=dt;
   if(e.atk>0){
     e.atk-=dt;
-    if(e.atk<=0.3&&!e.struck){e.struck=true;if(tg&&dist<2.5&&dyP>-1&&dyP<2.4)hurtTarget(tg,e.dmg,e.x,e.z);}
+    if(e.atk<=0.3&&!e.struck){e.struck=true;if(tg&&dist<2.5*b&&dyP>-b&&dyP<2.4*b)hurtTarget(tg,e.dmg,e.x,e.z);}
     if(e.atk<0)e.atk=0;
-  } else if(tg&&dist<2.1&&dyP>-1&&dyP<2.4&&e.cd<=0){e.atk=MAGAI_ATK;e.cd=1.8;e.struck=false;}
+  } else if(tg&&dist<2.1*b&&dyP>-b&&dyP<2.4*b&&e.cd<=0){e.atk=MAGAI_ATK;e.cd=1.8;e.struck=false;}
 }
 function updateWombat(e,dt){
   const tg=nearestPlayer(e);
   const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001;
-  const sees=!!tg&&dist<18&&Math.abs(tg.y-e.y)<3;
+  const b=e.base||1,sees=!!tg&&dist<18&&Math.abs(tg.y-e.y)<3;
   let sp=0;
   if(e.atk>0){
     e.dirYaw=Math.atan2(-dx,-dz);e.atk-=dt;
-    if(!sees||dist>4.5){e.atk=0;e.cd=0.8;}
+    if(!sees||dist>4.5*b){e.atk=0;e.cd=0.8;}
     else if(e.atk<=0){e.atk=0;e.cd=2.5;wombatBlast(e);}
   } else if(sees){
     e.dirYaw=Math.atan2(-dx,-dz);if(dist>1.6)sp=e.spd;
-    if(dist<2.3&&e.cd<=0){e.atk=WOMBAT_FUSE;sfx('wombatFuse');}
+    if(dist<2.3*b&&e.cd<=0){e.atk=WOMBAT_FUSE;sfx('wombatFuse');}
   } else {
     e.think-=dt;
     if(e.think<=0){e.think=2+Math.random()*2;e.dirYaw=Math.random()*Math.PI*2;e.moving=Math.random()<0.6;}
@@ -1304,11 +1344,32 @@ function updateWombat(e,dt){
   moveBody(e,dt,e.r,e.h);
   e.walk+=dt*sp*3;e.hurt-=dt;e.cd-=dt;
 }
+// サイカットカー：近づくと口を大きくひらき、とびかかって食べようとする
+const SAIKA_ATK=1.1;
+function updateSaika(e,dt){
+  const b=e.base||1,tg=nearestPlayer(e);
+  const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
+  let sp=0;
+  if(e.atk>0){
+    const t=1-e.atk/SAIKA_ATK;
+    if(tg&&t<0.55)e.dirYaw=Math.atan2(-dx,-dz);
+    if(t>0.55&&t<0.85)sp=e.spd*3.2;
+    if(t>0.6&&!e.struck&&tg&&dist<2.6*b&&Math.abs(dyT)<2*b){e.struck=true;hurtTarget(tg,e.dmg,e.x,e.z);if(tg.key==='P')toast('パクッ！ 食べられそう！');}
+    e.atk-=dt;if(e.atk<=0){e.atk=0;e.cd=1.4;}
+  } else if(tg&&dist<30){
+    e.dirYaw=Math.atan2(-dx,-dz);if(dist>1.8*b)sp=e.spd;
+    if(dist<4.2*b&&Math.abs(dyT)<2*b&&e.cd<=0){e.atk=SAIKA_ATK;e.struck=false;}
+  }
+  steer(e,dt,sp,5);
+  const blocked=moveBody(e,dt,e.r,e.h);
+  if(blocked&&e.ground&&sp>0)e.vy=8.2;
+  e.walk+=dt*Math.min(sp,e.spd)*2.4;e.hurt-=dt;e.cd-=dt;
+}
 function wombatBlast(e){
-  const cx=e.x,cy=e.y+1,cz=e.z;
+  const b=e.base||1,R=3.5*b,cx=e.x,cy=e.y+b,cz=e.z;
   booms.push({x:cx,y:cy,z:cz,t:0});sfx('explode');netBoom(cx,cy,cz);
   for(const t of playerTargets){const pd=Math.hypot(t.x-cx,t.y+0.9-cy,t.z-cz);
-    if(pd<3.5)hurtTarget(t,Math.round(6*(1-pd/3.5))+2,cx,cz,true);}
+    if(pd<R)hurtTarget(t,Math.round(6*(1-pd/R))+(e.boss?4:2),cx,cz,true);}
   if(navigator.vibrate)try{navigator.vibrate(120);}catch(err){}
 }
 function updateEnemies(dt){
@@ -1326,6 +1387,8 @@ function updateEnemies(dt){
   }
   refreshTargets();
   if(net.connected&&!mpMonsters){if(enemies.length)enemies=[];if(items.length)items=[];return;}
+  if(bossPhase===1&&stageStats.boss===0&&!enemies.some(e=>e.boss&&e.dying<=0)){bossCheckT-=dt;if(bossCheckT<=0){bossCheckT=1;spawnBoss();}}
+  if(bossPhase===0){
   spawnTimer-=dt;cowTimer-=dt;
   const aliveZ=enemies.filter(e=>e.dying<=0&&e.type==='zero').length;
   const aliveC=enemies.filter(e=>e.dying<=0&&e.type==='cow').length;
@@ -1341,8 +1404,10 @@ function updateEnemies(dt){
   if(ghastTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='ghast').length<(STAGES[stage].mobs.ghast||0)){spawnEnemy('ghast');ghastTimer=24;}
   magaiTimer-=dt;
   if(magaiTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='magai').length<(STAGES[stage].mobs.magai||0)){spawnEnemy('magai');magaiTimer=18;}
+  }
   for(const e of enemies){
-    if(e.dying>0){e.dying-=dt;e.scale=Math.max(0.01,e.dying/0.5);continue;}
+    if(e.dying>0){e.dying-=dt;e.scale=Math.max(0.01,e.dying/0.5)*(e.base||1);continue;}
+    if(e.boss&&e.y<-20){e.dying=0.5;bossDown(true,true);continue;}
     if(e.type!=='cow'){e.nearCd=(e.nearCd||0)-dt;const nd=Math.hypot(P.x-e.x,P.z-e.z);
       if(nd<10&&e.nearCd<=0){e.nearCd=2.5+Math.random();sfx('enemyNear',{type:e.type,dist:nd,volume:1-nd/10});}}
     if(e.type==='cow'){updateCow(e,dt);if(e.y<-20)e.dying=0.01;continue;}
@@ -1350,23 +1415,24 @@ function updateEnemies(dt){
     if(e.type==='ghast'){updateGhast(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='magai'){updateMagai(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='wombat'){updateWombat(e,dt);continue;}
+    if(e.type==='saika'){updateSaika(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     const tg=nearestPlayer(e);
     const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
     if(tg)e.yaw=Math.atan2(-dx,-dz);
-    const chase=tg&&dist<30&&dist>1.2&&e.atk<=0?1:0;
+    const b=e.base||1,chase=tg&&dist<30&&dist>1.2*b&&e.atk<=0?1:0;
     const sp=e.spd;
     e.vx=dx/dist*sp*chase+e.kx;e.vz=dz/dist*sp*chase+e.kz;
     const damp=Math.min(1,5*dt);e.kx-=e.kx*damp;e.kz-=e.kz*damp;
     e.vy-=26*dt;if(e.vy<-30)e.vy=-30;
-    const blocked=moveBody(e,dt,0.3,1.8);
+    const blocked=moveBody(e,dt,e.r,e.h);
     if(blocked&&e.ground&&chase)e.vy=8.2;
     e.walk+=dt*sp*chase*3;
     e.hurt-=dt;e.cd-=dt;
     if(e.atk>0){
       e.atk-=dt;
-      if(e.atk<=0.15&&!e.struck){e.struck=true;if(tg&&dist<2.2&&Math.abs(dyT)<1.6)hurtTarget(tg,e.dmg,e.x,e.z);}
+      if(e.atk<=0.15&&!e.struck){e.struck=true;if(tg&&dist<2.2*b&&Math.abs(dyT)<1.6*b)hurtTarget(tg,e.dmg,e.x,e.z);}
       if(e.atk<0)e.atk=0;
-    } else if(tg&&dist<1.8&&Math.abs(dyT)<1.6&&e.cd<=0){e.atk=0.55;e.cd=e.type==='zombie'?1.6:1.3;e.struck=false;}
+    } else if(tg&&dist<1.8*b&&Math.abs(dyT)<1.6*b&&e.cd<=0){e.atk=0.55;e.cd=e.type==='zombie'?1.6:1.3;e.struck=false;}
     if(e.y<-20)e.dying=0.01;
   }
   for(let i=0;i<enemies.length;i++)for(let j=i+1;j<enemies.length;j++){
@@ -1404,28 +1470,49 @@ function checkCells(dt){
   if(portal&&!portalLock){portalLock=true;enterPortal();}
 }
 function goalTarget(){const g=STAGES[stage].goal;return g.type==='reach'?1:g.n;}
-const bossOff=()=>net.connected&&!(net.role==='guest'?net.hostMonsters:mpMonsters);
 function goalProgress(){const g=STAGES[stage].goal;
   if(g.type==='kills')return stageStats.kills;if(g.type==='gems')return stageStats.gems;if(g.type==='chests')return stageStats.chests;
-  if(g.type==='boss'&&!bossOff())return stageStats.boss;
-  return (P.y>=(g.roof||g.n)-0.1&&P.ground)?1:0;}
+  return (P.y>=g.n-0.1&&P.ground)?1:0;}
+// ---- ボス戦：ステージのゴールを達成すると、ほかの敵が消えてボスがあらわれる。ボスをたおすとクリア ----
+let bossPhase=0,bossCheckT=0; // 0:ふつう 1:ボス戦中 2:ボスをたおした
+const bossName=()=>{const bd=STAGES[stage].boss;return bd.name||ENEMY_NAME[bd.type];};
+function spawnBoss(){
+  const bd=STAGES[stage].boss;
+  return spawnEnemy(bd.type,bd.at,{boss:true,base:bd.base,hp:bd.hp,dmg:bd.dmg,low:true});
+}
+function startBoss(){
+  bossPhase=1;bossCheckT=0;
+  for(const e of enemies)if(e.dying<=0)e.dying=0.5; // ほかの敵はぽんっと消える
+  spawnBoss();
+  toast('👑 ボス戦！ '+bossName()+'があらわれた！');
+}
+function bossDown(localFx,fell){
+  stageStats.boss++;
+  if(localFx)toast(fell?'👑 '+bossName()+'は落ちていった！':'👑 '+bossName()+'をたおした！');
+}
+function finishStage(){
+  goalDone=true;bossPhase=2;
+  progress.unlocked=Math.max(progress.unlocked,Math.min(stage+1,STAGES.length-1));saveProgress();
+  if(stage===STAGES.length-1){gameClear();}
+  else{spawnPortal();toast('🎉 ステージクリア！ ポータル🌀に入ろう');}
+}
 function checkGoal(){
-  if(!goalDone&&goalProgress()>=goalTarget()){
-    goalDone=true;
-    progress.unlocked=Math.max(progress.unlocked,Math.min(stage+1,STAGES.length-1));saveProgress();
-    if(stage===STAGES.length-1){gameClear();}
-    else{spawnPortal();toast('🎉 ステージクリア！ ポータル🌀に入ろう');}
+  if(!goalDone){
+    if(bossPhase===0&&goalProgress()>=goalTarget()){
+      if(net.connected&&!mpMonsters)finishStage(); // 2人プレイでモンスターなしのときはボスもなし
+      else startBoss();
+    } else if(bossPhase===1&&stageStats.boss>0)finishStage();
   }
   updateGoalHud();
 }
 function updateGoalHud(){
   const st=STAGES[stage],g=st.goal;let t;
   if(goalDone)t=st.icon+' クリア！ 🌀ポータルに入ろう';
-  else if(g.type==='reach'||g.type==='boss'){const roof=g.roof||g.n,f=Math.max(1,Math.min(6,Math.floor((P.y-3)/5)+1));
-    const txt=g.type==='boss'&&bossOff()?'屋上にたどり着く':g.text;
-    t=st.icon+' '+txt+'（今 '+(P.y>=roof-0.1?'屋上':f+'階')+'）';}
+  else if(bossPhase===1)t='👑 ボス戦！ '+bossName()+'をたおせ';
+  else if(g.type==='reach'){const f=Math.max(1,Math.min(6,Math.floor((P.y-3)/5)+1));
+    t=st.icon+' '+g.text+'（今 '+(P.y>=g.n-0.1?'屋上':f+'階')+'）';}
   else t=st.icon+' '+g.text+' '+Math.min(goalProgress(),g.n)+'/'+g.n;
-  if(t!==lastGoalTxt){lastGoalTxt=t;goalEl.textContent=t;goalEl.classList.toggle('done',goalDone);}
+  if(t!==lastGoalTxt){lastGoalTxt=t;goalEl.textContent=t;goalEl.classList.toggle('done',goalDone);goalEl.classList.toggle('boss',bossPhase===1&&!goalDone);}
 }
 function spawnPortal(){
   const px=Math.floor(P.x-Math.sin(yaw)*3),pz=Math.floor(P.z-Math.cos(yaw)*3),py=Math.floor(P.y);
@@ -1440,7 +1527,7 @@ function enterPortal(){
 }
 function goStage(n){
   n=Math.max(0,Math.min(STAGES.length-1,n));
-  stage=n;selStage=n;goalDone=false;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
+  stage=n;selStage=n;goalDone=false;bossPhase=0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
   progress.unlocked=Math.max(progress.unlocked,n);saveProgress();
   applyStageLook(n);
   if(n===0){if(!load())generate(20260922);addBedrock(0);}else genStage(n);
@@ -1604,7 +1691,8 @@ const DEX_ENEMIES=[
   {id:'sign',name:'はま寿司のかんばん',desc:'マグマの世界に現れる。看板を振り回して攻撃し、当たるとふっとばされる。',face:85},
   {id:'ghast',name:'ガスト',desc:'マグマの世界を飛び回り、はなれた場所から火の玉を吐いてくる。',face:82},
   {id:'magai',name:'マガイヤス',desc:'空の島に現れる。長い首をしならせて頭突きしてくる。',face:89},
-  {id:'wombat',name:'ウォンバット',desc:'マンションの屋上にすむボス。近づくと爆発する。たおすと次のステージへ進める。',face:90}
+  {id:'wombat',name:'ウォンバット',desc:'マンションのボス。屋上で待ちかまえていて、近づくと爆発する。',face:90},
+  {id:'saika',name:'サイカットカー',desc:'草原のボス。口を大きくひらいて、プレイヤーを食べようとする。',face:96}
 ];
 const ENEMY_NAME=Object.fromEntries(DEX_ENEMIES.map(d=>[d.id,d.name]));
 const DEX_ITEMS=[
@@ -1823,7 +1911,11 @@ onTap(document.getElementById('craftClose'),()=>{craftEl.style.display='none';cr
 const hpFill=document.getElementById('hpfill'),killsEl=document.getElementById('kills');
 function updateHud(){hpFill.style.width=(P.hp/MAXHP*100)+'%';hpFill.classList.toggle('low',P.hp<=6);killsEl.textContent='⚔️ '+kills;document.getElementById('cscore').textContent='🍳 '+cookTotal;document.getElementById('mat').textContent='🪵'+inv.wood+' 🪨'+inv.stone;}
 const tagBox=document.getElementById('tags'),tagPool=[];
+const bossBarEl=document.getElementById('bossbar'),bossFillEl=bossBarEl.firstChild;
 function updateTags(){
+  const bo=started&&bossPhase===1?enemies.find(e=>e.boss&&e.dying<=0):null;
+  if(bo){bossBarEl.style.display='block';bossBarEl.style.top=(goalEl.getBoundingClientRect().bottom+5)+'px';bossFillEl.style.width=Math.max(0,bo.hp/bo.maxhp*100)+'%';}
+  else bossBarEl.style.display='none';
   let n=0;
   if(lastM&&started) for(const e of enemies){
     if(e.dying>0)continue;
@@ -1835,7 +1927,7 @@ function updateTags(){
     if(sx<-60||sx>innerWidth+60||sy<-30||sy>innerHeight)continue;
     let t=tagPool[n];
     if(!t){t=document.createElement('div');t.className='etag';t.innerHTML='<span></span><b><i></i></b>';tagBox.appendChild(t);tagPool.push(t);}
-    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=ENEMY_NAME[e.type]||ENEMY_NAME.zero;
+    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=e.boss?'👑 '+bossName():(ENEMY_NAME[e.type]||ENEMY_NAME.zero);
     n++;
   }
   for(let i=n;i<tagPool.length;i++)tagPool[i].style.display='none';
@@ -2346,7 +2438,7 @@ function onNetClose(){
 function onNet(m){
   if(!m||typeof m!=='object')return;
   if(m.t==='world'){
-    if(typeof m.s==='number'&&m.s!==stage){stage=m.s;applyStageLook(stage);goalDone=false;portalLock=false;lastGoalTxt='';}
+    if(typeof m.s==='number'&&m.s!==stage){stage=m.s;applyStageLook(stage);goalDone=false;bossPhase=0;portalLock=false;lastGoalTxt='';}
     if(decodeWorld(m.w)){rescanDoors();buildMesh();P.x=m.x+1;P.z=m.z;P.y=standAt(P.x,P.z,Math.floor(m.y));P.vx=P.vy=P.vz=0;portalLock=false;updateGoalHud();}
     mpSay('つながった！ いっしょに遊べます');
     if(!started&&!dead)window.startGame();
@@ -2375,18 +2467,18 @@ function onNet(m){
     if(net.role==='guest')hurtPlayer(m.dmg,m.x,m.z,!!m.nk);
   } else if(m.t==='goal'){
     if(net.role!=='guest')return;
-    stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;net.hostMonsters=!!m.mm;updateGoalHud();
+    stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;bossPhase=m.p|0;net.hostMonsters=!!m.mm;updateGoalHud();
   } else if(m.t==='portal'){
     if(net.role==='host'&&goalDone)goStage(stage+1);
   } else if(m.t==='mobs'){
     if(net.role!=='guest'||!Array.isArray(m.e))return;
     const seen=new Set();
     for(const a of m.e){
-      const [id,type,x,y,z,eyaw,hp,maxhp,walk,atk,dying,hurt,scale]=a;
+      const [id,type,x,y,z,eyaw,hp,maxhp,walk,atk,dying,hurt,scale,base,boss]=a;
       seen.add(id);
       let e=enemies.find(en=>en.id===id);
-      if(!e){const dims=enemyDims(type);e={id,type,x,y,z,yaw:eyaw,r:dims.r,h:dims.h,kx:0,kz:0,seed:(id*2.39)%6.28,moving:false};enemies.push(e);}
-      e.type=type;e.tx=x;e.ty=y;e.tz=z;e.tyaw=eyaw;e.hp=hp;e.maxhp=maxhp;e.walk=walk;e.atk=atk;e.dying=dying;e.hurt=hurt;e.scale=scale;
+      if(!e){const dims=enemyDims(type),b=base||1;e={id,type,x,y,z,yaw:eyaw,r:dims.r*b,h:dims.h*b,kx:0,kz:0,seed:(id*2.39)%6.28,moving:false};enemies.push(e);}
+      e.base=base||1;e.boss=!!boss;e.type=type;e.tx=x;e.ty=y;e.tz=z;e.tyaw=eyaw;e.hp=hp;e.maxhp=maxhp;e.walk=walk;e.atk=atk;e.dying=dying;e.hurt=hurt;e.scale=scale;
     }
     enemies=enemies.filter(en=>seen.has(en.id));
     mirrorBalls=Array.isArray(m.f)?m.f.map(a=>({x:a[0],y:a[1],z:a[2],vx:a[3],vy:a[4],vz:a[5]})):[];
@@ -2412,14 +2504,14 @@ function netTick(dt){
   if(net.role==='host'&&mpMonsters){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
-      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1]),
+      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:0]),
         f:rockets.filter(r=>r.owner==='ghast').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2)])});
     }
   }
   if(net.role==='host'){
     net.goalT-=dt;
-    if(net.goalT<=0){net.goalT=0.5;const g=JSON.stringify([stageStats,goalDone,mpMonsters]);
-      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,mm:mpMonsters?1:0});}}
+    if(net.goalT<=0){net.goalT=0.5;const g=JSON.stringify([stageStats,goalDone,mpMonsters,bossPhase]);
+      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,p:bossPhase,mm:mpMonsters?1:0});}}
   }
 }
 const APPEARANCES=[
@@ -2468,8 +2560,9 @@ codeIn.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')joi
 const overlay=document.getElementById('overlay'),overEl=document.getElementById('over');
 function newRun(){
   P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;signTimer=7;ghastTimer=12;magaiTimer=6;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];mirrorBalls=[];tracers=[];fireHeld=false;
-  const mb=STAGES[stage].mobs;if(mb.zero)spawnEnemy('zero');for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');
-  if(mb.wombat&&!goalDone)spawnEnemy('wombat',WOMBAT_HOME);
+  const mb=STAGES[stage].mobs;
+  if(bossPhase===1){if(stageStats.boss===0)spawnBoss();}
+  else if(bossPhase===0){if(mb.zero)spawnEnemy('zero');for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');}
   updateHud();
 }
 function gameOver(cause){
@@ -2522,7 +2615,7 @@ const againBtn=document.getElementById('again');
 againBtn.addEventListener('click',again);againBtn.addEventListener('touchend',again,{passive:false});
 document.getElementById('reset').addEventListener('click',()=>{
   if(net.role==='guest'){mpSay('ゲストは世界を作り直せません',true);return;}
-  goalDone=false;stageStats={kills:0,gems:0,chests:0,boss:0};
+  goalDone=false;bossPhase=0;stageStats={kills:0,gems:0,chests:0,boss:0};
   genStage(stage);ensureTable();rescanDoors();buildMesh();newRun();save();updateGoalHud();
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
 });
