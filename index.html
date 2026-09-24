@@ -46,6 +46,8 @@ body{background:#87ceeb;color:var(--ui-fg);font-family:"Hiragino Maru Gothic Pro
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--overlay);z-index:10;padding:24px}
 .card{max-width:420px;max-height:100%;overflow:auto;background:var(--ui-bg);border:3px solid var(--ui-border);border-radius:10px;padding:22px 22px 18px;text-align:center;backdrop-filter:blur(6px)}
 .card h1{margin:0 0 6px;font-size:30px;letter-spacing:.04em}
+.card h1.logo{margin:2px 0 8px;line-height:0}
+.card h1.logo img{display:block;width:100%;max-width:380px;height:auto;margin:0 auto}
 .card p{margin:6px 0;line-height:1.6;font-size:14px}
 .card table{margin:10px auto;font-size:13px;border-collapse:collapse;text-align:left}
 .card td{padding:3px 8px}
@@ -201,7 +203,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 </div>
 <div id="overlay" class="overlay">
   <div class="card">
-    <h1>カイトクラフト</h1>
+    <h1 class="logo"><img src="title.png" alt="カイトクラフト" width="900" height="143"></h1>
     <p>ステージのゴールを達成するとポータル🌀が出て、次のステージへ進めるよ。ブロックで世界をつくろう。牛をたおすと料理ができる。木や石を集めて作業台で武器を作ろう。でも気をつけて、ゾンビやエンティティゼロ、ミミッカーがやってくる。</p>
     <table id="help"></table>
     <p class="mpt" style="margin:8px 0 4px">🧑 見た目（2人プレイの相手に見える姿）</p>
@@ -219,7 +221,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.9.0</p>
+    <p id="ver">ver 1.9.1</p>
   </div>
 </div>
 <div id="cook" class="overlay">
