@@ -216,7 +216,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.7.2</p>
+    <p id="ver">ver 1.8.0</p>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -372,7 +372,8 @@ const SAVE_KEY='blockcraft-world-v1';
 let world=new Uint8Array(W*D*H);
 const idx=(x,y,z)=>(y*D+z)*W+x;
 function getB(x,y,z){ if(x<0||z<0||x>=W||z>=D||y<0||y>=H) return 0; return world[idx(x,y,z)]; }
-function solidAt(x,y,z){ if(x<0||z<0||x>=W||z>=D||y<0) return true; if(y>=H) return false; const b=world[idx(x,y,z)]; return b!==0&&!NONSOLID[b]; }
+let voidBelow=false; // 空の島：世界の下は何もなく、落ちるとゲームオーバー
+function solidAt(x,y,z){ if(x<0||z<0||x>=W||z>=D) return true; if(y<0) return !voidBelow; if(y>=H) return false; const b=world[idx(x,y,z)]; return b!==0&&!NONSOLID[b]; }
 
 const BLOCKS={
   1:{name:'草ブロック',t:[0,1,2]}, 2:{name:'土',t:[2,2,2]}, 3:{name:'石',t:[3,3,3]},
@@ -381,7 +382,7 @@ const BLOCKS={
   11:{name:'マグマ岩',t:[42,42,42]},12:{name:'宝石',t:[45,45,45]},13:{name:'ポータル',t:[47,47,47]},14:{name:'溶岩',t:[43,43,43]},15:{name:'光る石',t:[44,44,44]},16:{name:'島の石',t:[46,46,46]},
   17:{name:'かべ紙',t:[48,48,48]},18:{name:'屋根',t:[49,49,49]},19:{name:'宝箱',t:[51,50,50]},20:{name:'コンクリート',t:[52,52,52]},21:{name:'クジラの肉',t:[55,55,55]},22:{name:'ほね',t:[56,56,56]},23:{name:'胃液',t:[57,57,57]},
   24:{name:'ニンジン',t:[78,78,78]},25:{name:'たまねぎ',t:[79,79,79]},26:{name:'キノコ',t:[80,80,80]},
-  27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]},29:{name:'水晶',t:[93,93,93]}
+  27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]},29:{name:'水晶',t:[93,93,93]},30:{name:'岩盤',t:[94,94,94]}
 };
 const TRANS={5:true,8:true,13:true,28:true};
 const NONSOLID={13:true,14:true,23:true,28:true},HAZARD={14:true,23:true};
@@ -438,7 +439,7 @@ function generate(seed){
 const STAGES=[
   {name:'草原',icon:'🌳',sky:[0.529,0.808,0.922],fog:[22,62],mobs:{zero:4,zombie:4,mimic:2,cow:3},goal:{type:'kills',n:5,text:'敵をたおす'},spawn:[W/2+0.5,null,D/2+0.5]},
   {name:'マグマの世界',icon:'🌋',sky:[0.36,0.09,0.06],fog:[14,46],mobs:{zero:2,zombie:5,mimic:2,cow:2,sign:2,ghast:1},goal:{type:'gems',n:3,text:'💎 宝石を見つけてこわす'},spawn:[24.5,null,24.5]},
-  {name:'空の島',icon:'🏝️',sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1,magai:2},goal:{type:'kills',n:8,text:'敵をたおす'},spawn:[24.5,null,24.5]},
+  {name:'空の島',icon:'🏝️',void:true,sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1,magai:2},goal:{type:'kills',n:8,text:'敵をたおす'},spawn:[24.5,null,24.5]},
   {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},spawn:[20.5,5,12.5]},
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0,wombat:1},goal:{type:'boss',n:1,roof:29,text:'屋上のウォンバットをたおす'},spawn:[24.5,4,20.5]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},spawn:[8.5,null,24.5]}
@@ -448,7 +449,7 @@ const PROG_KEY='blockcraft-progress-v1';
 let progress={unlocked:0};
 try{const j=JSON.parse(localStorage.getItem(PROG_KEY)||'null');if(j)progress.unlocked=Math.min(STAGES.length-1,j.unlocked|0);}catch(e){}
 function saveProgress(){try{localStorage.setItem(PROG_KEY,JSON.stringify(progress));}catch(e){}}
-function applyStageLook(n){skyCol=STAGES[n].sky;fogR=STAGES[n].fog;document.body.style.background=`rgb(${skyCol.map(v=>v*255|0).join(',')})`;}
+function applyStageLook(n){voidBelow=!!STAGES[n].void;skyCol=STAGES[n].sky;fogR=STAGES[n].fog;document.body.style.background=`rgb(${skyCol.map(v=>v*255|0).join(',')})`;}
 function setB(x,y,z,id){if(x>=0&&z>=0&&y>=0&&x<W&&z<D&&y<H)world[idx(x,y,z)]=id;}
 function fill(x0,y0,z0,x1,y1,z1,id){for(let y=y0;y<=y1;y++)for(let z=z0;z<=z1;z++)for(let x=x0;x<=x1;x++)setB(x,y,z,id);}
 function ring(x0,y0,z0,x1,y1,z1,id){for(let y=y0;y<=y1;y++)for(let z=z0;z<=z1;z++)for(let x=x0;x<=x1;x++)if(x===x0||x===x1||z===z0||z===z1)setB(x,y,z,id);}
@@ -458,10 +459,12 @@ function tree(x,y,z,rnd){const th=4+Math.floor(rnd()*2);
   for(let i=1;i<=th;i++)setB(x,y+i,z,4);}
 function genStage(n,seed){
   seed=seed||((Math.random()*1e9)|0);
-  if(n===0) return generate(seed);
-  world=new Uint8Array(W*D*H);const rnd=mulberry32(seed);
-  [null,genMagma,genSky,genHouse,genMansion,genWhale][n](rnd,seed);
+  if(n===0) generate(seed);
+  else{world=new Uint8Array(W*D*H);const rnd=mulberry32(seed);
+    [null,genMagma,genSky,genHouse,genMansion,genWhale][n](rnd,seed);}
+  addBedrock(n);
 }
+function addBedrock(n){if(!STAGES[n].void)fill(0,0,0,W-1,0,D-1,30);}
 function genMagma(rnd,seed){
   for(let z=0;z<D;z++)for(let x=0;x<W;x++){
     const h=Math.floor(5+vnoise(x,z,10,seed)*6+vnoise(x,z,4,seed+3)*2);
@@ -764,6 +767,8 @@ paint(90,(x,y)=>{ // 顔
   return vary(WCREAM,10);});
 paint(91,()=>vary(WPINK,14)); // 頭の横・うしろ
 paint(92,(x)=>x%4===0?vary([66,112,30],10):vary([90,146,42],16)); // 緑のからだ
+// 岩盤（いちばん下の、こわせない層）
+paint(94,()=>TR()<0.3?vary([38,38,42],10):vary([86,86,92],24));
 // 水晶
 paint(93,(x,y)=>(x===0||x===15||y===0||y===15)?vary([70,180,200],10):((x+y)%6===0)?[225,255,255,255]:vary([130,228,240],20));
 
@@ -894,6 +899,7 @@ function cowVerts(e,out){
   pushBox(out,[0.22,0.2,-0.22],[0.3,0.38,-0.14],T_HORN,hp);
 }
 const T_MFACE=[25,25,25,25,24,25],T_MG=[25,25,25,25,25,25],T_MB=[26,26,26,26,26,26],T_BLUE=[27,27,27,27,27,27],T_MLEG=[28,28,28,28,28,28];
+const T_TRACER=[44,44,44,44,44,44],T_GUN=[12,12,12,12,12,12];
 const T_MEAT=[29,29,29,29,29,29],T_MILK=[30,30,30,14,30,30],T_BOOM=[31,31,31,31,31,31],T_ROCKET=[19,19,19,19,31,19];
 function mimVerts(e,out){
   const sw=Math.sin(e.walk)*0.6;
@@ -1013,7 +1019,7 @@ function render(){
   const bindB=(buf)=>{gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(LB.pos,3,gl.FLOAT,false,24,0);gl.vertexAttribPointer(LB.uv,2,gl.FLOAT,false,24,12);gl.vertexAttribPointer(LB.sh,1,gl.FLOAT,false,24,20);};
   bindB(vbo);gl.uniform3f(LB.tint,1,1,1);
   gl.drawArrays(gl.TRIANGLES,0,vcount);
-  if(remote){const out=[];avatarVerts(remote,out);bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
+  if(remote&&!remote.dead){const out=[];avatarVerts(remote,out);bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
   if(enemies.length){
     const out=[],ranges=[];
     for(const e of enemies){const s=out.length/6;enemyVerts(e,out);ranges.push([e,s,out.length/6-s]);}
@@ -1025,13 +1031,18 @@ function render(){
       gl.drawArrays(gl.TRIANGLES,s,n);
     }
   }
-  if(items.length||rockets.length||booms.length){
+  if(items.length||rockets.length||booms.length||mirrorBalls.length||tracers.length){
     const out=[];
     for(const it of items){const o={x:it.x,y:it.y+0.1+Math.sin(it.t*3)*0.06,z:it.z,yaw:it.t*2,scale:1};
       pushBox(out,[-0.16,0,-0.16],[0.16,0.3,0.16],it.kind==='meat'?T_MEAT:T_MILK,part(o,[0,0,0],0));}
     for(const r of rockets){const o={x:r.x,y:r.y,z:r.z,yaw:r.yaw,scale:1};
       if(r.owner==='ghast')pushBox(out,[-0.18,-0.18,-0.18],[0.18,0.18,0.18],T_BOOM,part(o,[0,0,0],r.t*6));
       else pushBox(out,[-0.08,-0.08,-0.32],[0.08,0.08,0.32],T_ROCKET,part(o,[0,0,0],r.pitch));}
+    for(const b of mirrorBalls){const o={x:b.x,y:b.y,z:b.z,yaw:0,scale:1};pushBox(out,[-0.18,-0.18,-0.18],[0.18,0.18,0.18],T_BOOM,part(o,[0,0,0],performance.now()/160));}
+    for(const t of tracers){
+      const dx=t.b[0]-t.a[0],dy=t.b[1]-t.a[1],dz=t.b[2]-t.a[2],h=Math.hypot(dx,dz),len=Math.hypot(dx,dy,dz);if(len<0.8)continue;
+      const o={x:t.a[0],y:t.a[1]-0.15,z:t.a[2],yaw:Math.atan2(-dx,-dz),scale:1},w=t.w;
+      pushBox(out,[-w,-w,-len],[w,w,-0.6],T_TRACER,part(o,[0,0,0],Math.atan2(dy,h)));}
     for(const b of booms){const sz=0.4+b.t/0.4*2.6;const o={x:b.x,y:b.y,z:b.z,yaw:b.t*4,scale:1};pushBox(out,[-sz,-sz,-sz],[sz,sz,sz],T_BOOM,part(o,[0,0,0],b.t*3));}
     bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
     gl.uniform3f(LB.tint,1.1,1.1,1.1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);
@@ -1072,7 +1083,7 @@ const hits=(x,y,z)=>hitsBox(x,y,z,PR,PH);
 
 // ---------- enemies & cows ----------
 let enemies=[],kills=0,spawnTimer=0,cowTimer=0,mimicTimer=0,playTime=0,pendingCook=0,pendingCookStew=0,cookTotal=0;
-let items=[],rockets=[],booms=[];
+let items=[],rockets=[],booms=[],mirrorBalls=[],tracers=[];
 const MAX_ENEMIES=4,MAX_COWS=3,MAX_MIMIC=2,MAX_ZOMBIE=4;let zombieTimer=0,signTimer=0,ghastTimer=0,magaiTimer=0;
 const ENEMY_STATS={
   zero:{r:0.3,h:1.8,hp:10,spd:2.5,dmg:3},
@@ -1164,15 +1175,29 @@ function updateItems(dt){
   items=items.filter(it=>it.life>0);
 }
 function mobAlive(m){return m&&m.dying<=0&&m.hp>0&&enemies.includes(m);}
+// 敵がねらうプレイヤー：自分（P）と、2人プレイのホストならゲスト（R）
+let playerTargets=[];
+function refreshTargets(){
+  playerTargets=[];
+  if(!dead)playerTargets.push({key:'P',x:P.x,y:P.y,z:P.z,r:PR});
+  if(net.connected&&net.role==='host'&&remote&&!remote.dead&&remote.tx!==undefined)playerTargets.push({key:'R',x:remote.tx,y:remote.ty,z:remote.tz,r:PR});
+}
+function getPlayer(key){return playerTargets.find(t=>t.key===key)||null;}
+function nearestPlayer(e){let best=null,bd=1e9;for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z)+Math.abs(t.y-e.y)*0.5;if(d<bd){bd=d;best=t;}}return best;}
+function hurtTarget(t,dmg,fx,fz,noKnock){
+  if(t.key==='P')hurtPlayer(dmg,fx,fz,noKnock);
+  else netSend({t:'hurt',dmg,x:+fx.toFixed(2),z:+fz.toFixed(2),nk:noKnock?1:0});
+}
 function updateMimic(e,dt){
   e.think-=dt;
-  if(e.think<=0||(e.target!=='P'&&!mobAlive(e.target))||(e.target==='P'&&dead)){
+  let tg=typeof e.target==='string'?getPlayer(e.target):(mobAlive(e.target)?e.target:null);
+  if(e.think<=0||!tg){
     e.think=0.5;let best=null,bd=26;
-    if(!dead){const d=Math.hypot(P.x-e.x,P.z-e.z);if(d<bd){bd=d;best='P';}}
+    for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z);if(d<bd){bd=d;best=t;}}
     for(const m of enemies){if(m===e||m.type==='mimic'||m.type==='zombie'||m.type==='wombat'||m.dying>0)continue;const d=Math.hypot(m.x-e.x,m.z-e.z);if(d<bd){bd=d;best=m;}}
-    e.target=best;
+    tg=best;e.target=best&&best.key?best.key:best;
   }
-  const tg=e.target,tx=tg==='P'?P.x:tg?tg.x:e.x,tz=tg==='P'?P.z:tg?tg.z:e.z,ty=tg==='P'?P.y:tg?tg.y:e.y,tr=tg==='P'?PR:tg?tg.r:0;
+  const tx=tg?tg.x:e.x,tz=tg?tg.z:e.z,ty=tg?tg.y:e.y,tr=tg?tg.r:0;
   const dx=tx-e.x,dz=tz-e.z,dist=Math.hypot(dx,dz)||0.001,reach=0.85+tr;
   let sp=0;
   if(tg){e.dirYaw=Math.atan2(-dx,-dz);if(dist>reach&&e.atk<=0)sp=2.9;}
@@ -1187,7 +1212,7 @@ function updateMimic(e,dt){
   if(e.atk>0){
     e.atk-=dt;
     if(e.atk<=0.2&&!e.struck){e.struck=true;
-      if(tg&&dist<reach+0.9&&Math.abs(ty-e.y)<2){ if(tg==='P')hurtPlayer(4,e.x,e.z); else damageEnemy(tg,4,5,e); }}
+      if(tg&&dist<reach+0.9&&Math.abs(ty-e.y)<2){ if(tg.key)hurtTarget(tg,4,e.x,e.z); else damageEnemy(tg,4,5,e); }}
     if(e.atk<0)e.atk=0;
   } else if(tg&&dist<reach&&Math.abs(ty-e.y)<2&&e.cd<=0){e.atk=0.45;e.cd=1.1;e.struck=false;}
 }
@@ -1209,25 +1234,26 @@ function updateCow(e,dt){
   e.hurt-=dt;
 }
 function updateGhast(e,dt){
-  const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||0.001;
-  e.yaw=Math.atan2(-dx,-dz);
+  const tg=nearestPlayer(e);
+  const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001;
+  if(tg)e.yaw=Math.atan2(-dx,-dz);
   const dirx=dx/dist,dirz=dz/dist;
-  const radial=dist<7?-1:dist>13?1:0;
+  const radial=!tg?0:dist<7?-1:dist>13?1:0;
   const strafe=Math.sin(e.walk*0.6+e.seed);
   const sp=e.spd*0.55;
   e.vx=(dirx*radial-dirz*strafe*0.6)*sp;
   e.vz=(dirz*radial+dirx*strafe*0.6)*sp;
-  const targetY=P.y+4.2+Math.sin(e.walk*0.4+e.seed)*1.2;
+  const targetY=(tg?tg.y+4.2:e.y)+Math.sin(e.walk*0.4+e.seed)*1.2;
   e.vy=Math.max(-3,Math.min(3,(targetY-e.y)*1.4));
   const nx=e.x+e.vx*dt,nz=e.z+e.vz*dt,ny=e.y+e.vy*dt;
   if(!hitsBox(nx,e.y,e.z,e.r,e.h))e.x=nx;
   if(!hitsBox(e.x,e.y,nz,e.r,e.h))e.z=nz;
   if(!hitsBox(e.x,ny,e.z,e.r,e.h))e.y=ny;
   e.walk+=dt;e.hurt-=dt;e.cd-=dt;
-  if(e.cd<=0&&dist<22){e.cd=2.2+Math.random()*1.3;fireGhastball(e);}
+  if(tg&&e.cd<=0&&dist<22){e.cd=2.2+Math.random()*1.3;fireGhastball(e,tg);}
 }
-function fireGhastball(e){
-  const dx=P.x-e.x,dy=(P.y+0.9)-e.y,dz=P.z-e.z,l=Math.hypot(dx,dy,dz)||1,spd=10;
+function fireGhastball(e,tg){
+  const dx=tg.x-e.x,dy=(tg.y+0.9)-e.y,dz=tg.z-e.z,l=Math.hypot(dx,dy,dz)||1,spd=10;
   rockets.push({x:e.x,y:e.y,z:e.z,vx:dx/l*spd,vy:dy/l*spd,vz:dz/l*spd,yaw:e.yaw,pitch:0,t:0,owner:'ghast'});
   sfx('ghastFire',{});
 }
@@ -1238,22 +1264,24 @@ function steer(e,dt,sp,turnRate){
   e.vy-=26*dt;if(e.vy<-30)e.vy=-30;
 }
 function updateMagai(e,dt){
-  const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||0.001,dyP=P.y-e.y;
+  const tg=nearestPlayer(e);
+  const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyP=tg?tg.y-e.y:99;
   let sp=0;
-  if(!dead&&dist<30){e.dirYaw=Math.atan2(-dx,-dz);if(e.atk<=0&&dist>1.6)sp=e.spd;}
+  if(tg&&dist<30){e.dirYaw=Math.atan2(-dx,-dz);if(e.atk<=0&&dist>1.6)sp=e.spd;}
   steer(e,dt,sp,6);
   const blocked=moveBody(e,dt,e.r,e.h);
   if(blocked&&e.ground&&sp>0)e.vy=8.2;
   e.walk+=dt*sp*2.5;e.hurt-=dt;e.cd-=dt;
   if(e.atk>0){
     e.atk-=dt;
-    if(e.atk<=0.3&&!e.struck){e.struck=true;if(dist<2.5&&dyP>-1&&dyP<2.4)hurtPlayer(e.dmg,e.x,e.z);}
+    if(e.atk<=0.3&&!e.struck){e.struck=true;if(tg&&dist<2.5&&dyP>-1&&dyP<2.4)hurtTarget(tg,e.dmg,e.x,e.z);}
     if(e.atk<0)e.atk=0;
-  } else if(!dead&&dist<2.1&&dyP>-1&&dyP<2.4&&e.cd<=0){e.atk=MAGAI_ATK;e.cd=1.8;e.struck=false;}
+  } else if(tg&&dist<2.1&&dyP>-1&&dyP<2.4&&e.cd<=0){e.atk=MAGAI_ATK;e.cd=1.8;e.struck=false;}
 }
 function updateWombat(e,dt){
-  const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||0.001;
-  const sees=!dead&&dist<18&&Math.abs(P.y-e.y)<3;
+  const tg=nearestPlayer(e);
+  const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001;
+  const sees=!!tg&&dist<18&&Math.abs(tg.y-e.y)<3;
   let sp=0;
   if(e.atk>0){
     e.dirYaw=Math.atan2(-dx,-dz);e.atk-=dt;
@@ -1278,9 +1306,9 @@ function updateWombat(e,dt){
 }
 function wombatBlast(e){
   const cx=e.x,cy=e.y+1,cz=e.z;
-  booms.push({x:cx,y:cy,z:cz,t:0});sfx('explode');
-  const pd=Math.hypot(P.x-cx,P.y+0.9-cy,P.z-cz);
-  if(pd<3.5)hurtPlayer(Math.round(6*(1-pd/3.5))+2,cx,cz,true);
+  booms.push({x:cx,y:cy,z:cz,t:0});sfx('explode');netBoom(cx,cy,cz);
+  for(const t of playerTargets){const pd=Math.hypot(t.x-cx,t.y+0.9-cy,t.z-cz);
+    if(pd<3.5)hurtTarget(t,Math.round(6*(1-pd/3.5))+2,cx,cz,true);}
   if(navigator.vibrate)try{navigator.vibrate(120);}catch(err){}
 }
 function updateEnemies(dt){
@@ -1290,9 +1318,13 @@ function updateEnemies(dt){
       if(e.tx!==undefined){e.x+=(e.tx-e.x)*k;e.y+=(e.ty-e.y)*k;e.z+=(e.tz-e.z)*k;
         let dy=e.tyaw-e.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));e.yaw+=dy*k;}
       if(e.hurt>0)e.hurt-=dt;
+      if(e.type!=='cow'&&e.dying<=0){e.nearCd=(e.nearCd||0)-dt;const nd=Math.hypot(P.x-e.x,P.z-e.z);
+        if(nd<10&&e.nearCd<=0){e.nearCd=2.5+Math.random();sfx('enemyNear',{type:e.type,dist:nd,volume:1-nd/10});}}
     }
+    for(const b of mirrorBalls){b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;}
     return;
   }
+  refreshTargets();
   if(net.connected&&!mpMonsters){if(enemies.length)enemies=[];if(items.length)items=[];return;}
   spawnTimer-=dt;cowTimer-=dt;
   const aliveZ=enemies.filter(e=>e.dying<=0&&e.type==='zero').length;
@@ -1318,9 +1350,10 @@ function updateEnemies(dt){
     if(e.type==='ghast'){updateGhast(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='magai'){updateMagai(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='wombat'){updateWombat(e,dt);continue;}
-    const dx=P.x-e.x,dz=P.z-e.z,dist=Math.hypot(dx,dz)||0.001;
-    e.yaw=Math.atan2(-dx,-dz);
-    const chase=dist<30&&dist>1.2&&e.atk<=0?1:0;
+    const tg=nearestPlayer(e);
+    const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
+    if(tg)e.yaw=Math.atan2(-dx,-dz);
+    const chase=tg&&dist<30&&dist>1.2&&e.atk<=0?1:0;
     const sp=e.spd;
     e.vx=dx/dist*sp*chase+e.kx;e.vz=dz/dist*sp*chase+e.kz;
     const damp=Math.min(1,5*dt);e.kx-=e.kx*damp;e.kz-=e.kz*damp;
@@ -1331,9 +1364,9 @@ function updateEnemies(dt){
     e.hurt-=dt;e.cd-=dt;
     if(e.atk>0){
       e.atk-=dt;
-      if(e.atk<=0.15&&!e.struck){e.struck=true;if(dist<2.2&&Math.abs(P.y-e.y)<1.6)hurtPlayer(e.dmg,e.x,e.z);}
+      if(e.atk<=0.15&&!e.struck){e.struck=true;if(tg&&dist<2.2&&Math.abs(dyT)<1.6)hurtTarget(tg,e.dmg,e.x,e.z);}
       if(e.atk<0)e.atk=0;
-    } else if(dist<1.8&&Math.abs(P.y-e.y)<1.6&&e.cd<=0){e.atk=0.55;e.cd=e.type==='zombie'?1.6:1.3;e.struck=false;}
+    } else if(tg&&dist<1.8&&Math.abs(dyT)<1.6&&e.cd<=0){e.atk=0.55;e.cd=e.type==='zombie'?1.6:1.3;e.struck=false;}
     if(e.y<-20)e.dying=0.01;
   }
   for(let i=0;i<enemies.length;i++)for(let j=i+1;j<enemies.length;j++){
@@ -1371,7 +1404,7 @@ function checkCells(dt){
   if(portal&&!portalLock){portalLock=true;enterPortal();}
 }
 function goalTarget(){const g=STAGES[stage].goal;return g.type==='reach'?1:g.n;}
-const bossOff=()=>net.connected&&!mpMonsters;
+const bossOff=()=>net.connected&&!(net.role==='guest'?net.hostMonsters:mpMonsters);
 function goalProgress(){const g=STAGES[stage].goal;
   if(g.type==='kills')return stageStats.kills;if(g.type==='gems')return stageStats.gems;if(g.type==='chests')return stageStats.chests;
   if(g.type==='boss'&&!bossOff())return stageStats.boss;
@@ -1410,7 +1443,7 @@ function goStage(n){
   stage=n;selStage=n;goalDone=false;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
   progress.unlocked=Math.max(progress.unlocked,n);saveProgress();
   applyStageLook(n);
-  if(n===0){if(!load())generate(20260922);}else genStage(n);
+  if(n===0){if(!load())generate(20260922);addBedrock(0);}else genStage(n);
   ensureTable();rescanDoors();buildMesh();newRun();renderStageSel();updateGoalHud();
   toast(STAGES[n].icon+' ステージ'+(n+1)+'　'+STAGES[n].name);
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
@@ -1442,13 +1475,14 @@ function step(dt){
     const ax=P.x+(-sy*f+cy*s)*0.5, az=P.z+(-cy*f-sy*s)*0.5;
     if(!hits(ax,P.y+1.05,az)) P.vy=8.2;
   }
+  if(voidBelow&&P.y<-6){P.hp=0;updateHud();gameOver('空から落ちてしまった！');return;}
   if(P.y<-20){spawn();hurtPlayer(4,P.x,P.z);}
   swordCd-=dt;kickCd-=dt;
   P.safe-=dt;
   if(P.safe<=0&&P.hp<MAXHP){P.hp=Math.min(MAXHP,P.hp+1);P.safe=3;updateHud();}
   playTime+=dt;P.inv-=dt;
   updateEnemies(dt);updateItems(dt);updateWeapons(dt);if(doors.length)updateDoors();
-  if(net.role!=='guest')checkGoal();
+  if(net.role!=='guest')checkGoal();else updateGoalHud();
   if(pendingCook>0){pendingCook-=dt;if(pendingCook<=0)startCooking();}
   if(pendingCookStew>0){pendingCookStew-=dt;if(pendingCookStew<=0){if(!cooking)startCooking('stew');else pendingCookStew=0.1;}}
 }
@@ -1498,13 +1532,14 @@ function breakBlock(){
   const r=raycast(6); if(!r) return;
   const [x,y,z]=r.hit,id=world[idx(x,y,z)];
   if(id===13){toast('🌀 ポータルは中に入ると次のステージへ進むよ');return;}
+  if(id===30){toast('岩盤はこわせないよ');return;}
   if((id===3||id===9)&&!inv.own.pickaxe){
     const key=x+','+y+','+z; if(mineKey!==key){mineKey=key;mineN=0;}
-    mineN++; if(weapon==='sword'||weapon==='pickaxe')replay(heldEl,'swing');
+    mineN++; if(weapon==='sword'||weapon==='pickaxe')replay(heldEl,'swing');netAct('swing');
     if(mineN<3){if(mineN===1)toast('かたい！ 3回たたこう（ピッケルなら1回）');return;}
   }
   mineKey=null;
-  world[idx(x,y,z)]=0;sfx('blockBreak',{id});netBlock(x,y,z,0);
+  world[idx(x,y,z)]=0;sfx('blockBreak',{id});netBlock(x,y,z,0);netAct('swing');
   if(id===27||id===28)removeDoor(x,y,z);
   if(id===4||id===7)inv.wood++; if(id===3||id===9||id===11||id===16||id===20)inv.stone++;
   if(id===12){stageStats.gems++;seeItem('gem');toast('💎 宝石を見つけた！');}
@@ -1528,7 +1563,7 @@ function placeBlock(){
     else {world[idx(x,y,z)]=0;return;}
   }
   if(HOTBAR[sel]===27)addDoor(x,y,z);
-  sfx('blockPlace');netBlock(x,y,z,HOTBAR[sel]);
+  sfx('blockPlace');netBlock(x,y,z,HOTBAR[sel]);netAct('swing');
   buildMesh(); queueSave();
 }
 const heldEl=document.getElementById('held'),legEl=document.getElementById('leg'),hurtEl=document.getElementById('hurt');
@@ -1538,7 +1573,7 @@ function swordAttack(){
   const e=findTarget(3.3); if(e) damageEnemy(e,4,6);
 }
 function kick(){
-  if(kickCd>0||dead||paused()) return; kickCd=0.6; replay(legEl,'kick');
+  if(kickCd>0||dead||paused()) return; kickCd=0.6; replay(legEl,'kick');netAct('kick');
   sfx('kick');
   const e=findTarget(2.6); if(e) damageEnemy(e,e.type==='zombie'?99:2,12,null,'kick');
 }
@@ -1688,11 +1723,15 @@ function shoot(dmg,spread,range,kb){
   for(const e of enemies){if(e.dying>0)continue;const r=e.r+0.15;
     const t=rayBox(cam,d,[e.x-r,e.y,e.z-r],[e.x+r,e.y+e.h,e.z+r]);if(t<bt){bt=t;best=e;}}
   if(best){damageEnemy(best,dmg,kb||1.5);crossEl.classList.add('hit');clearTimeout(hitTimer);hitTimer=setTimeout(()=>crossEl.classList.remove('hit'),90);}
+  const r2=v=>Math.round(v*100)/100;
+  netAct('shot',{w:weapon,p:[r2(cam[0]),r2(cam[1]),r2(cam[2])],q:[r2(cam[0]+d[0]*bt),r2(cam[1]+d[1]*bt),r2(cam[2]+d[2]*bt)]});
 }
 function fireRocket(){
   if(fireCd>0) return; fireCd=1.0; muzzle();sfx('rocketFire');
-  const d=fwd();
-  rockets.push({x:cam[0]+d[0]*0.8,y:cam[1]+d[1]*0.8-0.1,z:cam[2]+d[2]*0.8,vx:d[0]*22,vy:d[1]*22,vz:d[2]*22,yaw,pitch,t:0});
+  const d=fwd(),r={id:1+Math.floor(Math.random()*1e9),x:cam[0]+d[0]*0.8,y:cam[1]+d[1]*0.8-0.1,z:cam[2]+d[2]*0.8,vx:d[0]*22,vy:d[1]*22,vz:d[2]*22,yaw,pitch,t:0};
+  rockets.push(r);
+  const r2=v=>Math.round(v*100)/100;
+  netAct('rk',{id:r.id,x:r2(r.x),y:r2(r.y),z:r2(r.z),vx:r2(r.vx),vy:r2(r.vy),vz:r2(r.vz)});
 }
 function firePistol(){
   if(fireCd>0||dead||paused()) return; fireCd=0.35; shoot(3);
@@ -1708,12 +1747,13 @@ function fireSniper(){
   shoot(12,scoped?0:0.035,64,3);
   pitch=Math.min(1.55,pitch+(scoped?0.025:0.05));
 }
-function explode(x,y,z,byEnemy){
-  booms.push({x,y,z,t:0});sfx('explode');
+function netBoom(x,y,z,rid){if(net.connected)netSend({t:'boom',x:+x.toFixed(2),y:+y.toFixed(2),z:+z.toFixed(2),rid:rid||0});}
+function explode(x,y,z,byEnemy,rid){
+  booms.push({x,y,z,t:0});sfx('explode');netBoom(x,y,z,rid);
   const R=2.3;let changed=false;
   for(let yy=Math.floor(y-R);yy<=Math.floor(y+R);yy++)for(let zz=Math.floor(z-R);zz<=Math.floor(z+R);zz++)for(let xx=Math.floor(x-R);xx<=Math.floor(x+R);xx++){
     if(yy<1||yy>=H||xx<0||zz<0||xx>=W||zz>=D)continue;
-    const id=world[idx(xx,yy,zz)];if(!id||id===10||id===12||id===13||id===19)continue;
+    const id=world[idx(xx,yy,zz)];if(!id||id===10||id===12||id===13||id===19||id===30)continue;
     if(Math.hypot(xx+0.5-x,yy+0.5-y,zz+0.5-z)<=R){world[idx(xx,yy,zz)]=0;changed=true;netBlock(xx,yy,zz,0);}
   }
   if(changed){buildMesh();queueSave();}
@@ -1721,7 +1761,8 @@ function explode(x,y,z,byEnemy){
     if(dd<4.5)damageEnemy(e,Math.round(16*(1-dd/4.5))+3,12);}
   const pd=Math.hypot(P.x-x,P.y+0.9-y,P.z-z);
   if(byEnemy){
-    if(pd<3.5)hurtPlayer(Math.round(5*(1-pd/3.5))+2,x,z,true);
+    for(const t of playerTargets){const td=Math.hypot(t.x-x,t.y+0.9-y,t.z-z);
+      if(td<3.5)hurtTarget(t,Math.round(5*(1-td/3.5))+2,x,z,true);}
   } else if(pd<3.5){
     const l=Math.hypot(P.x-x,P.z-z)||1;P.kx=(P.x-x)/l*9;P.kz=(P.z-z)/l*9;P.vy=Math.max(P.vy,7);
   }
@@ -1737,13 +1778,14 @@ function updateWeapons(dt){
       r.x+=r.vx*dt/4;r.y+=r.vy*dt/4;r.z+=r.vz*dt/4;
       if(solidAt(Math.floor(r.x),Math.floor(r.y),Math.floor(r.z))&&r.y<H)boom=true;
       if(r.owner==='ghast'){
-        if(!dead&&Math.abs(r.x-P.x)<PR+0.3&&Math.abs(r.z-P.z)<PR+0.3&&r.y>P.y-0.3&&r.y<P.y+PH+0.3)boom=true;
-      } else {
+        for(const t of playerTargets)if(Math.abs(r.x-t.x)<PR+0.3&&Math.abs(r.z-t.z)<PR+0.3&&r.y>t.y-0.3&&r.y<t.y+PH+0.3){boom=true;break;}
+      } else if(r.owner!=='remote'){
         for(const e of enemies){if(e.dying>0)continue;if(Math.abs(r.x-e.x)<e.r+0.25&&Math.abs(r.z-e.z)<e.r+0.25&&r.y>e.y&&r.y<e.y+e.h){boom=true;break;}}
       }
     }
     if(r.t>3)boom=true;
-    if(boom){r.dead=true;explode(r.x,r.y,r.z,r.owner==='ghast');}
+    // 相手のロケットは見た目だけ。ばくはつは相手から届く boom で出す
+    if(boom){r.dead=true;if(r.owner!=='remote')explode(r.x,r.y,r.z,r.owner==='ghast',r.id);}
   }
   rockets=rockets.filter(r=>!r.dead);
   for(const b of booms)b.t+=dt;
@@ -1797,7 +1839,7 @@ function updateTags(){
     n++;
   }
   for(let i=n;i<tagPool.length;i++)tagPool[i].style.display='none';
-  if(remote&&lastM&&started){
+  if(remote&&!remote.dead&&lastM&&started){
     const m=lastM,x=remote.x,y=remote.y+2.05,z=remote.z;
     const cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cw=m[3]*x+m[7]*y+m[11]*z+m[15];
     if(cw>0.1){remoteTag.style.display='block';remoteTag.style.left=((cx/cw+1)/2*innerWidth)+'px';remoteTag.style.top=((1-cy/cw)/2*innerHeight)+'px';}
@@ -2144,7 +2186,7 @@ function drawCook(){
 
 // ---------- 2人プレイ（PeerJS・テスト版） ----------
 const PEER_PREFIX='bcraft-mp-v1-';
-const net={role:null,peer:null,conn:null,code:null,connected:false,busy:false,sendT:0,mobSendT:0,out:[]};
+const net={role:null,peer:null,conn:null,code:null,connected:false,busy:false,sendT:0,mobSendT:0,goalT:0,lastGoal:'',hostMonsters:true,out:[]};
 let remote=null;
 const MPMON_KEY='blockcraft-mpmon-v1';
 let mpMonsters=true;
@@ -2158,7 +2200,7 @@ function encodeWorld(){let s='';for(let i=0;i<world.length;i+=8192)s+=String.fro
 function decodeWorld(b64){const b=atob(b64);if(b.length!==W*D*H)return false;for(let i=0;i<b.length;i++)world[i]=b.charCodeAt(i);return true;}
 function netSend(m){try{if(net.conn&&net.conn.open)net.conn.send(m);}catch(e){}}
 function netBlock(x,y,z,id){if(net.connected)net.out.push([x,y,z,id]);}
-function netAct(a){if(net.connected)netSend({t:'act',a});}
+function netAct(a,extra){if(net.connected)netSend(Object.assign({t:'act',a},extra));}
 function loadPeerJS(cb){
   if(window.Peer) return cb();
   const s=document.createElement('script');
@@ -2284,7 +2326,7 @@ function setupConn(conn){
   conn.on('error',e=>nlog('データ通路 エラー '+(e&&e.type||e)));
   conn.on('open',()=>{
     nlog('データ通路 ひらいた ✓');
-    net.connected=true;net.busy=false;enemies=[];items=[];roomHud();
+    net.connected=true;net.lastGoal='';net.busy=false;enemies=[];items=[];roomHud();
     if(net.role==='host'){netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});toast('🙌 ともだちが入ってきた！');mpSay('ともだちがつながりました');}
     else mpSay('つながった！ 世界を受け取っています…');
   });
@@ -2312,13 +2354,28 @@ function onNet(m){
   } else if(m.t==='pos'){
     if(!remote)remote={x:m.x,y:m.y,z:m.z,yaw:m.yaw,pitch:m.pitch,walk:0,swing:0,scale:1,appearance:0};
     remote.tx=m.x;remote.ty=m.y;remote.tz=m.z;remote.tyaw=m.yaw;remote.pitch=m.pitch;remote.appearance=m.ap|0;
+    remote.weapon=typeof m.w==='string'?m.w:'sword';remote.dead=!!m.dd;
   } else if(m.t==='blk'){
     for(const c of m.c){const[x,y,z,id]=c;if(x>=0&&z>=0&&y>=0&&x<W&&z<D&&y<H){const old=world[idx(x,y,z)];
       if(net.role==='host'&&id===0){if(old===12)stageStats.gems++;if(old===19)stageStats.chests++;}world[idx(x,y,z)]=id;}}
     buildMesh();if(net.role==='host')queueSave();
     if(hits(P.x,P.y,P.z)){let y=Math.floor(P.y);while(y<H&&hits(P.x,y,P.z))y++;P.y=y;}
   } else if(m.t==='act'){
-    if(remote)remote.swing=0.3;
+    if(!remote)return;
+    if(m.a==='swing')remote.swing=0.3;
+    else if(m.a==='kick')remote.kick=0.3;
+    else if(m.a==='shot'){remote.recoil=0.12;
+      if(Array.isArray(m.p)&&Array.isArray(m.q))tracers.push({a:m.p,b:m.q,t:0,life:m.w==='sniper'?0.3:0.09,w:m.w==='sniper'?0.045:0.022});}
+    else if(m.a==='rk'){remote.recoil=0.2;
+      rockets.push({owner:'remote',id:m.id,x:m.x,y:m.y,z:m.z,vx:m.vx,vy:m.vy,vz:m.vz,yaw:Math.atan2(-m.vx,-m.vz),pitch:Math.atan2(m.vy,Math.hypot(m.vx,m.vz)),t:0});}
+  } else if(m.t==='boom'){
+    booms.push({x:m.x,y:m.y,z:m.z,t:0});
+    if(m.rid)for(const r of rockets)if(r.owner==='remote'&&r.id===m.rid)r.dead=true;
+  } else if(m.t==='hurt'){
+    if(net.role==='guest')hurtPlayer(m.dmg,m.x,m.z,!!m.nk);
+  } else if(m.t==='goal'){
+    if(net.role!=='guest')return;
+    stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;net.hostMonsters=!!m.mm;updateGoalHud();
   } else if(m.t==='portal'){
     if(net.role==='host'&&goalDone)goStage(stage+1);
   } else if(m.t==='mobs'){
@@ -2328,10 +2385,11 @@ function onNet(m){
       const [id,type,x,y,z,eyaw,hp,maxhp,walk,atk,dying,hurt,scale]=a;
       seen.add(id);
       let e=enemies.find(en=>en.id===id);
-      if(!e){const dims=enemyDims(type);e={id,type,x,y,z,yaw:eyaw,r:dims.r,h:dims.h,kx:0,kz:0};enemies.push(e);}
+      if(!e){const dims=enemyDims(type);e={id,type,x,y,z,yaw:eyaw,r:dims.r,h:dims.h,kx:0,kz:0,seed:(id*2.39)%6.28,moving:false};enemies.push(e);}
       e.type=type;e.tx=x;e.ty=y;e.tz=z;e.tyaw=eyaw;e.hp=hp;e.maxhp=maxhp;e.walk=walk;e.atk=atk;e.dying=dying;e.hurt=hurt;e.scale=scale;
     }
     enemies=enemies.filter(en=>seen.has(en.id));
+    mirrorBalls=Array.isArray(m.f)?m.f.map(a=>({x:a[0],y:a[1],z:a[2],vx:a[3],vy:a[4],vz:a[5]})):[];
   } else if(m.t==='hit'){
     if(net.role!=='host')return;
     const e=enemies.find(en=>en.id===m.id);
@@ -2344,16 +2402,24 @@ function netTick(dt){
     remote.x+=(remote.tx-remote.x)*k;remote.y+=(remote.ty-remote.y)*k;remote.z+=(remote.tz-remote.z)*k;
     let dy=remote.tyaw-remote.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));remote.yaw+=dy*k;
     remote.walk+=Math.hypot(remote.x-ox,remote.z-oz)*3.2;remote.swing=Math.max(0,remote.swing-dt);
+    remote.kick=Math.max(0,(remote.kick||0)-dt);remote.recoil=Math.max(0,(remote.recoil||0)-dt);
   }
+  if(tracers.length){for(const t of tracers)t.t+=dt;tracers=tracers.filter(t=>t.t<t.life);}
   if(!net.connected){net.out.length=0;return;}
   net.sendT-=dt;
-  if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3),ap:myAppearance});}
+  if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3),ap:myAppearance,w:weapon,dd:dead?1:0});}
   if(net.out.length){netSend({t:'blk',c:net.out});net.out=[];}
   if(net.role==='host'&&mpMonsters){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
-      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1])});
+      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1]),
+        f:rockets.filter(r=>r.owner==='ghast').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2)])});
     }
+  }
+  if(net.role==='host'){
+    net.goalT-=dt;
+    if(net.goalT<=0){net.goalT=0.5;const g=JSON.stringify([stageStats,goalDone,mpMonsters]);
+      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,mm:mpMonsters?1:0});}}
   }
 }
 const APPEARANCES=[
@@ -2368,15 +2434,29 @@ try{const j=parseInt(localStorage.getItem(APPEAR_KEY),10);if(j>=0&&j<APPEARANCES
 function setAppearance(i){myAppearance=i;try{localStorage.setItem(APPEAR_KEY,String(i));}catch(e){}}
 function apTex(i){const a=APPEARANCES[i]||APPEARANCES[0];
   return {face:[a.side,a.side,a.skin,a.top,a.face,a.top],shirt:[a.shirt,a.shirt,a.shirt,a.shirt,a.shirt,a.shirt],pants:[a.pants,a.pants,a.pants,a.pants,a.pants,a.pants],arm:[a.arm,a.arm,a.arm,a.arm,a.arm,a.arm]};}
+// 相手が持っている武器（うでの先。うでは -y 方向にのびていて、銃は前に向けるとうでの -y が前、-z が上になる）
+const HELD_MODEL={
+  sword:[[[-0.035,-0.7,-0.2],[0.035,-0.62,0.08],T_WOOD],[[-0.04,-0.82,-0.26],[0.04,-0.5,-0.2],T_STEEL],[[-0.03,-0.71,-0.95],[0.03,-0.61,-0.26],T_STEEL]],
+  pickaxe:[[[-0.03,-0.7,-0.75],[0.03,-0.62,0.1],T_WOOD],[[-0.04,-0.88,-0.82],[0.04,-0.44,-0.72],T_STEEL]],
+  pistol:[[[-0.05,-0.95,-0.1],[0.05,-0.62,0.02],T_GUN],[[-0.04,-0.74,0.02],[0.04,-0.62,0.15],T_GUN]],
+  mg:[[[-0.06,-1.15,-0.1],[0.06,-0.55,0.03],T_GUN],[[-0.04,-0.82,0.03],[0.04,-0.72,0.2],T_GUN],[[-0.05,-0.58,-0.08],[0.05,-0.35,0.02],T_WOOD]],
+  sniper:[[[-0.035,-1.45,-0.07],[0.035,-0.62,0],T_GUN],[[-0.06,-0.78,-0.1],[0.06,-0.45,0.04],T_GUN],[[-0.045,-0.88,-0.22],[0.045,-0.6,-0.12],T_GUN],[[-0.05,-0.47,-0.08],[0.05,-0.25,0.05],T_WOOD]],
+  minigun:[[[-0.1,-1.25,-0.12],[0.1,-0.6,0.08],T_STEEL],[[-0.13,-0.72,-0.15],[0.13,-0.5,0.11],T_GUN]],
+  rocket:[[[-0.1,-1.2,-0.3],[0.1,-0.3,-0.08],T_WOMGREEN],[[-0.1,-1.26,-0.3],[0.1,-1.2,-0.08],T_GUN]]
+};
+const GUNS={pistol:1,mg:1,sniper:1,minigun:1,rocket:1};
 function avatarVerts(e,out){
-  const tex=apTex(e.appearance||0);
-  const sw=Math.sin(e.walk)*0.6;
-  const armR=e.swing>0?1.6+Math.sin((0.3-e.swing)/0.3*Math.PI)*0.8:-sw*0.8;
+  const tex=apTex(e.appearance||0),w=HELD_MODEL[e.weapon]?e.weapon:'sword',gun=!!GUNS[w],twoHand=gun&&w!=='pistol';
+  const sw=Math.sin(e.walk)*0.6,aim=Math.PI/2+Math.max(-0.9,Math.min(0.9,e.pitch||0));
+  const armR=gun?aim+(e.recoil>0?e.recoil*2:0):e.swing>0?1.6+Math.sin((0.3-e.swing)/0.3*Math.PI)*0.8:-sw*0.8;
+  const legR=e.kick>0?Math.sin((0.3-e.kick)/0.3*Math.PI)*1.3:-sw;
   pushBox(out,[-0.125,-0.55,-0.125],[0.125,0,0.125],tex.pants,part(e,[-0.125,0.55,0],sw));
-  pushBox(out,[-0.125,-0.55,-0.125],[0.125,0,0.125],tex.pants,part(e,[0.125,0.55,0],-sw));
+  pushBox(out,[-0.125,-0.55,-0.125],[0.125,0,0.125],tex.pants,part(e,[0.125,0.55,0],legR));
   pushBox(out,[-0.25,0,-0.125],[0.25,0.75,0.125],tex.shirt,part(e,[0,0.55,0],0));
-  pushBox(out,[-0.125,-0.7,-0.125],[0.125,0.05,0.125],tex.arm,part(e,[-0.375,1.25,0],sw*0.8));
-  pushBox(out,[-0.125,-0.7,-0.125],[0.125,0.05,0.125],tex.arm,part(e,[0.375,1.25,0],armR));
+  pushBox(out,[-0.125,-0.7,-0.125],[0.125,0.05,0.125],tex.arm,part(e,[-0.375,1.25,0],twoHand?aim-0.25:sw*0.8));
+  const ra=part(e,[0.375,1.25,0],armR);
+  pushBox(out,[-0.125,-0.7,-0.125],[0.125,0.05,0.125],tex.arm,ra);
+  for(const b of HELD_MODEL[w])pushBox(out,b[0],b[1],b[2],ra);
   pushBox(out,[-0.25,0,-0.25],[0.25,0.5,0.25],tex.face,part(e,[0,1.3,0],Math.max(-0.8,Math.min(0.8,e.pitch||0))));
 }
 onTap(document.getElementById('mpHost'),hostRoom);
@@ -2387,17 +2467,17 @@ codeIn.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')joi
 // ---------- game flow ----------
 const overlay=document.getElementById('overlay'),overEl=document.getElementById('over');
 function newRun(){
-  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;signTimer=7;ghastTimer=12;magaiTimer=6;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];fireHeld=false;
+  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;signTimer=7;ghastTimer=12;magaiTimer=6;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];mirrorBalls=[];tracers=[];fireHeld=false;
   const mb=STAGES[stage].mobs;if(mb.zero)spawnEnemy('zero');for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');
   if(mb.wombat&&!goalDone)spawnEnemy('wombat',WOMBAT_HOME);
   updateHud();
 }
-function gameOver(){
+function gameOver(cause){
   sfx('gameOver');
   dead=true;started=false;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
   const m=Math.floor(playTime/60),s=Math.floor(playTime%60);
-  document.getElementById('result').textContent=`エンティティゼロを ${kills} 体たおした。生きのびた時間は ${m}分${s}秒。料理スコアは ${cookTotal} 点。`;
+  document.getElementById('result').textContent=(cause?cause+' ':'')+`エンティティゼロを ${kills} 体たおした。生きのびた時間は ${m}分${s}秒。料理スコアは ${cookTotal} 点。`;
   overEl.style.display='flex';
 }
 function lockMouse(){ if(!isTouch){try{const r=canvas.requestPointerLock();if(r&&r.catch)r.catch(()=>{});}catch(e){}} }
@@ -2451,6 +2531,7 @@ addEventListener('resize',resize);
 // ---------- start ----------
 applyStageLook(0);
 if(!load()) generate(20260922);
+addBedrock(0);
 ensureTable();rescanDoors();
 buildMesh();newRun();select(0);nameEl.style.opacity=0;rebuildWbar();
 
@@ -2461,6 +2542,7 @@ function loop(now){
   if(scoped&&(weapon!=='sniper'||dead||!started||paused()))setScope(false);
   fov+=((scoped?20:72)-fov)*Math.min(1,dt*14);
   if(started&&!paused()){const n=Math.ceil(dt/0.016);for(let i=0;i<n&&started&&!paused();i++)step(dt/n);}
+  else if(net.connected&&net.role==='host'){updateEnemies(dt);updateWeapons(dt);}
   if(cooking)cookUpdate(dt);
   if(!started&&!dead) yaw+=dt*0.08; // タイトル画面だけ回す
   cam[0]=P.x;cam[1]=P.y+EYE;cam[2]=P.z;
