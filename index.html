@@ -26,6 +26,7 @@ body{background:#87ceeb;color:var(--ui-fg);font-family:"Hiragino Maru Gothic Pro
 #hotbar::-webkit-scrollbar{display:none}
 .slot{flex:none;width:44px;height:44px;border:3px solid transparent;border-radius:4px;padding:3px;cursor:pointer;position:relative}
 .slot.on{border-color:var(--sel)}
+.slot.empty canvas{opacity:.35}
 .slot canvas{width:100%;height:100%;image-rendering:pixelated;display:block}
 .slot span{position:absolute;right:2px;bottom:0;font-size:10px;font-weight:700;color:#fff;text-shadow:0 0 2px #000}
 #stat{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;font-size:14px;text-shadow:0 1px 2px #000;pointer-events:none;z-index:3}
@@ -166,6 +167,8 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 .rc{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--ui-border);text-align:left}
 .rc canvas{width:44px;height:44px;image-rendering:pixelated;flex:none;background:rgba(0,0,0,.08);border-radius:6px}
 .rc .nm{font-weight:800;font-size:15px}
+.rc .have{font-weight:600;font-size:12px;opacity:.8}
+.rch{font-weight:800;font-size:14px;text-align:left;margin:14px 0 2px;opacity:.85}
 .rc .cost{font-size:12px;opacity:.85;line-height:1.4}
 .rc button{margin-left:auto;flex:none;font:inherit;font-weight:800;padding:9px 14px;border:none;border-radius:8px;background:#1e88e5;color:#fff;cursor:pointer}
 .rc button:disabled{background:#9e9e9e;cursor:default}
@@ -229,7 +232,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.10.0</p>
+    <p id="ver">ver 1.11.0</p>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -400,7 +403,43 @@ const BLOCKS={
 };
 const TRANS={5:true,8:true,13:true,28:true};
 const NONSOLID={13:true,14:true,23:true,28:true},HAZARD={14:true,23:true};
-const HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,20,17,18,15,11,16,22,21,29];
+const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,20,17,18,15,11,16,22,21,29];
+const HOTBAR=BASE_HOTBAR.slice();
+
+// ---------- 家具 ----------
+// ブロックid = 31 + 種類*4 + 向き（向き0は正面が -z）。形は 0〜1 の箱の組み合わせ。
+// 箱：[最小, 最大, タイル（数字か [-x,+x,-y,+y,-z,+z]）, 1ならタイルを面いっぱいに貼る]
+const FURN_BASE=31,FW=111;
+const legs=(h,a,b,t)=>[[a,0,a],[b,0,a],[a,0,b],[b,0,b]].map(p=>[p,[p[0]+(b-a>0.5?0.12:0.1),h,p[2]+(b-a>0.5?0.12:0.1)],t]);
+const FURN=[
+  {key:'bed',name:'ベッド',wood:5,stone:0,desc:'しらべると、ぐっすり眠って体力が全回復',boxes:[
+    [[0,0,0],[1,0.3,1],FW],[[0.04,0.3,0.04],[0.96,0.5,0.96],113],[[0.02,0.3,0.02],[0.98,0.56,0.68],112],
+    [[0.15,0.5,0.72],[0.85,0.64,0.92],113],[[0,0,0.92],[1,0.95,1],FW]]},
+  {key:'table',name:'テーブル',wood:4,stone:0,desc:'みんなで囲める木のテーブル',boxes:[
+    [[0,0.84,0],[1,1,1],FW],...legs(0.84,0.06,0.82,FW)]},
+  {key:'chair',name:'いす',wood:2,stone:0,desc:'せもたれつきのいす',boxes:[
+    [[0.15,0.44,0.15],[0.85,0.54,0.85],FW],...legs(0.44,0.17,0.73,FW),[[0.15,0.54,0.75],[0.85,1,0.85],FW]]},
+  {key:'sofa',name:'ソファ',wood:3,stone:1,desc:'ふかふかのソファ',boxes:[
+    [[0,0,0.08],[1,0.42,1],120],[[0,0.42,0.72],[1,0.92,1],120],[[0,0.42,0.08],[0.14,0.66,0.72],120],[[0.86,0.42,0.08],[1,0.66,0.72],120]]},
+  {key:'shelf',name:'本だな',wood:4,stone:0,desc:'本がぎっしり',boxes:[[[0,0,0],[1,1,1],[FW,FW,FW,FW,114,FW],1]]},
+  {key:'tansu',name:'タンス',wood:4,stone:1,desc:'引き出しが3だん',boxes:[[[0.04,0,0.1],[0.96,1,1],[FW,FW,FW,FW,115,FW],1]]},
+  {key:'tv',name:'テレビ',wood:1,stone:4,desc:'大きな画面のテレビ',boxes:[
+    [[0.3,0,0.38],[0.7,0.08,0.62],119],[[0.44,0.08,0.46],[0.56,0.24,0.54],119],[[0.02,0.24,0.43],[0.98,0.86,0.57],[119,119,119,119,118,119],1]]},
+  {key:'lamp',name:'ランプ',wood:1,stone:2,desc:'あたたかい光のスタンド',boxes:[
+    [[0.3,0,0.3],[0.7,0.07,0.7],117],[[0.46,0.07,0.46],[0.54,0.58,0.54],117],[[0.22,0.55,0.22],[0.78,0.95,0.78],116,1]]},
+  {key:'plant',name:'観葉植物',wood:1,stone:2,desc:'はちうえの植物',boxes:[
+    [[0.26,0,0.26],[0.74,0.42,0.74],121],[[0.12,0.42,0.12],[0.88,1,0.88],6,1]]}
+];
+const SHAPE={};
+function rotBox(b,r){
+  const t=b[2],T0=typeof t==='number'?[t,t,t,t,t,t]:t;
+  let a=[b[0][0],b[0][2]],c=[b[1][0],b[1][2]],T=T0.slice();
+  for(let i=0;i<r;i++){a=[1-a[1],a[0]];c=[1-c[1],c[0]];T=[T[5],T[4],T[2],T[3],T[0],T[1]];} // (x,z)→(1-z,x)：正面 -z が +x に
+  return [[Math.min(a[0],c[0]),b[0][1],Math.min(a[1],c[1])],[Math.max(a[0],c[0]),b[1][1],Math.max(a[1],c[1])],T,!!b[3]];
+}
+FURN.forEach((f,k)=>{for(let r=0;r<4;r++){const id=FURN_BASE+k*4+r;
+  BLOCKS[id]={name:f.name,t:[FW,FW,FW],furn:k};TRANS[id]=true;SHAPE[id]=f.boxes.map(b=>rotBox(b,r));}});
+const furnKind=id=>id>=FURN_BASE&&id<FURN_BASE+FURN.length*4?(id-FURN_BASE)>>2:-1;
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
 function hash(x,z,s){let h=(Math.imul(x,374761393)+Math.imul(z,668265263)+Math.imul(s,1442695041))|0;h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967295;}
@@ -596,7 +635,7 @@ let saveTimer=null;
 function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,800);}
 
 // ---------- textures ----------
-const atlas=document.createElement('canvas');atlas.width=1792;atlas.height=16;
+const atlas=document.createElement('canvas');atlas.width=2048;atlas.height=16;
 const ATLAS_TILES=atlas.width/16;
 const actx=atlas.getContext('2d');
 const TR=mulberry32(7);
@@ -831,6 +870,30 @@ paint(107,(x)=>[...RAINBOW[Math.floor(x/16*6)],255]);                 // 水泳�
 paint(108,(x,y)=>[...RAINBOW[(Math.floor(x/4)+Math.floor(y/4)*2)%6],255]); // 海パン（カラフルなチェック）
 paint(109,(x,y)=>y<7?[...RAINBOW[Math.floor(x/16*6)],255]:y===7?[40,34,40,255]:vary(YSKIN,8)); // 頭の横
 paint(110,()=>vary(YSKIN,8)); // はだ
+// 家具
+paint(111,(x,y)=>y%8===7?vary([120,74,40],8):vary([190,128,74],14)); // 家具の木
+paint(112,(x,y)=>(x+y)%6<1?vary([250,210,215],8):vary([214,64,82],12)); // もうふ
+paint(113,()=>vary([244,242,236],8)); // シーツ・まくら
+{const BOOK=[[200,60,60],[60,110,200],[70,160,80],[230,180,50],[150,80,170],[240,130,50]];
+paint(114,(x,y)=>{ // 本だなの正面
+  if(x===0||x===15||y===0||y===15||y===7||y===8)return vary([120,74,40],8);
+  const top=y<7,col=Math.floor((x-1)/2),gap=(col*7+(top?1:5))%3;
+  if(y<(top?1:9)+gap)return [70,44,24,255];
+  const c=BOOK[(col+(top?0:3))%6];return (x%2===0)?vary(c.map(v=>v*0.75),6):vary(c,8);});}
+paint(115,(x,y)=>{ // タンスの引き出し
+  if(x===0||x===15||y===0||y===15||y===5||y===10)return vary([112,68,36],6);
+  if((y===2||y===3||y===7||y===8||y===12||y===13)&&(x===7||x===8))return [236,200,90,255];
+  return vary([196,134,78],10);});
+paint(116,(x,y)=>vary(y<2?[255,236,170]:[255,214,120],10)); // ランプのかさ
+paint(117,()=>vary([70,70,78],10)); // 金属
+paint(118,(x,y)=>{ // テレビの画面
+  if(x===0||x===15||y===0||y===15)return [22,22,26,255];
+  if(y>=10+Math.round(Math.sin(x*0.5)*1.5))return vary([90,170,70],10);
+  if(Math.hypot(x-11,y-4)<2.2)return [255,230,90,255];
+  return vary([120,190,245],6);});
+paint(119,()=>vary([34,34,40],6)); // 黒いプラスチック
+paint(120,(x,y)=>(x%8===0||y%8===0)?vary([48,110,90],6):vary([72,150,122],10)); // ソファの布
+paint(121,(x,y)=>y===0||y===1?vary([170,80,50],8):vary([200,104,64],12)); // はちうえ
 // 岩盤（いちばん下の、こわせない層）
 paint(94,()=>TR()<0.3?vary([38,38,42],10):vary([86,86,92],24));
 // 水晶
@@ -896,10 +959,20 @@ const FACES=[
 ];
 const ORDER=[0,1,2,2,1,3];
 const vbo=gl.createBuffer();let vcount=0;
+// 家具の箱。タイルはブロックの座標どおりに切り出す（st なら面いっぱい）
+function furnBox(out,ox,oy,oz,b){const mn=b[0],mx=b[1],T=b[2],st=b[3];
+  for(let fi=0;fi<6;fi++){const f=FACES[fi],tile=T[fi];
+    for(const k of ORDER){const c=f.c[k];
+      const x=mn[0]+(mx[0]-mn[0])*c[0],y=mn[1]+(mx[1]-mn[1])*c[1],z=mn[2]+(mx[2]-mn[2])*c[2];
+      let u=c[3],v=c[4];
+      if(!st){if(fi===0){u=z;v=y;}else if(fi===1){u=1-z;v=y;}else if(fi===2){u=x;v=1-z;}else if(fi===3){u=1-x;v=z;}else if(fi===4){u=1-x;v=y;}else{u=x;v=y;}}
+      out.push(ox+x,oy+y,oz+z,(tile+0.002+u*0.996)/ATLAS_TILES,v,f.s);}}
+}
 function buildMesh(){
   const out=[];
   for(let y=0;y<H;y++)for(let z=0;z<D;z++)for(let x=0;x<W;x++){
     const id=world[idx(x,y,z)]; if(!id) continue;
+    if(SHAPE[id]){for(const b of SHAPE[id])furnBox(out,x,y,z,b);continue;}
     const t=BLOCKS[id].t;
     for(const f of FACES){
       const n=getB(x+f.d[0],y+f.d[1],z+f.d[2]);
@@ -1823,6 +1896,7 @@ function breakBlock(){
   mineKey=null;
   world[idx(x,y,z)]=0;sfx('blockBreak',{id});netBlock(x,y,z,0);netAct('swing');
   if(id===27||id===28)removeDoor(x,y,z);
+  {const fk=furnKind(id);if(fk>=0){const key=FURN[fk].key;const first=inv.furn[key]===undefined;inv.furn[key]=(inv.furn[key]|0)+1;saveInv();if(first)buildHotbar();else updateFurnCounts();toast('📦 '+FURN[fk].name+'をしまった');}}
   if(id===4||id===7)inv.wood++; if(id===3||id===9||id===11||id===16||id===20)inv.stone++;
   if(id===12){stageStats.gems++;seeItem('gem');toast('💎 宝石を見つけた！');}
   if(id===19){stageStats.chests++;inv.wood+=3;inv.stone+=3;saveInv();updateHud();seeItem('chest');toast('📦 宝箱！ 🪵+3 🪨+3');}
@@ -1830,13 +1904,29 @@ function breakBlock(){
   if(id===4||id===7||id===3||id===9||id===11||id===16||id===20){saveInv();updateHud();}
   buildMesh(); queueSave();
 }
+let bedReady=0;
+function sleepBed(){
+  if(bossPhase===1){toast('🛏️ ボス戦のあいだはねむれない！');return;}
+  if(P.hp>=MAXHP){toast('🛏️ まだ元気いっぱい！');return;}
+  const now=performance.now();
+  if(now<bedReady){toast('🛏️ まだねむくない…（あと'+Math.ceil((bedReady-now)/1000)+'秒）');return;}
+  bedReady=now+45000;P.hp=MAXHP;updateHud();sfx('pickup',{kind:'milk'});toast('🛏️ ぐっすり眠った！ 体力が全回復');
+}
 function placeBlock(){
   if(paused()) return;
   const r=raycast(6); if(!r) return;
-  if(getB(r.hit[0],r.hit[1],r.hit[2])===10){openCraft();return;}
+  const hitId=getB(r.hit[0],r.hit[1],r.hit[2]);
+  if(hitId===10){openCraft();return;}
+  if(furnKind(hitId)===0){sleepBed();return;}
   if(!r.prev) return;
   const [x,y,z]=r.prev; if(x<0||z<0||x>=W||z>=D||y<0||y>=H) return;
-  world[idx(x,y,z)]=HOTBAR[sel];
+  const fk=furnKind(HOTBAR[sel]);let pid=HOTBAR[sel];
+  if(fk>=0){
+    if((inv.furn[FURN[fk].key]|0)<=0){toast('🛠️ '+FURN[fk].name+'は作業台で作ろう');return;}
+    // 正面をプレイヤーのほうへ向ける
+    const d=fwd();pid=FURN_BASE+fk*4+(Math.abs(d[0])>Math.abs(d[2])?(d[0]>0?3:1):(d[2]>0?0:2));
+  }
+  world[idx(x,y,z)]=pid;
   if(enemies.some(e=>e.dying<=0&&hitsBox(e.x,e.y,e.z,e.r,e.h))){world[idx(x,y,z)]=0;return;}
   if(hits(P.x,P.y,P.z)){
     // 足元に置いたら、ブロックの上に乗る
@@ -1844,8 +1934,9 @@ function placeBlock(){
     if(ny>P.y&&ny-P.y<=1.01&&!hits(P.x,ny,P.z)){P.y=ny;P.vy=0;}
     else {world[idx(x,y,z)]=0;return;}
   }
-  if(HOTBAR[sel]===27)addDoor(x,y,z);
-  sfx('blockPlace');netBlock(x,y,z,HOTBAR[sel]);netAct('swing');
+  if(pid===27)addDoor(x,y,z);
+  if(fk>=0){inv.furn[FURN[fk].key]--;saveInv();updateFurnCounts();}
+  sfx('blockPlace');netBlock(x,y,z,pid);netAct('swing');
   buildMesh(); queueSave();
 }
 const heldEl=document.getElementById('held'),legEl=document.getElementById('leg'),hurtEl=document.getElementById('hurt');
@@ -1862,8 +1953,8 @@ function kick(){
 
 // ---------- 武器と作業台 ----------
 const INV_KEY='blockcraft-inv-v1';
-let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false}};
-try{const j=JSON.parse(localStorage.getItem(INV_KEY)||'null');if(j&&j.own)inv={wood:j.wood|0,stone:j.stone|0,carrot:j.carrot|0,onion:j.onion|0,mushroom:j.mushroom|0,own:Object.assign(inv.own,j.own)};}catch(e){}
+let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false},furn:{}};
+try{const j=JSON.parse(localStorage.getItem(INV_KEY)||'null');if(j&&j.own)inv={wood:j.wood|0,stone:j.stone|0,carrot:j.carrot|0,onion:j.onion|0,mushroom:j.mushroom|0,own:Object.assign(inv.own,j.own),furn:{}};if(j&&j.furn&&typeof j.furn==='object')for(const f of FURN)if(j.furn[f.key]!==undefined)inv.furn[f.key]=Math.max(0,j.furn[f.key]|0);}catch(e){}
 function saveInv(){try{localStorage.setItem(INV_KEY,JSON.stringify(inv));}catch(e){}}
 const CROP_LABEL={24:'🥕 ニンジン',25:'🧅 たまねぎ',26:'🍄 キノコ'},CROP_KEY={24:'carrot',25:'onion',26:'mushroom'};
 function harvestCrop(id){
@@ -2087,7 +2178,9 @@ function openCraft(){
 }
 function renderCraft(){
   document.getElementById('mats').textContent=`もっている材料：🪵 木 ${inv.wood}　🪨 石 ${inv.stone}`;
-  const box=document.getElementById('recipes');box.innerHTML='';
+  const box=document.getElementById('recipes'),card=craftEl.querySelector('.card'),st=card.scrollTop;box.innerHTML='';
+  const head=t=>{const h=document.createElement('div');h.className='rch';h.textContent=t;box.appendChild(h);};
+  head('⚔️ 道具・武器');
   for(const rc of RECIPES){
     const row=document.createElement('div');row.className='rc';
     const c=document.createElement('canvas');c.width=c.height=16;drawIcon(c.getContext('2d'),rc.id);row.appendChild(c);
@@ -2097,6 +2190,27 @@ function renderCraft(){
     if(!own&&ok)onTap(b,()=>craftItem(rc));
     row.appendChild(b);box.appendChild(row);
   }
+  head('🛋️ 家具（作るとブロック欄に入るよ。こわすとしまえる）');
+  FURN.forEach((f,k)=>{
+    const row=document.createElement('div');row.className='rc';
+    const c=document.createElement('canvas');c.width=c.height=32;drawFurn(c.getContext('2d'),k);row.appendChild(c);
+    const n=inv.furn[f.key]|0;
+    const tx=document.createElement('div');tx.innerHTML=`<div class="nm">${f.name}${n?`<span class="have">　もっている ${n}こ</span>`:''}</div><div class="cost">🪵${f.wood}　🪨${f.stone}<br>${f.desc}</div>`;row.appendChild(tx);
+    const b=document.createElement('button');const ok=inv.wood>=f.wood&&inv.stone>=f.stone;
+    b.textContent='作る';b.disabled=!ok;
+    if(ok)onTap(b,()=>craftFurn(k));
+    row.appendChild(b);box.appendChild(row);
+  });
+  card.scrollTop=st;
+}
+function craftFurn(k){
+  const f=FURN[k];if(inv.wood<f.wood||inv.stone<f.stone)return;
+  inv.wood-=f.wood;inv.stone-=f.stone;
+  const first=inv.furn[f.key]===undefined;inv.furn[f.key]=(inv.furn[f.key]|0)+1;saveInv();updateHud();
+  if(first)buildHotbar();else updateFurnCounts();
+  select(HOTBAR.indexOf(FURN_BASE+k*4));
+  toast('🛠️ '+f.name+'ができた！ 右クリック（タッチは🧱ボタン）で置けるよ');
+  renderCraft();
 }
 function craftItem(rc){
   if(inv.own[rc.id]||inv.wood<rc.wood||inv.stone<rc.stone)return;
@@ -2142,25 +2256,60 @@ function updateTags(){
 // hotbar
 const hb=document.getElementById('hotbar'), nameEl=document.getElementById('name');
 let nameTimer=null;
-HOTBAR.forEach((id,i)=>{
+// 家具のアイコン（ななめから見た形）
+const tileAvg={};
+function tileColor(t){if(!tileAvg[t]){const d=actx.getImageData(t*16,0,16,16).data;let r=0,g=0,b=0,n=0;
+  for(let i=0;i<d.length;i+=4)if(d[i+3]>128){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}n=n||1;tileAvg[t]=[r/n,g/n,b/n];}return tileAvg[t];}
+function drawFurn(c,k){
+  c.clearRect(0,0,32,32);c.imageSmoothingEnabled=false;
+  const P=(x,y,z)=>[2+x*20+z*9,30-y*20-z*8];
+  const col=(t,m)=>{const a=tileColor(t);return `rgb(${a[0]*m|0},${a[1]*m|0},${a[2]*m|0})`;};
+  const quad=(pts,fill)=>{c.fillStyle=fill;c.beginPath();pts.forEach((p,i)=>{const q=P(...p);i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1]);});c.closePath();c.fill();};
+  const boxes=FURN[k].boxes.map(b=>rotBox(b,0)).sort((a,b)=>(b[1][2]-a[1][2])||(a[0][1]-b[0][1])||(a[0][0]-b[0][0]));
+  for(const [mn,mx,T,st] of boxes){
+    quad([[mx[0],mn[1],mn[2]],[mx[0],mx[1],mn[2]],[mx[0],mx[1],mx[2]],[mx[0],mn[1],mx[2]]],col(T[1],0.72));
+    quad([[mn[0],mx[1],mn[2]],[mx[0],mx[1],mn[2]],[mx[0],mx[1],mx[2]],[mn[0],mx[1],mx[2]]],col(T[3],1.08));
+    const p=P(mn[0],mx[1],mn[2]),w=(mx[0]-mn[0])*20,h=(mx[1]-mn[1])*20;
+    const sx=st?0:mn[0]*16,sw=st?16:Math.max(1,(mx[0]-mn[0])*16),sy=st?0:(1-mx[1])*16,sh=st?16:Math.max(1,(mx[1]-mn[1])*16);
+    c.fillStyle=col(T[4],0.9);c.fillRect(p[0],p[1],w,h);
+    c.drawImage(atlas,T[4]*16+sx,sy,sw,sh,p[0],p[1],w,h);
+  }
+}
+function buildHotbar(){
+  HOTBAR.length=0;HOTBAR.push(...BASE_HOTBAR);
+  FURN.forEach((f,k)=>{if(inv.furn[f.key]!==undefined)HOTBAR.push(FURN_BASE+k*4);});
+  hb.innerHTML='';
+  HOTBAR.forEach((id,i)=>{
   const d=document.createElement('div');d.className='slot';
-  const c=document.createElement('canvas');c.width=c.height=16;
-  c.getContext('2d').drawImage(atlas,BLOCKS[id].t[1]*16,0,16,16,0,0,16,16);
+  const c=document.createElement('canvas'),fk=furnKind(id);
+  if(fk>=0){c.width=c.height=32;drawFurn(c.getContext('2d'),fk);}
+  else{c.width=c.height=16;c.getContext('2d').drawImage(atlas,BLOCKS[id].t[1]*16,0,16,16,0,0,16,16);}
   d.appendChild(c);
-  if(!isTouch&&i<10){const n=document.createElement('span');n.textContent=(i+1)%10;d.appendChild(n);}
+  if(fk>=0){const n=document.createElement('span');n.className='cnt';d.appendChild(n);}
+  else if(!isTouch&&i<10){const n=document.createElement('span');n.textContent=(i+1)%10;d.appendChild(n);}
   let tx=0;
   d.addEventListener('touchstart',e=>{e.stopPropagation();tx=e.changedTouches[0].clientX;},{passive:true});
   d.addEventListener('touchend',e=>{e.preventDefault();e.stopPropagation();if(Math.abs(e.changedTouches[0].clientX-tx)<10)select(i);},{passive:false});
   d.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();select(i);});
   hb.appendChild(d);
-});
+  });
+  if(sel>=HOTBAR.length)sel=0;
+  [...hb.children].forEach((c,j)=>c.classList.toggle('on',j===sel));
+  updateFurnCounts();
+}
+function updateFurnCounts(){
+  [...hb.children].forEach((d,i)=>{const k=furnKind(HOTBAR[i]);if(k<0)return;const n=inv.furn[FURN[k].key]|0;
+    d.querySelector('.cnt').textContent=n;d.classList.toggle('empty',n<=0);});
+}
+buildHotbar();
 function select(i){
   sel=(i+HOTBAR.length)%HOTBAR.length;
   [...hb.children].forEach((c,j)=>c.classList.toggle('on',j===sel));
   const c=hb.children[sel];
   if(c.offsetLeft<hb.scrollLeft)hb.scrollLeft=c.offsetLeft-4;
   else if(c.offsetLeft+c.offsetWidth>hb.scrollLeft+hb.clientWidth)hb.scrollLeft=c.offsetLeft+c.offsetWidth-hb.clientWidth+4;
-  nameEl.textContent=BLOCKS[HOTBAR[sel]].name;nameEl.style.opacity=1;
+  const fk=furnKind(HOTBAR[sel]);
+  nameEl.textContent=BLOCKS[HOTBAR[sel]].name+(fk>=0?' ×'+(inv.furn[FURN[fk].key]|0):'');nameEl.style.opacity=1;
   clearTimeout(nameTimer);nameTimer=setTimeout(()=>nameEl.style.opacity=0,1200);
 }
 
