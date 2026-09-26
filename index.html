@@ -60,6 +60,13 @@ body{background:#87ceeb;color:var(--ui-fg);font-family:"Hiragino Maru Gothic Pro
 body.touch #goal{top:calc(84px + env(safe-area-inset-top,0px));font-size:12px}
 #goal.done{background:rgba(123,31,162,.8)}
 #goal.boss{background:rgba(183,28,28,.85)}
+#mud{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;background:
+ radial-gradient(circle at 28% 36%,rgba(96,64,34,.95) 0 11%,rgba(96,64,34,0) 12%),
+ radial-gradient(circle at 64% 28%,rgba(110,76,42,.92) 0 8%,rgba(110,76,42,0) 9%),
+ radial-gradient(circle at 72% 62%,rgba(88,58,30,.95) 0 13%,rgba(88,58,30,0) 14%),
+ radial-gradient(circle at 40% 70%,rgba(104,70,38,.9) 0 7%,rgba(104,70,38,0) 8%),
+ radial-gradient(circle at 12% 78%,rgba(92,62,34,.9) 0 9%,rgba(92,62,34,0) 10%),
+ radial-gradient(circle at 88% 20%,rgba(100,68,36,.9) 0 6%,rgba(100,68,36,0) 7%)}
 #bossbar{display:none;position:fixed;left:50%;transform:translateX(-50%);width:min(70vw,340px);height:12px;background:rgba(0,0,0,.55);border:2px solid rgba(255,255,255,.8);border-radius:7px;overflow:hidden;pointer-events:none;z-index:3}
 #bossbar i{display:block;height:100%;width:100%;background:linear-gradient(#ff6f61,#d32f2f);transition:width .15s}
 #btnMenu{display:none;position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,.5);align-items:center;justify-content:center;z-index:4;cursor:pointer}
@@ -182,6 +189,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 <canvas id="held" width="16" height="16"></canvas>
 <div id="leg"></div>
 <div id="hurt"></div>
+<div id="mud"></div>
 <div id="cross"></div>
 <div id="scope"><div class="lens"><div class="fine"></div><div class="dot"></div></div></div>
 <div id="name"></div>
@@ -221,7 +229,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.9.1</p>
+    <p id="ver">ver 1.10.0</p>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -446,7 +454,7 @@ const STAGES=[
   {name:'草原',icon:'🌳',sky:[0.529,0.808,0.922],fog:[22,62],mobs:{zero:4,zombie:4,mimic:2,cow:3},goal:{type:'kills',n:5,text:'敵をたおす'},boss:{type:'saika',hp:40},spawn:[W/2+0.5,null,D/2+0.5]},
   {name:'マグマの世界',icon:'🌋',sky:[0.36,0.09,0.06],fog:[14,46],mobs:{zero:2,zombie:5,mimic:2,cow:2,sign:2,ghast:1},goal:{type:'gems',n:3,text:'💎 宝石を見つけてこわす'},boss:{type:'ghast',name:'キングガスト',hp:45,base:1.8},spawn:[24.5,null,24.5]},
   {name:'空の島',icon:'🏝️',void:true,sky:[0.12,0.07,0.2],fog:[26,72],mobs:{zero:5,zombie:0,mimic:1,cow:1,magai:2},goal:{type:'kills',n:8,text:'敵をたおす'},boss:{type:'magai',name:'ボス・マガイヤス',hp:50,base:1.5,dmg:6},spawn:[24.5,null,24.5]},
-  {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},boss:{type:'mimic',name:'ボス・ミミッカー',hp:45,base:1.6,dmg:6},spawn:[20.5,5,12.5]},
+  {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},boss:{type:'imo',hp:50},spawn:[20.5,5,12.5]},
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},boss:{type:'wombat',hp:30,base:1.25,at:[26.5,29,27.5]},spawn:[24.5,4,20.5]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},boss:{type:'sign',name:'ボス・はま寿司のかんばん',hp:50,base:1.8,dmg:6},spawn:[8.5,null,24.5]}
 ];
@@ -588,7 +596,7 @@ let saveTimer=null;
 function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,800);}
 
 // ---------- textures ----------
-const atlas=document.createElement('canvas');atlas.width=1664;atlas.height=16;
+const atlas=document.createElement('canvas');atlas.width=1792;atlas.height=16;
 const ATLAS_TILES=atlas.width/16;
 const actx=atlas.getContext('2d');
 const TR=mulberry32(7);
@@ -782,6 +790,29 @@ paint(97,(x,y)=>{if(x<1||x>14||y<1||y>14)return [110,24,24,255]; // 口（ギザ
   const tri=Math.abs((x%6)-3);if(x>=2&&x<=13&&(y===5+tri||y===6+tri))return [16,12,12,255];return vary([196,42,42],14);});
 paint(98,(x,y)=>(x<1||x>14||y<1||y>14)?[110,24,24,255]:vary([190,40,40],14)); // 口の横
 paint(99,(x)=>x<3?vary([116,118,124],8):vary([172,174,180],14)); // 金属の足
+// いもじじい（大きな家のボス）
+const IMOSK=[232,188,150],IMODK=[196,146,112];
+paint(100,()=>TR()<0.08?vary(IMODK,10):vary(IMOSK,10)); // 体
+// 顔は横長なので、32x16 の絵を左右2マスに分けて描く
+function imoFace(X,y){
+  const eye=(x0,px)=>{ // アーモンド形の目（横目）
+    if(y===5&&X>=x0+1&&X<=x0+7)return [52,34,28,255];
+    if(y===8&&X>=x0+1&&X<=x0+7)return [150,104,82,255];
+    if((y===6||y===7)&&X>=x0&&X<=x0+8){if(X===x0||X===x0+8)return [70,46,36,255];if(X===px||X===px+1)return [18,16,18,255];return [238,238,242,255];}
+    return null;};
+  const e=eye(4,9)||eye(19,24);if(e)return e;
+  if((y===4&&X>=5&&X<=11)||(y===4&&X>=20&&X<=26))return [170,120,92,255]; // まゆのしわ
+  if(X>=14&&X<=17&&y>=8&&y<=11){if(y===11&&(X===14||X===17))return [96,58,44,255];if(X===14||X===17)return vary(IMODK,6);return vary([222,172,136],6);} // 鼻
+  if(y===13&&X>=12&&X<=19)return [104,48,40,255]; // への字の口
+  if(y===14&&(X===11||X===20))return [104,48,40,255];
+  if(y===14&&X>=13&&X<=18)return [196,118,98,255];
+  if((X===12||X===19)&&(y===10||y===11))return vary(IMODK,6); // ほおのしわ
+  return vary(IMOSK,8);
+}
+paint(101,(x,y)=>imoFace(x,y));     // 顔（左半分）
+paint(102,(x,y)=>imoFace(x+16,y));  // 顔（右半分）
+paint(103,()=>vary([40,40,46],10)); // 黒い足
+paint(104,()=>TR()<0.2?vary([74,50,30],10):vary([112,78,46],18)); // 泥
 // 岩盤（いちばん下の、こわせない層）
 paint(94,()=>TR()<0.3?vary([38,38,42],10):vary([86,86,92],24));
 // 水晶
@@ -914,7 +945,7 @@ function cowVerts(e,out){
   pushBox(out,[0.22,0.2,-0.22],[0.3,0.38,-0.14],T_HORN,hp);
 }
 const T_MFACE=[25,25,25,25,24,25],T_MG=[25,25,25,25,25,25],T_MB=[26,26,26,26,26,26],T_BLUE=[27,27,27,27,27,27],T_MLEG=[28,28,28,28,28,28];
-const T_TRACER=[44,44,44,44,44,44],T_GUN=[12,12,12,12,12,12];
+const T_TRACER=[44,44,44,44,44,44],T_GUN=[12,12,12,12,12,12],T_MUD=[104,104,104,104,104,104];
 const T_MEAT=[29,29,29,29,29,29],T_MILK=[30,30,30,14,30,30],T_BOOM=[31,31,31,31,31,31],T_ROCKET=[19,19,19,19,31,19];
 function mimVerts(e,out){
   const sw=Math.sin(e.walk)*0.6;
@@ -1015,7 +1046,29 @@ function saikaVerts(e,out){
   const mw=0.2*m,mh=0.16*m,md=0.14+0.2*(m-1);
   pushBox(out,[-mw,0.2-mh*0.9,-1.0-md],[mw,0.2+mh*0.9,-0.98],T_SAIKA_MOUTH,body);
 }
+const T_IMO=[100,100,100,100,100,100],T_IMO_FACE_L=[100,100,100,100,101,100],T_IMO_FACE_R=[100,100,100,100,102,100],T_IMO_LEG=[103,103,103,103,103,103];
+function imoVerts(e,out){
+  const sw=Math.sin(e.walk)*0.5;
+  let drop=0,lean=0;
+  if(e.atk>1)drop=0.28*(1+IMO_CROUCH-e.atk)/IMO_CROUCH; // しゃがむ
+  else if(e.atk>0){const t=1-e.atk/IMO_MUD;lean=t<0.6?0.3*t/0.6:-0.35;} // のけぞってから投げる
+  for(const s of [-1,1]){const leg=part(e,[s*0.55,0.9-drop*0.5,0],s*sw);
+    pushBox(out,[-0.22,-0.9,-0.22],[0.22,0,0.22],T_IMO_LEG,leg);
+    pushBox(out,[-0.24,-0.9,-0.55],[0.24,-0.64,0.22],T_IMO_LEG,leg);}
+  const bd=part(e,[0,0.85-drop,0],lean);
+  pushBox(out,[-1.1,0,-0.3],[1.1,1.1,0.3],T_IMO,bd);
+  pushBox(out,[-1.0,1.0,-0.27],[-0.1,1.3,0.27],T_IMO,bd);
+  pushBox(out,[0.15,1.0,-0.27],[1.05,1.38,0.27],T_IMO,bd);
+  pushBox(out,[-0.45,-0.15,-0.26],[0.35,0,0.26],T_IMO,bd);
+  // 顔：正面（-z）から見て左が +x 側
+  pushBox(out,[0,0.05,-0.33],[1.0,1.0,-0.3],T_IMO_FACE_L,bd);
+  pushBox(out,[-1.0,0.05,-0.33],[0,1.0,-0.3],T_IMO_FACE_R,bd);
+  for(const s of [-1,1]){
+    pushBox(out,s<0?[-1.45,0.45,-0.12]:[1.05,0.45,-0.12],s<0?[-1.05,0.8,0.12]:[1.45,0.8,0.12],T_IMO,bd);
+    pushBox(out,s<0?[-1.7,0.2,-0.11]:[1.35,0.2,-0.11],s<0?[-1.35,0.5,0.11]:[1.7,0.5,0.11],T_IMO,bd);}
+}
 function enemyVerts(e,out){
+  if(e.type==='imo') return imoVerts(e,out);
   if(e.type==='saika') return saikaVerts(e,out);
   if(e.type==='magai') return magaiVerts(e,out);
   if(e.type==='wombat') return wombatVerts(e,out);
@@ -1069,13 +1122,14 @@ function render(){
       pushBox(out,[-0.16,0,-0.16],[0.16,0.3,0.16],it.kind==='meat'?T_MEAT:T_MILK,part(o,[0,0,0],0));}
     for(const r of rockets){const o={x:r.x,y:r.y,z:r.z,yaw:r.yaw,scale:1};
       if(r.owner==='ghast')pushBox(out,[-0.18,-0.18,-0.18],[0.18,0.18,0.18],T_BOOM,part(o,[0,0,0],r.t*6));
+      else if(r.owner==='mud')pushBox(out,[-0.2,-0.2,-0.2],[0.2,0.2,0.2],T_MUD,part(o,[0,0,0],r.t*5));
       else pushBox(out,[-0.08,-0.08,-0.32],[0.08,0.08,0.32],T_ROCKET,part(o,[0,0,0],r.pitch));}
-    for(const b of mirrorBalls){const o={x:b.x,y:b.y,z:b.z,yaw:0,scale:1};pushBox(out,[-0.18,-0.18,-0.18],[0.18,0.18,0.18],T_BOOM,part(o,[0,0,0],performance.now()/160));}
+    for(const b of mirrorBalls){const o={x:b.x,y:b.y,z:b.z,yaw:0,scale:1},k=b.mud?0.2:0.18;pushBox(out,[-k,-k,-k],[k,k,k],b.mud?T_MUD:T_BOOM,part(o,[0,0,0],performance.now()/160));}
     for(const t of tracers){
       const dx=t.b[0]-t.a[0],dy=t.b[1]-t.a[1],dz=t.b[2]-t.a[2],h=Math.hypot(dx,dz),len=Math.hypot(dx,dy,dz);if(len<0.8)continue;
       const o={x:t.a[0],y:t.a[1]-0.15,z:t.a[2],yaw:Math.atan2(-dx,-dz),scale:1},w=t.w;
       pushBox(out,[-w,-w,-len],[w,w,-0.6],T_TRACER,part(o,[0,0,0],Math.atan2(dy,h)));}
-    for(const b of booms){const sz=0.4+b.t/0.4*2.6;const o={x:b.x,y:b.y,z:b.z,yaw:b.t*4,scale:1};pushBox(out,[-sz,-sz,-sz],[sz,sz,sz],T_BOOM,part(o,[0,0,0],b.t*3));}
+    for(const b of booms){const sz=b.mud?0.25+b.t/0.4*1.1:0.4+b.t/0.4*2.6;const o={x:b.x,y:b.y,z:b.z,yaw:b.t*4,scale:1};pushBox(out,[-sz,-sz,-sz],[sz,sz,sz],b.mud?T_MUD:T_BOOM,part(o,[0,0,0],b.t*3));}
     bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
     gl.uniform3f(LB.tint,1.1,1.1,1.1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);
   }
@@ -1126,7 +1180,8 @@ const ENEMY_STATS={
   ghast:{r:0.85,h:1.6,hp:18,spd:3,dmg:0},
   magai:{r:0.6,h:3.0,hp:16,spd:2.0,dmg:4},
   wombat:{r:0.42,h:2.1,hp:20,spd:2.2,dmg:0},
-  saika:{r:0.7,h:2.75,hp:40,spd:2.4,dmg:6}
+  saika:{r:0.7,h:2.75,hp:40,spd:2.4,dmg:6},
+  imo:{r:0.9,h:2.25,hp:50,spd:2.0,dmg:5}
 };
 function enemyDims(type){return ENEMY_STATS[type]||ENEMY_STATS.zero;}
 let nextEnemyId=1;
@@ -1219,10 +1274,12 @@ function refreshTargets(){
 }
 function getPlayer(key){return playerTargets.find(t=>t.key===key)||null;}
 function nearestPlayer(e){let best=null,bd=1e9;for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z)+Math.abs(t.y-e.y)*0.5;if(d<bd){bd=d;best=t;}}return best;}
-function hurtTarget(t,dmg,fx,fz,noKnock){
-  if(t.key==='P')hurtPlayer(dmg,fx,fz,noKnock);
-  else netSend({t:'hurt',dmg,x:+fx.toFixed(2),z:+fz.toFixed(2),nk:noKnock?1:0});
+function hurtTarget(t,dmg,fx,fz,noKnock,mud){
+  if(t.key==='P'){hurtPlayer(dmg,fx,fz,noKnock);if(mud)mudScreen();}
+  else netSend({t:'hurt',dmg,x:+fx.toFixed(2),z:+fz.toFixed(2),nk:noKnock?1:0,mud:mud?1:0});
 }
+const mudEl=document.getElementById('mud');
+function mudScreen(){if(dead)return;mudEl.style.transition='none';mudEl.style.opacity=1;requestAnimationFrame(()=>requestAnimationFrame(()=>{mudEl.style.transition='opacity 2.6s ease-in';mudEl.style.opacity=0;}));}
 function updateMimic(e,dt){
   e.think-=dt;
   let tg=typeof e.target==='string'?getPlayer(e.target):(mobAlive(e.target)?e.target:null);
@@ -1367,6 +1424,58 @@ function updateSaika(e,dt){
   if(blocked&&e.ground&&sp>0)e.vy=8.2;
   e.walk+=dt*Math.min(sp,e.spd)*2.4;e.hurt-=dt;e.cd-=dt;
 }
+// いもじじい：遠くからは泥を3つ投げ、近いとしゃがんで大ジャンプし、のしかかってくる
+const IMO_MUD=0.6,IMO_CROUCH=0.4;
+function updateImo(e,dt){
+  const b=e.base||1,tg=nearestPlayer(e);
+  const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001;
+  e.hurt-=dt;e.cd-=dt;
+  if(e.air){ // のしかかり（空中）
+    e.vy-=26*dt;if(e.vy<-30)e.vy=-30;
+    moveBody(e,dt,e.r,e.h);
+    if(e.ground&&e.vy<=0){e.air=false;e.vx=e.vz=0;imoSlam(e);e.cd=1.2+Math.random()*0.6;}
+    return;
+  }
+  let sp=0;
+  if(tg)e.dirYaw=Math.atan2(-dx,-dz);
+  if(e.atk>1){ // しゃがんで力をためる
+    e.atk-=dt;
+    if(e.atk<=1){e.atk=0;
+      if(tg){const T=0.85,vx=(tg.x-e.x)/T,vz=(tg.z-e.z)/T,v=Math.hypot(vx,vz),k=v>12?12/v:1;
+        e.yaw=e.dirYaw;e.air=true;e.ground=false;e.vy=11;e.vx=vx*k;e.vz=vz*k;e.kx=e.kz=0;
+        moveBody(e,dt,e.r,e.h);return;}}
+  } else if(e.atk>0){ // 泥を投げる
+    e.atk-=dt;
+    if(e.atk<=0.2&&!e.struck){e.struck=true;if(tg)throwMud(e,tg);}
+    if(e.atk<=0){e.atk=0;e.cd=1.0+Math.random()*0.8;}
+  } else if(tg&&dist<30){
+    if(dist>2.2*b)sp=e.spd;
+    if(e.cd<=0&&Math.abs(tg.y-e.y)<4*b){
+      if(dist<7*b&&Math.random()<0.75)e.atk=1+IMO_CROUCH;
+      else if(dist<18){e.atk=IMO_MUD;e.struck=false;}
+      else e.cd=0.5;
+    }
+  }
+  steer(e,dt,sp,5);
+  const blocked=moveBody(e,dt,e.r,e.h);
+  if(blocked&&e.ground&&sp>0)e.vy=8.2;
+  e.walk+=dt*sp*2.2;
+}
+function throwMud(e,tg){
+  const y0=e.y+e.h*0.6,hx=tg.x-e.x,hz=tg.z-e.z,hl=Math.hypot(hx,hz)||1,T=Math.max(0.5,Math.min(1.4,hl/11)),g=18;
+  for(const side of [-1.3,0,1.3]){
+    const ox=-hz/hl*side,oz=hx/hl*side;
+    rockets.push({owner:'mud',x:e.x+hx/hl*e.r,y:y0,z:e.z+hz/hl*e.r,vx:(tg.x+ox-e.x)/T,vy:(tg.y+0.8-y0)/T+0.5*g*T,vz:(tg.z+oz-e.z)/T,t:0,yaw:0,pitch:0});
+  }
+}
+function imoSlam(e){
+  const b=e.base||1,R=3*b;
+  for(const [ox,oz] of [[0,0],[1.2,0],[-1.2,0],[0,1.2],[0,-1.2]])booms.push({x:e.x+ox,y:e.y+0.2,z:e.z+oz,t:0,mud:true});
+  netBoom(e.x,e.y+0.2,e.z,0,'mud');
+  for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z);
+    if(d<R&&Math.abs(t.y-e.y)<2*b)hurtTarget(t,Math.round(4+4*(1-d/R)),e.x,e.z,false);}
+  if(navigator.vibrate)try{navigator.vibrate(80);}catch(err){}
+}
 function wombatBlast(e){
   const b=e.base||1,R=3.5*b,cx=e.x,cy=e.y+b,cz=e.z;
   booms.push({x:cx,y:cy,z:cz,t:0});sfx('explode');netBoom(cx,cy,cz);
@@ -1384,7 +1493,7 @@ function updateEnemies(dt){
       if(e.type!=='cow'&&e.dying<=0){e.nearCd=(e.nearCd||0)-dt;const nd=Math.hypot(P.x-e.x,P.z-e.z);
         if(nd<10&&e.nearCd<=0){e.nearCd=2.5+Math.random();sfx('enemyNear',{type:e.type,dist:nd,volume:1-nd/10});}}
     }
-    for(const b of mirrorBalls){b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;}
+    for(const b of mirrorBalls){if(b.mud)b.vy-=18*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;}
     return;
   }
   refreshTargets();
@@ -1418,6 +1527,7 @@ function updateEnemies(dt){
     if(e.type==='magai'){updateMagai(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='wombat'){updateWombat(e,dt);continue;}
     if(e.type==='saika'){updateSaika(e,dt);if(e.y<-20)e.dying=0.01;continue;}
+    if(e.type==='imo'){updateImo(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     const tg=nearestPlayer(e);
     const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
     if(tg)e.yaw=Math.atan2(-dx,-dz);
@@ -1694,7 +1804,8 @@ const DEX_ENEMIES=[
   {id:'ghast',name:'ガスト',desc:'マグマの世界を飛び回り、はなれた場所から火の玉を吐いてくる。',face:82},
   {id:'magai',name:'マガイヤス',desc:'空の島に現れる。長い首をしならせて頭突きしてくる。',face:89},
   {id:'wombat',name:'ウォンバット',desc:'マンションのボス。屋上で待ちかまえていて、近づくと爆発する。',face:90},
-  {id:'saika',name:'サイカットカー',desc:'草原のボス。口を大きくひらいて、プレイヤーを食べようとする。',face:96}
+  {id:'saika',name:'サイカットカー',desc:'草原のボス。口を大きくひらいて、プレイヤーを食べようとする。',face:96},
+  {id:'imo',name:'いもじじい',desc:'大きな家のボス。泥を投げてきたり、ジャンプしてのしかかってくる。',face:101}
 ];
 const ENEMY_NAME=Object.fromEntries(DEX_ENEMIES.map(d=>[d.id,d.name]));
 const DEX_ITEMS=[
@@ -1837,7 +1948,7 @@ function fireSniper(){
   shoot(12,scoped?0:0.035,64,3);
   pitch=Math.min(1.55,pitch+(scoped?0.025:0.05));
 }
-function netBoom(x,y,z,rid){if(net.connected)netSend({t:'boom',x:+x.toFixed(2),y:+y.toFixed(2),z:+z.toFixed(2),rid:rid||0});}
+function netBoom(x,y,z,rid,kind){if(net.connected)netSend({t:'boom',x:+x.toFixed(2),y:+y.toFixed(2),z:+z.toFixed(2),rid:rid||0,k:kind||''});}
 function explode(x,y,z,byEnemy,rid){
   booms.push({x,y,z,t:0});sfx('explode');netBoom(x,y,z,rid);
   const R=2.3;let changed=false;
@@ -1863,19 +1974,22 @@ function updateWeapons(dt){
   if(weapon==='minigun')spin=fireHeld?Math.min(1,spin+dt/0.35):Math.max(0,spin-dt*2);
   if(fireHeld&&(weapon==='mg'||(weapon==='minigun'&&spin>=1))&&fireCd<=0){shoot(2);fireCd=weapon==='mg'?0.11:0.055;}
   for(const r of rockets){
-    r.t+=dt;let boom=false;
+    r.t+=dt;let boom=false,hitT=null;
+    if(r.owner==='mud')r.vy-=18*dt;
     for(let k=0;k<4&&!boom;k++){
       r.x+=r.vx*dt/4;r.y+=r.vy*dt/4;r.z+=r.vz*dt/4;
       if(solidAt(Math.floor(r.x),Math.floor(r.y),Math.floor(r.z))&&r.y<H)boom=true;
-      if(r.owner==='ghast'){
-        for(const t of playerTargets)if(Math.abs(r.x-t.x)<PR+0.3&&Math.abs(r.z-t.z)<PR+0.3&&r.y>t.y-0.3&&r.y<t.y+PH+0.3){boom=true;break;}
+      if(r.owner==='ghast'||r.owner==='mud'){
+        for(const t of playerTargets)if(Math.abs(r.x-t.x)<PR+0.3&&Math.abs(r.z-t.z)<PR+0.3&&r.y>t.y-0.3&&r.y<t.y+PH+0.3){boom=true;hitT=t;break;}
       } else if(r.owner!=='remote'){
         for(const e of enemies){if(e.dying>0)continue;if(Math.abs(r.x-e.x)<e.r+0.25&&Math.abs(r.z-e.z)<e.r+0.25&&r.y>e.y&&r.y<e.y+e.h){boom=true;break;}}
       }
     }
     if(r.t>3)boom=true;
     // 相手のロケットは見た目だけ。ばくはつは相手から届く boom で出す
-    if(boom){r.dead=true;if(r.owner!=='remote')explode(r.x,r.y,r.z,r.owner==='ghast',r.id);}
+    if(boom){r.dead=true;
+      if(r.owner==='mud'){booms.push({x:r.x,y:r.y,z:r.z,t:0,mud:true});netBoom(r.x,r.y,r.z,0,'mud');if(hitT)hurtTarget(hitT,3,r.x,r.z,true,true);}
+      else if(r.owner!=='remote')explode(r.x,r.y,r.z,r.owner==='ghast',r.id);}
   }
   rockets=rockets.filter(r=>!r.dead);
   for(const b of booms)b.t+=dt;
@@ -1929,7 +2043,7 @@ function updateTags(){
     if(sx<-60||sx>innerWidth+60||sy<-30||sy>innerHeight)continue;
     let t=tagPool[n];
     if(!t){t=document.createElement('div');t.className='etag';t.innerHTML='<span></span><b><i></i></b>';tagBox.appendChild(t);tagPool.push(t);}
-    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=e.boss?'👑 '+bossName():(ENEMY_NAME[e.type]||ENEMY_NAME.zero);
+    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=e.boss?'👑 '+(e.type===STAGES[stage].boss.type?bossName():ENEMY_NAME[e.type]):(ENEMY_NAME[e.type]||ENEMY_NAME.zero);
     n++;
   }
   for(let i=n;i<tagPool.length;i++)tagPool[i].style.display='none';
@@ -2463,10 +2577,10 @@ function onNet(m){
     else if(m.a==='rk'){remote.recoil=0.2;
       rockets.push({owner:'remote',id:m.id,x:m.x,y:m.y,z:m.z,vx:m.vx,vy:m.vy,vz:m.vz,yaw:Math.atan2(-m.vx,-m.vz),pitch:Math.atan2(m.vy,Math.hypot(m.vx,m.vz)),t:0});}
   } else if(m.t==='boom'){
-    booms.push({x:m.x,y:m.y,z:m.z,t:0});
+    booms.push({x:m.x,y:m.y,z:m.z,t:0,mud:m.k==='mud'});
     if(m.rid)for(const r of rockets)if(r.owner==='remote'&&r.id===m.rid)r.dead=true;
   } else if(m.t==='hurt'){
-    if(net.role==='guest')hurtPlayer(m.dmg,m.x,m.z,!!m.nk);
+    if(net.role==='guest'){hurtPlayer(m.dmg,m.x,m.z,!!m.nk);if(m.mud)mudScreen();}
   } else if(m.t==='goal'){
     if(net.role!=='guest')return;
     stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;bossPhase=m.p|0;net.hostMonsters=!!m.mm;updateGoalHud();
@@ -2483,7 +2597,7 @@ function onNet(m){
       e.base=base||1;e.boss=!!boss;e.type=type;e.tx=x;e.ty=y;e.tz=z;e.tyaw=eyaw;e.hp=hp;e.maxhp=maxhp;e.walk=walk;e.atk=atk;e.dying=dying;e.hurt=hurt;e.scale=scale;
     }
     enemies=enemies.filter(en=>seen.has(en.id));
-    mirrorBalls=Array.isArray(m.f)?m.f.map(a=>({x:a[0],y:a[1],z:a[2],vx:a[3],vy:a[4],vz:a[5]})):[];
+    mirrorBalls=Array.isArray(m.f)?m.f.map(a=>({x:a[0],y:a[1],z:a[2],vx:a[3],vy:a[4],vz:a[5],mud:!!a[6]})):[];
   } else if(m.t==='hit'){
     if(net.role!=='host')return;
     const e=enemies.find(en=>en.id===m.id);
@@ -2507,7 +2621,7 @@ function netTick(dt){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
       netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:0]),
-        f:rockets.filter(r=>r.owner==='ghast').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2)])});
+        f:rockets.filter(r=>r.owner==='ghast'||r.owner==='mud').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2),r.owner==='mud'?1:0])});
     }
   }
   if(net.role==='host'){
