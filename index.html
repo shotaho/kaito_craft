@@ -222,6 +222,8 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
     <div id="stagesel"></div>
     <button id="openDex" class="big" style="background:#7b5fc7;box-shadow:0 4px 0 #4d3a86;margin-bottom:8px">📖 図鑑</button>
     <button id="start" class="big">あそぶ</button>
+    <div><button id="bossRushBtn" class="big" style="background:#c0392b;box-shadow:0 4px 0 #7d2419">👑 ボス戦モード</button></div>
+    <p id="rushBest" style="margin:6px 0 0;font-size:13px;font-weight:700;opacity:.8"></p>
     <p id="msg" style="display:none;font-size:13px;color:#c0392b;font-weight:700"></p>
     <div id="mp">
       <p class="mpt">2人で遊ぶ（同じWi‑Fi・テスト版）</p>
@@ -267,8 +269,8 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 </div>
 <div id="clear" class="overlay">
   <div class="card">
-    <h1>🎉 ぜんぶクリア！</h1>
-    <p>クジラのおなかから脱出成功！ すべてのステージをクリアしたよ。</p>
+    <h1 id="clearTitle">🎉 ぜんぶクリア！</h1>
+    <p id="clearMsg">クジラのおなかから脱出成功！ すべてのステージをクリアしたよ。</p>
     <button id="clearBtn" class="big">草原にもどる</button>
   </div>
 </div>
@@ -497,6 +499,8 @@ const STAGES=[
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},boss:{type:'wombat',hp:30,base:1.25,at:[26.5,29,27.5]},spawn:[24.5,4,20.5]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},boss:{type:'yoshio',hp:60,base:1.6},spawn:[8.5,null,24.5]}
 ];
+// ボス戦モード：null か {t:経過秒}（6体のボスと順番に戦う）
+let bossRush=null,rushPick=false;
 let stage=0,goalDone=false,stageStats={kills:0,gems:0,chests:0,boss:0},skyCol=STAGES[0].sky,fogR=STAGES[0].fog;
 const PROG_KEY='blockcraft-progress-v1';
 let progress={unlocked:0};
@@ -623,7 +627,7 @@ function ensureTable(){
   setB(x,standAt(x+0.5,z+0.5,sp[1]),z,10);
 }
 function save(){
-  if(stage!==0)return;
+  if(stage!==0||bossRush)return;
   if(typeof net!=='undefined'&&net.role==='guest')return;
   try{let s='';for(let i=0;i<world.length;i+=8192)s+=String.fromCharCode.apply(null,world.subarray(i,i+8192));localStorage.setItem(SAVE_KEY,btoa(s));}catch(e){}
 }
@@ -1652,7 +1656,7 @@ function updateEnemies(dt){
     return;
   }
   refreshTargets();
-  if(net.connected&&!mpMonsters){if(enemies.length)enemies=[];if(items.length)items=[];return;}
+  if(net.connected&&!mpMonsters&&!bossRush){if(enemies.length)enemies=[];if(items.length)items=[];return;}
   if(bossPhase===1&&stageStats.boss===0&&!enemies.some(e=>e.boss&&e.dying<=0)){bossCheckT-=dt;if(bossCheckT<=0){bossCheckT=1;spawnBoss();}}
   if(bossPhase===0){
   spawnTimer-=dt;cowTimer-=dt;
@@ -1746,7 +1750,7 @@ let bossPhase=0,bossCheckT=0; // 0:ふつう 1:ボス戦中 2:ボスをたおし
 const bossName=()=>{const bd=STAGES[stage].boss;return bd.name||ENEMY_NAME[bd.type];};
 function spawnBoss(){
   const bd=STAGES[stage].boss;
-  return spawnEnemy(bd.type,bd.at,{boss:true,base:bd.base,hp:bd.hp,dmg:bd.dmg,low:true});
+  return spawnEnemy(bd.type,bossRush?null:bd.at,{boss:true,base:bd.base,hp:bd.hp,dmg:bd.dmg,low:true});
 }
 function startBoss(){
   bossPhase=1;bossCheckT=0;
@@ -1760,6 +1764,12 @@ function bossDown(localFx,fell){
 }
 function finishStage(){
   goalDone=true;bossPhase=2;
+  if(bossRush){
+    if(stage===STAGES.length-1){rushClear();return;}
+    toast('👑 '+bossName()+'をたおした！ 次のボスへ…');
+    const at=stage;setTimeout(()=>{if(bossRush&&stage===at&&goalDone&&!dead)goStage(stage+1);},2500);
+    return;
+  }
   progress.unlocked=Math.max(progress.unlocked,Math.min(stage+1,STAGES.length-1));saveProgress();
   if(stage===STAGES.length-1){gameClear();}
   else{spawnPortal();toast('🎉 ステージクリア！ ポータル🌀に入ろう');}
@@ -1767,7 +1777,7 @@ function finishStage(){
 function checkGoal(){
   if(!goalDone){
     if(bossPhase===0&&goalProgress()>=goalTarget()){
-      if(net.connected&&!mpMonsters)finishStage(); // 2人プレイでモンスターなしのときはボスもなし
+      if(net.connected&&!mpMonsters&&!bossRush)finishStage(); // 2人プレイでモンスターなしのときはボスもなし
       else startBoss();
     } else if(bossPhase===1&&stageStats.boss>0)finishStage();
   }
@@ -1775,12 +1785,13 @@ function checkGoal(){
 }
 function updateGoalHud(){
   const st=STAGES[stage],g=st.goal;let t;
-  if(goalDone)t=st.icon+' クリア！ 🌀ポータルに入ろう';
+  if(bossRush)t='👑 ボス戦モード '+(stage+1)+'/'+STAGES.length+'　'+(goalDone?'たおした！':bossName()+'をたおせ')+'　⏱ '+fmtTime(bossRush.t);
+  else if(goalDone)t=st.icon+' クリア！ 🌀ポータルに入ろう';
   else if(bossPhase===1)t='👑 ボス戦！ '+bossName()+'をたおせ';
   else if(g.type==='reach'){const f=Math.max(1,Math.min(6,Math.floor((P.y-3)/5)+1));
     t=st.icon+' '+g.text+'（今 '+(P.y>=g.n-0.1?'屋上':f+'階')+'）';}
   else t=st.icon+' '+g.text+' '+Math.min(goalProgress(),g.n)+'/'+g.n;
-  if(t!==lastGoalTxt){lastGoalTxt=t;goalEl.textContent=t;goalEl.classList.toggle('done',goalDone);goalEl.classList.toggle('boss',bossPhase===1&&!goalDone);}
+  if(t!==lastGoalTxt){lastGoalTxt=t;goalEl.textContent=t;goalEl.classList.toggle('done',goalDone);goalEl.classList.toggle('boss',(bossPhase===1&&!goalDone)||!!bossRush);}
 }
 function spawnPortal(){
   const px=Math.floor(P.x-Math.sin(yaw)*3),pz=Math.floor(P.z-Math.cos(yaw)*3),py=Math.floor(P.y);
@@ -1795,15 +1806,39 @@ function enterPortal(){
 }
 function goStage(n){
   n=Math.max(0,Math.min(STAGES.length-1,n));
-  stage=n;selStage=n;goalDone=false;bossPhase=0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
-  progress.unlocked=Math.max(progress.unlocked,n);saveProgress();
+  stage=n;selStage=n;goalDone=false;bossPhase=bossRush?1:0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
+  if(!bossRush){progress.unlocked=Math.max(progress.unlocked,n);saveProgress();}
   applyStageLook(n);
-  if(n===0){if(!load())generate(20260922);addBedrock(0);}else genStage(n);
+  // ボス戦モードの草原は、セーブした世界をこわさないように新しく作る
+  if(n===0){if(bossRush||!load())generate(20260922);addBedrock(0);}else genStage(n);
   ensureTable();rescanDoors();buildMesh();newRun();renderStageSel();updateGoalHud();
-  toast(STAGES[n].icon+' ステージ'+(n+1)+'　'+STAGES[n].name);
+  if(bossRush)toast('👑 ボス '+(n+1)+'/'+STAGES.length+'　'+bossName()+'があらわれた！');
+  else toast(STAGES[n].icon+' ステージ'+(n+1)+'　'+STAGES[n].name);
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
 }
+const RUSH_KEY='kaitocraft_bossrush_best';
+const fmtTime=t=>{t=Math.floor(t);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');};
+function startBossRush(){
+  if(net.role==='guest'){mpSay('ボス戦モードは部屋を作った人が始めてね',true);return;}
+  if(stage===0){clearTimeout(saveTimer);save();} // 草原の世界をセーブしてから始める
+  bossRush={t:0};goStage(0);window.startGame();
+}
+function endBossRush(){bossRush=null;}
+function rushClear(){
+  const t=bossRush.t;let best=null;
+  try{best=parseFloat(localStorage.getItem(RUSH_KEY));}catch(e){}
+  const rec=!(best>0)||t<best;
+  if(rec)try{localStorage.setItem(RUSH_KEY,String(t));}catch(e){}
+  gameClear();
+  document.getElementById('clearTitle').textContent='👑 ボス戦モード クリア！';
+  document.getElementById('clearMsg').textContent='6体のボスをぜんぶたおした！ タイム '+fmtTime(t)+(rec?'　🏆 新記録！':'　（ベスト '+fmtTime(best)+'）');
+  updateRushBest();
+}
+function updateRushBest(){let b=null;try{b=parseFloat(localStorage.getItem(RUSH_KEY));}catch(e){}
+  const el=document.getElementById('rushBest');if(el)el.textContent=b>0?'ベストタイム '+fmtTime(b):'';}
 function gameClear(){
+  document.getElementById('clearTitle').textContent='🎉 ぜんぶクリア！';
+  document.getElementById('clearMsg').textContent='クジラのおなかから脱出成功！ すべてのステージをクリアしたよ。';
   clearing=true;fireHeld=false;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
   document.getElementById('clear').style.display='flex';
@@ -1836,6 +1871,7 @@ function step(dt){
   P.safe-=dt;
   if(P.safe<=0&&P.hp<MAXHP){P.hp=Math.min(MAXHP,P.hp+1);P.safe=3;updateHud();}
   playTime+=dt;P.inv-=dt;
+  if(bossRush&&net.role!=='guest'&&!goalDone)bossRush.t+=dt;
   updateEnemies(dt);updateItems(dt);updateWeapons(dt);if(doors.length)updateDoors();
   if(net.role!=='guest')checkGoal();else updateGoalHud();
   if(pendingCook>0){pendingCook-=dt;if(pendingCook<=0)startCooking();}
@@ -2020,6 +2056,7 @@ function renderDex(){
 }
 function openDex(){dexTab='enemy';renderDex();dexEl.style.display='flex';}
 onTap(document.getElementById('openDex'),openDex);
+onTap(document.getElementById('bossRushBtn'),()=>startBossRush());
 onTap(dexTabEnemyEl,()=>{dexTab='enemy';renderDex();});
 onTap(dexTabItemEl,()=>{dexTab='item';renderDex();});
 onTap(document.getElementById('dexClose'),()=>{dexEl.style.display='none';});
@@ -2816,7 +2853,7 @@ function onNet(m){
     if(net.role==='guest'){hurtPlayer(m.dmg,m.x,m.z,!!m.nk);if(m.mud)mudScreen();}
   } else if(m.t==='goal'){
     if(net.role!=='guest')return;
-    stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;bossPhase=m.p|0;net.hostMonsters=!!m.mm;updateGoalHud();
+    stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;bossPhase=m.p|0;net.hostMonsters=!!m.mm;bossRush=(typeof m.r==='number'&&m.r>=0)?{t:m.r}:null;updateGoalHud();
   } else if(m.t==='portal'){
     if(net.role==='host'&&goalDone)goStage(stage+1);
   } else if(m.t==='mobs'){
@@ -2852,7 +2889,7 @@ function netTick(dt){
   net.sendT-=dt;
   if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3),ap:myAppearance,w:weapon,dd:dead?1:0});}
   if(net.out.length){netSend({t:'blk',c:net.out});net.out=[];}
-  if(net.role==='host'&&mpMonsters){
+  if(net.role==='host'&&(mpMonsters||bossRush)){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
       netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:0]),
@@ -2861,8 +2898,8 @@ function netTick(dt){
   }
   if(net.role==='host'){
     net.goalT-=dt;
-    if(net.goalT<=0){net.goalT=0.5;const g=JSON.stringify([stageStats,goalDone,mpMonsters,bossPhase]);
-      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,p:bossPhase,mm:mpMonsters?1:0});}}
+    if(net.goalT<=0){net.goalT=0.5;const rt=bossRush?Math.floor(bossRush.t):-1,g=JSON.stringify([stageStats,goalDone,mpMonsters,bossPhase,rt]);
+      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,p:bossPhase,mm:(mpMonsters||bossRush)?1:0,r:rt});}}
   }
 }
 const APPEARANCES=[
@@ -2921,7 +2958,8 @@ function gameOver(cause){
   dead=true;started=false;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
   const m=Math.floor(playTime/60),s=Math.floor(playTime%60);
-  document.getElementById('result').textContent=(cause?cause+' ':'')+`エンティティゼロを ${kills} 体たおした。生きのびた時間は ${m}分${s}秒。料理スコアは ${cookTotal} 点。`;
+  document.getElementById('result').textContent=bossRush?(cause?cause+' ':'')+`ボス戦モード ${stage+1}/${STAGES.length}：${bossName()}にやられた…　タイム ${fmtTime(bossRush.t)}。「もう一度」でこのボスからやり直せるよ。`
+    :(cause?cause+' ':'')+`エンティティゼロを ${kills} 体たおした。生きのびた時間は ${m}分${s}秒。料理スコアは ${cookTotal} 点。`;
   overEl.style.display='flex';
 }
 function lockMouse(){ if(!isTouch){try{const r=canvas.requestPointerLock();if(r&&r.catch)r.catch(()=>{});}catch(e){}} }
@@ -2933,9 +2971,9 @@ function renderStageSel(){
   stageSelEl.innerHTML='';
   STAGES.forEach((st,i)=>{const b=document.createElement('button');b.className='stg'+(i===selStage?' on':'');
     const lock=!TEST_ALL_STAGES&&i>progress.unlocked;b.disabled=lock;b.innerHTML='<span>'+(lock?'🔒':st.icon)+'</span>'+(i+1)+'. '+st.name;
-    if(!lock)onTap(b,()=>{selStage=i;renderStageSel();});stageSelEl.appendChild(b);});
+    if(!lock)onTap(b,()=>{selStage=i;rushPick=true;renderStageSel();});stageSelEl.appendChild(b);});
 }
-renderStageSel();
+renderStageSel();updateRushBest();
 const appearSelEl=document.getElementById('appearsel');
 function renderAppearSel(){
   appearSelEl.innerHTML='';
@@ -2950,23 +2988,28 @@ const mpMonstersEl=document.getElementById('mpMonsters');
 mpMonstersEl.checked=mpMonsters;
 mpMonstersEl.addEventListener('change',()=>setMpMonsters(mpMonstersEl.checked));
 if(!/github\.io$|^localhost$|^127\./.test(location.hostname)&&location.protocol!=='file:')document.getElementById('mp').style.display='none';
-window.startGame=()=>{initAudio();menuOpen=false;if(net.role!=='guest'&&selStage!==stage)goStage(selStage);overlay.style.display='none';started=true;lockMouse();updateGoalHud();};
+window.startGame=()=>{initAudio();menuOpen=false;
+  if(bossRush&&rushPick&&net.role!=='guest'){endBossRush();goStage(selStage);} // ステージをえらんだらボス戦モードはおしまい
+  else if(net.role!=='guest'&&selStage!==stage)goStage(selStage);
+  rushPick=false;overlay.style.display='none';started=true;lockMouse();updateGoalHud();};
 function openMenu(){
   if(!started||dead||cooking||crafting||clearing) return;
   menuOpen=true;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
-  selStage=stage;renderStageSel();renderAppearSel();
+  selStage=stage;rushPick=false;renderStageSel();renderAppearSel();updateRushBest();
   overlay.style.display='flex';
 }
 onTap(document.getElementById('btnMenu'),openMenu);
 addEventListener('keydown',e=>{if(e.code==='Escape'&&started&&!dead){if(menuOpen)window.startGame();else openMenu();}});
-onTap(document.getElementById('clearBtn'),()=>{document.getElementById('clear').style.display='none';clearing=false;goStage(0);lockMouse();});
-function again(e){if(e)e.preventDefault();initAudio();overEl.style.display='none';newRun();started=true;lockMouse();}
+onTap(document.getElementById('clearBtn'),()=>{document.getElementById('clear').style.display='none';clearing=false;endBossRush();goStage(0);lockMouse();});
+function again(e){if(e)e.preventDefault();initAudio();overEl.style.display='none';
+  if(bossRush&&goalDone)goStage(stage+1);else newRun(); // ボス戦モード：たおしたあとなら次のボスへ
+  started=true;lockMouse();}
 const againBtn=document.getElementById('again');
 againBtn.addEventListener('click',again);againBtn.addEventListener('touchend',again,{passive:false});
 document.getElementById('reset').addEventListener('click',()=>{
   if(net.role==='guest'){mpSay('ゲストは世界を作り直せません',true);return;}
-  goalDone=false;bossPhase=0;stageStats={kills:0,gems:0,chests:0,boss:0};
+  endBossRush();goalDone=false;bossPhase=0;stageStats={kills:0,gems:0,chests:0,boss:0};
   genStage(stage);ensureTable();rescanDoors();buildMesh();newRun();save();updateGoalHud();
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
 });
