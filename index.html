@@ -62,7 +62,8 @@ body.touch #goal{top:calc(84px + env(safe-area-inset-top,0px));font-size:12px}
 #goal.done{background:rgba(123,31,162,.8)}
 #islandHud{position:fixed;left:50%;transform:translateX(-50%);top:calc(40px + env(safe-area-inset-top,0px));display:none;align-items:center;gap:8px;background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:13px;padding:4px 6px 4px 12px;border-radius:14px;white-space:nowrap;z-index:4}
 body.touch #islandHud{top:calc(112px + env(safe-area-inset-top,0px));font-size:12px}
-#ihBar{display:inline-block;width:70px;height:9px;background:rgba(255,255,255,.25);border-radius:5px;overflow:hidden}
+#ihBar,.ihb{display:inline-block;width:70px;height:9px;background:rgba(255,255,255,.25);border-radius:5px;overflow:hidden}
+body.touch #ihBar,body.touch .ihb{width:46px}
 #ihBladder{display:block;height:100%;width:0;background:#4fc3f7}
 #ihDrink{font:inherit;font-weight:800;font-size:13px;border:none;border-radius:10px;padding:5px 10px;background:#29b6f6;color:#fff;cursor:pointer}
 #ihDrink small{font-size:10px;opacity:.8}
@@ -174,6 +175,10 @@ body.scoped #scope{display:block}
 body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 #craft{display:none;z-index:12;background:rgba(20,30,50,.7)}
 #islandPick{display:none;z-index:13;background:rgba(20,30,50,.7)}
+.ipt{font-weight:800;margin:10px 0 4px}.ipn{font-size:12px;opacity:.8;margin:4px 0 0}
+.iprow{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.ipb{font:inherit;font-weight:800;font-size:14px;padding:9px 12px;border:3px solid transparent;border-radius:10px;background:rgba(0,0,0,.08);color:inherit;cursor:pointer}
+.ipb.on{border-color:#0e9f8e;background:rgba(14,159,142,.18)}
 #craft .card{width:min(94vw,420px);padding:14px}
 #craft h2{margin:0 0 4px}
 #mats{font-weight:800;font-size:16px}
@@ -250,16 +255,19 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.13.0</p>
+    <p id="ver">ver 1.14.0</p>
   </div>
 </div>
 <div id="islandPick" class="overlay">
   <div class="card">
     <h2>🏝️ 無人島ふとりバトル</h2>
-    <p>2人プレイの遊び方をえらんでね</p>
-    <div><button id="ipPvp" class="big" style="background:#0e9f8e;box-shadow:0 4px 0 #09695e">🧑‍🤝‍🧑 2人で対戦</button></div>
-    <div><button id="ipTeam" class="big" style="background:#e67e22;box-shadow:0 4px 0 #9c5210">👫 2人チーム vs 🤖 CPU2人</button></div>
-    <button id="ipCancel" class="big" style="background:#8a8a8a;box-shadow:0 4px 0 #555">やめる</button>
+    <div id="ipModeRow"><p class="ipt">2人プレイの遊び方</p>
+      <div class="iprow"><button id="ipPvp" class="ipb">🧑‍🤝‍🧑 2人で対戦</button><button id="ipTeam" class="ipb">👫 2人 vs 🤖 CPU2人</button></div></div>
+    <div id="ipLvRow"><p class="ipt">CPUのつよさ</p>
+      <div class="iprow"><button class="ipb">😪 よわい</button><button class="ipb">🙂 ふつう</button><button class="ipb">💪 つよい</button></div>
+      <p class="ipn">つよいCPUは、わき水をくんで煮沸し、最後に水をがぶ飲みしてくるよ</p></div>
+    <button id="ipGo" class="big" style="background:#0e9f8e;box-shadow:0 4px 0 #09695e">スタート！</button>
+    <div><button id="ipCancel" class="big" style="background:#8a8a8a;box-shadow:0 4px 0 #555">やめる</button></div>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -730,6 +738,7 @@ function randomStandY(x,z,h,low){
   return c.length?(low?c[0]:c[Math.floor(Math.random()*c.length)]):null;
 }
 function ensureTable(){
+  if(stage===ISLAND)return; // 無人島に作業台はない（たき火・ろ過器が支給品）
   for(let i=0;i<world.length;i++)if(world[i]===10)return;
   const sp=STAGES[stage].spawn,x=Math.floor(sp[0])+2,z=Math.floor(sp[2]);
   setB(x,standAt(x+0.5,z+0.5,sp[1]),z,10);
@@ -1454,7 +1463,7 @@ function hurtPlayer(dmg,fromX,fromZ,noKnock){
     P.kx=dx/l*7;P.kz=dz/l*7;P.vy=Math.max(P.vy,5);}
   hurtEl.style.transition='none';hurtEl.style.opacity=1;requestAnimationFrame(()=>{hurtEl.style.transition='';hurtEl.style.opacity=0;});
   if(navigator.vibrate)try{navigator.vibrate(60);}catch(e){}
-  if(island)loseKg(Math.min(dmg,5)*0.1); // ダメージでもやせる（1回で最大0.5kg）
+  if(island)loseKg(Math.min(dmg,5)*0.02); // ダメージでもやせる（1回で最大0.1kg）
   updateHud();
   if(P.hp<=0){if(island){islandFaint();return;}gameOver();}
 }
@@ -1554,7 +1563,8 @@ function flowFor(tg,w,hh){
   const key=tg.key+'|'+w+'|'+hh,tx=Math.floor(tg.x),tz=Math.floor(tg.z);if(tx<0||tz<0||tx>=W||tz>=D)return null;
   const ty=standCell(tx,Math.min(H-2,Math.floor(tg.y+0.05)),tz,6);if(ty<0)return flows[key]||null;
   let f=flows[key];const now=performance.now();
-  if(!f||(now-f.at>(f.x===tx&&f.y===ty&&f.z===tz?2000:300))){
+  const far=f&&Math.abs(f.x-tx)+Math.abs(f.y-ty)+Math.abs(f.z-tz)>2; // 目標が大きく変わったら（CPUの目標変更など）すぐ作り直す
+  if(!f||far||(now-f.at>(f.x===tx&&f.y===ty&&f.z===tz?2000:300))){
     const starts=[];for(let i=0;i<w;i++)for(let j=0;j<w;j++){const ax=tx-i,az=tz-j;for(const y of [ty,ty+1,ty-1])if(standable(ax,y,az,w,hh)){starts.push([ax,y,az]);break;}}
     f={x:tx,y:ty,z:tz,at:now,dist:starts.length?buildFlow(starts,w,hh):null};flows[key]=f;}
   return f.dist?f:null;
@@ -1991,9 +2001,9 @@ function checkGoal(){
 function updateGoalHud(){
   const st=STAGES[stage],g=st.goal;let t;
   if(island&&island.mode==='team'){const rk=remote&&remote.kg?remote.kg:30,ck=cpus.reduce((a,c)=>a+c.kg-30,0);
-    t='🏝️ ⏱ '+fmtTime(Math.max(0,Math.ceil(island.t)))+'　🍔 あなた '+island.kg.toFixed(1)+'kg　👫 +'+(island.kg+rk-60).toFixed(1)+'kg vs 🤖 +'+ck.toFixed(1)+'kg';}
-  else if(island){let o='';if(cpus.length)o='　🤖 CPU '+cpus[0].kg.toFixed(1)+'kg';else if(remote&&remote.kg)o='　🧑 '+remote.kg.toFixed(1)+'kg';
-    t='🏝️ ⏱ '+fmtTime(Math.max(0,Math.ceil(island.t)))+'　🍔 あなた '+island.kg.toFixed(1)+'kg'+o;}
+    t='🏝️ ⏱ '+fmtTime(Math.max(0,Math.ceil(island.t)))+'　🍔 あなた '+fmtKg(island.kg)+'kg　👫 '+sgnKg(island.kg+rk-60)+'kg vs 🤖 '+sgnKg(ck)+'kg';}
+  else if(island){let o='';if(cpus.length)o='　🤖 CPU '+fmtKg(cpus[0].kg)+'kg';else if(remote&&remote.kg)o='　🧑 '+fmtKg(remote.kg)+'kg';
+    t='🏝️ ⏱ '+fmtTime(Math.max(0,Math.ceil(island.t)))+'　🍔 あなた '+fmtKg(island.kg)+'kg'+o;}
   else if(bossRush)t='👑 ボス戦モード '+(stage+1)+'/'+NSTAGE+'　'+(goalDone?'たおした！':bossName()+'をたおせ')+'　⏱ '+fmtTime(bossRush.t);
   else if(goalDone)t=st.icon+' クリア！ 🌀ポータルに入ろう';
   else if(bossPhase===1)t='👑 ボス戦！ '+bossName()+'をたおせ';
@@ -2027,40 +2037,60 @@ function goStage(n){
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
 }
 // ---- 無人島ふとりバトル：5分でどれだけ太れるか。ひとりならCPU、2人プレイなら友だちと勝負 ----
+// 番組の結果に合わせて、食べ物だけではあまり太れない（1人0.5kgくらい）。
+// 支給外の水（わき水・雨水をろ過や煮沸したもの）を飲むと、おなかに水がたまって一時的に2kgくらい重くなるのが勝負のカギ
 const ISLAND_TIME=300,ISLAND_KEY='kaitocraft_island_best';
+const FOOD={coco:0.02,bush:0.015,fish:0.04,bigFish:0.12};
 let cpus=[],fishing=null,regrowT=0; // cpus：ひとりなら1人、2人プレイの「2人 vs CPU」なら2人（ホストが動かしてゲストに送る）
-const fatK=kg=>Math.max(1,Math.min(2.6,1+(kg-30)/30)); // 見た目の太さ
-const fatSpeed=kg=>Math.max(0.55,1-(kg-30)/110);       // 太るほどおそくなる
+const fatK=kg=>Math.max(1,Math.min(2.4,1+(kg-30)/3)); // 見た目の太さ（数kgでもわかるように）
+const fatSpeed=kg=>Math.max(0.6,1-(kg-30)/12);       // 太るほどおそくなる
+const fmtKg=v=>(Math.abs(v)<0.005?0:v).toFixed(2);
+const sgnKg=v=>(v>-0.005?'+':'')+fmtKg(v); // +1.23 / -0.30
+// CPUのつよさ：よわい・ふつうは支給の水だけ。つよいは支給外の水もくんで煮沸し、最後にがぶ飲みする
+const CPU_LV=[
+  {name:'よわい',food:0.45,eat:2.6,rest:3,spd:2.6},
+  {name:'ふつう',food:0.6,eat:1.8,rest:1.8,spd:3.2},
+  {name:'つよい',food:0.65,eat:1.2,rest:0.9,spd:3.5,water:true}];
 // mode：'solo'（ひとり vs CPU）/ 'pvp'（2人で対戦）/ 'team'（2人チーム vs CPU2人）
-let islandMode='solo';
-function startIsland(mode){
-  if(!net.connected)mode='solo';
-  else if(mode!=='pvp'&&mode!=='team'){islandPickEl.style.display='flex';return;} // 2人プレイのときは遊び方をえらぶ
-  islandPickEl.style.display='none';
-  if(net.role==='guest'){netSend({t:'islandReq',v:mode});window.startGame();toast('🏝️ 無人島ふとりバトルを始めるよ！');return;}
-  if(stage===0){clearTimeout(saveTimer);save();}
-  beginIsland(mode);window.startGame();
+let islandMode='solo',islandLv=1;
+try{const v=parseInt(localStorage.getItem('kaitocraft_island_lv'));if(v>=0&&v<=2)islandLv=v;}catch(e){}
+let pickMode='team';
+function renderIslandPick(){
+  document.getElementById('ipModeRow').style.display=net.connected?'':'none';
+  for(const[id,m]of [['ipPvp','pvp'],['ipTeam','team']])document.getElementById(id).classList.toggle('on',pickMode===m);
+  const showLv=!net.connected||pickMode==='team';
+  document.getElementById('ipLvRow').style.display=showLv?'':'none';
+  document.querySelectorAll('#ipLvRow button').forEach((b,i)=>b.classList.toggle('on',i===islandLv));
 }
-function beginIsland(mode){
+function startIsland(go){
+  if(!go){renderIslandPick();islandPickEl.style.display='flex';return;} // 遊び方・CPUのつよさをえらぶ
+  islandPickEl.style.display='none';
+  try{localStorage.setItem('kaitocraft_island_lv',String(islandLv));}catch(e){}
+  const mode=net.connected?pickMode:'solo';
+  if(net.role==='guest'){netSend({t:'islandReq',v:mode,lv:islandLv});window.startGame();toast('🏝️ 無人島ふとりバトルを始めるよ！');return;}
+  if(stage===0){clearTimeout(saveTimer);save();}
+  beginIsland(mode,islandLv);window.startGame();
+}
+function beginIsland(mode,lv){
   lastIslandHud='';
-  if(mode)islandMode=mode;
+  if(mode)islandMode=mode;if(lv!==undefined)islandLv=lv;
   if(!net.connected)islandMode='solo';else if(islandMode==='solo')islandMode='pvp';
   bossRush=null;fishing=null;regrowT=4;
-  island={t:ISLAND_TIME,kg:30,mode:islandMode};islandWater();goStage(ISLAND);
+  island={t:ISLAND_TIME,kg:30,mode:islandMode,lv:islandLv};islandWater();goStage(ISLAND);
   cpus=islandMode==='solo'?[makeCpu(0,1)]:islandMode==='team'?[makeCpu(0,2),makeCpu(1,2)]:[];
   document.getElementById('clear').style.display='none';clearing=false;
-  if(net.connected)netSend({t:'islandGo',v:islandMode});
+  if(net.connected)netSend({t:'islandGo',v:islandMode,lv:islandLv});
+  setTimeout(()=>{if(island&&!island.over)toast('🥤 支給の水を1ぱいもらった。もっと飲みたければ、わき水や雨水をろ過・煮沸しよう');},2600);
 }
 function endIsland(){island=null;cpus=[];fishing=null;islandHudEl.style.display='none';rainEl.style.display='none';}
-// 水：わき水・雨水は「生水」。ろ過器かたき火で「飲み水」にしてから飲む。飲むと水の重さだけ太るが、おしっこで出ていく
-const WATER_KG=0.4,RAW_MAX=5;
-function islandWater(){const i=island;if(!i)return null;if(i.raw===undefined){i.raw=0;i.clean=0;i.bladder=0;i.water=0;i.boil=0;i.boilN=0;i.pee=0;i.rain=0;i.nextRain=50+Math.random()*30;i.rainAcc=0;i.warned=false;}return i;}
+// 水：わき水・雨水は「生水」。ろ過器かたき火で「飲み水」にしてから飲む。飲むとおなかに水がたまって重くなるが、おしっこで出ていく
+const WATER_KG=0.5,RAW_MAX=5,BLADDER_CUP=20,BLADDER_CREEP=0.5,RAW_SICK=0.3;
+function islandWater(){const i=island;if(!i)return null;if(i.raw===undefined){i.raw=0;i.clean=1;i.bladder=0;i.water=0;i.boil=0;i.boilN=0;i.pee=0;i.rain=0;i.nextRain=40+Math.random()*25;i.rainAcc=0;i.warned=false;}return i;}
 function drinkWater(){
   const i=islandWater();if(!i||i.over||dead)return;
   if(i.pee>0){toast('🚽 おしっこ中…');return;}
-  if(i.clean>0){i.clean--;addKg(WATER_KG,'🥤 飲み水をごくごく！');i.water+=WATER_KG;i.bladder+=20;}
-  else if(i.raw>0){i.raw--;
-    if(Math.random()<0.5){addKg(-0.8,'🤢 生水でおなかをこわした…');}else{addKg(WATER_KG,'💧 生水をそのまま飲んだ（あぶない！）');i.water+=WATER_KG;i.bladder+=20;}}
+  if(i.clean>0){i.clean--;addKg(WATER_KG,'🥤 ごくごく！ おなかがタプタプ');i.water+=WATER_KG;i.bladder+=BLADDER_CUP;}
+  else if(i.raw>0){i.raw--;addKg(-RAW_SICK,'🤢 ろ過も煮沸もしていない水でおなかをこわした…');}
   else{toast('💧 飲み水がない…わき水をくむか、雨を待とう');return;}
   sfx('pickup',{kind:'milk'});
   if(i.bladder>=70&&!i.warned){i.warned=true;setTimeout(()=>{if(island&&island.pee<=0)toast('🚽 おしっこしたくなってきた…飲みすぎ注意！');},1200);}
@@ -2069,7 +2099,7 @@ function drinkWater(){
 function peeNow(){
   const i=island;if(!i||i.pee>0)return;
   const lose=i.water;i.pee=2.5;i.water=0;i.bladder=0;i.warned=false;
-  loseKg(lose);toast('🚽 がまんできない！ おしっこ…　-'+lose.toFixed(1)+'kg');updateGoalHud();
+  loseKg(lose);toast('🚽 がまんできない！ おしっこ…　-'+fmtKg(lose)+'kg');updateGoalHud();
 }
 function useSpring(){const i=islandWater();if(!i)return;if(i.raw>=RAW_MAX){toast('💧 水筒がいっぱい（生水 '+RAW_MAX+'）');return;}i.raw++;sfx('pickup',{kind:'milk'});toast('💧 わき水をくんだ（生水 '+i.raw+'）ろ過か煮沸してから飲もう');updateIslandHud();}
 function useFilter(){const i=islandWater();if(!i)return;if(i.raw<=0){toast('🧪 ろ過する生水がないよ');return;}i.raw--;i.clean++;toast('🧪 ろ過した！ 飲み水 '+i.clean);updateIslandHud();}
@@ -2080,10 +2110,10 @@ function updateWater(dt){
   const i=islandWater();if(!i||i.over)return;
   if(i.boil>0){i.boil-=dt;if(i.boil<=0){i.clean+=i.boilN;toast('🔥 煮沸完了！ 飲み水 +'+i.boilN);i.boilN=0;updateIslandHud();}}
   if(i.pee>0){i.pee-=dt;}
-  if(i.water>0)i.bladder+=dt*0.8; // 水が体にあるあいだ、少しずつたまる
+  if(i.water>0)i.bladder+=dt*BLADDER_CREEP; // おなかの水は少しずつおしっこになる（ずっとは重くいられない）
   if(i.bladder>=100)peeNow();
   // 雨：ホストが決めてゲストに送る
-  if(net.role!=='guest'){if(i.rain>0){i.rain-=dt;if(i.rain<=0){i.nextRain=55+Math.random()*35;toast('🌤️ 雨がやんだ');}}
+  if(net.role!=='guest'){if(i.rain>0){i.rain-=dt;if(i.rain<=0){i.nextRain=50+Math.random()*30;toast('🌤️ 雨がやんだ');}}
     else{i.nextRain-=dt;if(i.nextRain<=0){i.rain=18;toast('☔ 雨がふってきた！ 外にいると雨水がたまるよ');}}}
   if(i.rain>0&&islandOutdoors()){i.rainAcc+=dt;if(i.rainAcc>=3){i.rainAcc=0;if(i.raw<RAW_MAX){i.raw++;toast('☔ 雨水がたまった（生水 '+i.raw+'）');}}}
   rainEl.style.display=i.rain>0?'block':'none';
@@ -2100,13 +2130,14 @@ function updateIslandHud(){
   const f=document.getElementById('ihBladder');f.style.width=b+'%';f.style.background=b>=70?'#e53935':b>=40?'#fbc02d':'#4fc3f7';
   document.getElementById('ihPee').textContent=i.pee>0?'🚽 おしっこ中':'🚽';
 }
-function addKg(d,msg){if(!island||island.over)return;island.kg=Math.max(25,island.kg+d);if(msg)toast(msg+'　'+(d>=0?'+':'')+d.toFixed(1)+'kg');updateGoalHud();}
+function addKg(d,msg){if(!island||island.over)return;island.kg=Math.max(25,island.kg+d);if(msg)toast(msg+'　'+sgnKg(d)+'kg');updateGoalHud();}
+function gainFood(d,msg){addKg(d,msg);}
 function loseKg(d){if(island&&!island.over)island.kg=Math.max(25,island.kg-d);}
-function islandFaint(){P.hp=MAXHP;P.inv=3;P.safe=0;spawn();updateHud();addKg(-1.5,'💫 たおれてやせてしまった…');}
+function islandFaint(){P.hp=MAXHP;P.inv=3;P.safe=0;spawn();updateHud();addKg(-0.3,'💫 たおれてやせてしまった…');}
 // つり：海を右クリック → しばらく待つ → 「ひいてる！」でもう一回
 function fishAct(){
   if(fishing&&fishing.bite>0){const big=Math.random()<0.15;fishing=null;sfx('pickup',{kind:'meat'});
-    addKg(big?1.5:0.6,big?'🐟 大物をつって焼いて食べた！':'🐟 魚をつって食べた！');return;}
+    gainFood(big?FOOD.bigFish:FOOD.fish,big?'🐟 大物をつって焼いて食べた！':'🐟 魚をつって食べた！');return;}
   if(fishing){toast('🎣 まだかな…じっと待とう');return;}
   fishing={x:P.x,z:P.z,t:3+Math.random()*4,bite:0};netAct('swing');toast('🎣 つりざおをたらした…じっと待とう');
 }
@@ -2125,45 +2156,83 @@ function islandRegrow(dt){
   if(ch)buildMesh();
 }
 function makeCpu(i,n){
-  const c={key:'CPU'+i,name:n>1?'🤖 CPU'+(i+1):'🤖 CPU',x:i?21.5:26.5,z:i?22.5:25.5,y:0,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:0,dirYaw:0,walk:0,r:0.3,h:1.8,
-    appearance:(myAppearance+1+i*2)%APPEARANCES.length,weapon:'sword',pitch:0,swing:0,kick:0,recoil:0,scale:1,fat:1,kg:30,tgt:null,eat:0,stuck:0,lx:0,lz:0};
+  const lv=CPU_LV[islandLv]||CPU_LV[1];
+  const c={key:'CPU'+i,name:(n>1?'🤖 CPU'+(i+1):'🤖 CPU'),x:i?21.5:26.5,z:i?22.5:25.5,y:0,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:0,dirYaw:0,walk:0,r:0.3,h:1.8,
+    appearance:(myAppearance+1+i*2)%APPEARANCES.length,weapon:'sword',pitch:0,swing:0,kick:0,recoil:0,scale:1,fat:1,kg:30,tgt:null,eat:0,stuck:0,lx:0,lz:0,
+    lv,sup:1,raw:0,clean:0,water:0,bladder:0,pee:0,drinkCd:0,supAt:lv.water?35:60+Math.random()*120};
+  // 木の上ではなく地面に立たせる（いちばん低い立てる場所。だめなら近くをさがす）
+  for(let k=0;k<30;k++){const x=Math.floor(c.x)+(k?Math.floor(Math.random()*7)-3:0),z=Math.floor(c.z)+(k?Math.floor(Math.random()*7)-3:0);
+    let y=-1;for(let yy=6;yy<H-2;yy++)if(standable(x,yy,z)){y=yy;break;}
+    if(y>=0&&y<12){c.x=x+0.5;c.z=z+0.5;c.y=y;return c;}}
   c.y=standAt(c.x,c.z,null);return c;
 }
+function findBlocks(id){const r=[];for(let y=5;y<H;y++)for(let z=0;z<D;z++)for(let x=0;x<W;x++)if(world[idx(x,y,z)]===id)r.push([x,y,z]);return r;}
+const cpuOk=(c,p)=>{const b=c.bad&&c.bad[p.join(',')];return b===undefined||island.t<b;}; // のこり時間がへっていくので「b より後」はまだだめ
 function cpuPick(c){
+  // つよいCPU：前半のうちに、わき水をくんでたき火で煮沸し、飲み水をためておく
+  if(c.lv.water&&island.t>70&&c.clean<4){
+    if(c.raw>=4||(c.raw>0&&c.clean+c.raw>=4)){ // たき火かろ過器のとなりの立てる場所へ
+      for(const id of [89,90]){const f=findBlocks(id)[0];
+        if(f)for(const[a,b]of [[1,0],[-1,0],[0,1],[0,-1]]){const y=standCell(f[0]+a,f[1]+1,f[2]+b,3);if(y>=0&&cpuOk(c,[f[0]+a,y,f[2]+b]))return {p:[f[0]+a,y,f[2]+b],id};}}}
+    else{const sp=findBlocks(88).map(q=>[q[0],q[1]+1,q[2]]).filter(q=>cpuOk(c,q));if(sp.length){sp.sort((a,b)=>Math.hypot(a[0]-c.x,a[2]-c.z)-Math.hypot(b[0]-c.x,b[2]-c.z));return {p:sp[0],id:88};}}
+  }
   const list=[],taken=cpus.filter(o=>o!==c&&o.tgt).map(o=>o.tgt.p); // ほかのCPUがねらっている物はとらない
-  for(const q of islandSpots.coco)if(getB(...q)===86&&!taken.includes(q))list.push({p:q,id:86});
-  for(const q of islandSpots.bush)if(getB(...q)===87&&!taken.includes(q))list.push({p:q,id:87});
+  for(const q of islandSpots.coco)if(getB(...q)===86&&!taken.includes(q)&&cpuOk(c,q))list.push({p:q,id:86});
+  for(const q of islandSpots.bush)if(getB(...q)===87&&!taken.includes(q)&&cpuOk(c,q))list.push({p:q,id:87});
   for(const o of list)o.d=Math.hypot(o.p[0]+0.5-c.x,o.p[2]+0.5-c.z)+Math.random()*6;
   list.sort((a,b)=>a.d-b.d);
   if(list.length&&Math.random()<0.8)return list[0];
   let best=null,bd=1e9; // 海でつり
   for(let i=0;i<80;i++){const x=2+Math.floor(Math.random()*(W-4)),z=2+Math.floor(Math.random()*(D-4));
-    if(getB(x,6,z)!==85)continue;const d=Math.hypot(x+0.5-c.x,z+0.5-c.z);if(d<bd){bd=d;best={p:[x,6,z],id:85};}}
+    if(getB(x,6,z)!==85||!cpuOk(c,[x,6,z]))continue;const d=Math.hypot(x+0.5-c.x,z+0.5-c.z);if(d<bd){bd=d;best={p:[x,6,z],id:85};}}
   return best||list[0]||null;
 }
+function cpuDrink(c){c.kg+=WATER_KG;c.water+=WATER_KG;c.bladder+=BLADDER_CUP;}
 function updateCpu(c,dt){
-  c.fat=fatK(c.kg);let sp=0;
+  c.fat=fatK(c.kg);let sp=0;const lv=c.lv||CPU_LV[1];
   c.swing=Math.max(0,c.swing-dt);
-  if(c.eat>0){
+  if(!island.over){
+    // おなかの水とおしっこ
+    if(c.water>0)c.bladder+=dt*BLADDER_CREEP;
+    if(c.bladder>=100){c.kg=Math.max(25,c.kg-c.water);c.water=0;c.bladder=0;c.pee=2.5;}
+    if(c.pee>0)c.pee-=dt;
+    if(lv.water&&island.rain>0&&c.raw<RAW_MAX){c.rainAcc=(c.rainAcc||0)+dt;if(c.rainAcc>=3){c.rainAcc=0;c.raw++;}} // 雨水もためる
+    // 支給の水を飲む（つよいCPUは最後まで取っておく）
+    if(c.sup>0&&island.t<c.supAt&&c.bladder+BLADDER_CUP+BLADDER_CREEP*island.t<98){c.sup--;cpuDrink(c);}
+    // つよいCPU：残り時間でおしっこにならないぶんだけ、ためた水をがぶ飲み
+    c.drinkCd-=dt;
+    if(lv.water&&c.clean>0&&island.t<35&&c.drinkCd<=0&&c.bladder+BLADDER_CUP+BLADDER_CREEP*island.t<98){c.clean--;cpuDrink(c);c.drinkCd=4;}
+  }
+  if(c.pee>0){ // おしっこ中は動かない
+  } else if(c.eat>0){
     c.eat-=dt;if(c.tgt&&c.tgt.id!==85&&c.eat>0.3&&Math.random()<dt*2)c.swing=0.3;
-    if(c.eat<=0){const t=c.tgt;c.tgt=null;
-      if(t&&t.id===85)c.kg+=Math.random()<0.15?1.5:0.6;
-      else if(t&&getB(...t.p)===t.id){setB(...t.p,0);netBlock(...t.p,0);buildMesh();c.kg+=t.id===86?0.5:0.3;}}
+    if(c.eat<=0){const t=c.tgt;c.tgt=null;c.rest=lv.rest*(0.6+Math.random()*0.8);
+      if(t&&t.id===88){c.raw=Math.min(RAW_MAX,c.raw+4);c.rest=0.3;}
+      else if(t&&(t.id===89||t.id===90)){c.clean+=c.raw;c.raw=0;c.rest=0.3;}
+      else if(t&&t.id===85)c.kg+=(Math.random()<0.15?FOOD.bigFish:FOOD.fish)*lv.food;
+      else if(t&&getB(...t.p)===t.id){setB(...t.p,0);netBlock(...t.p,0);buildMesh();c.kg+=(t.id===86?FOOD.coco:FOOD.bush)*lv.food;}}
+  } else if(c.rest>0){c.rest-=dt; // もぐもぐ休けい
   } else if(!island.over){
-    if(!c.tgt||(c.tgt.id!==85&&getB(...c.tgt.p)!==c.tgt.id))c.tgt=cpuPick(c);
+    if(!c.tgt||((c.tgt.id===86||c.tgt.id===87)&&getB(...c.tgt.p)!==c.tgt.id)){c.tgt=cpuPick(c);c.prog=undefined;}
     const t=c.tgt;
-    if(t){const tx=t.p[0]+0.5,tz=t.p[2]+0.5,d=Math.hypot(tx-c.x,tz-c.z);
-      if(d<(t.id===85?1.6:1.7)&&Math.abs(t.p[1]-c.y)<5){c.eat=t.id===85?4+Math.random()*4:0.9;c.yaw=c.dirYaw=Math.atan2(-(tx-c.x),-(tz-c.z));}
-      else{c.dirYaw=pathYaw(c,{key:c.key,x:tx,y:t.p[1],z:tz});sp=3.3*fatSpeed(c.kg);}}
+    if(c.side>0){c.side-=dt;sp=lv.spd*0.8;c.dirYaw=c.sideYaw;}
+    else if(t){const tx=t.p[0]+0.5,tz=t.p[2]+0.5,d=Math.hypot(tx-c.x,tz-c.z);
+      // 1.5秒でほとんど動けていなければ、横にずれる。2回続いたら、その目標はしばらくあきらめる
+      if(c.prog===undefined){c.prog=[c.x,c.z];c.progT=0;}
+      c.progT+=dt;if(c.progT>1.5){if(Math.hypot(c.x-c.prog[0],c.z-c.prog[1])<0.8){c.fail=(c.fail||0)+1;c.side=0.8;c.sideYaw=c.yaw+(Math.random()<0.5?1.6:-1.6);
+          if(c.fail>=2){(c.bad=c.bad||{})[t.p.join(',')]=island.t-20;c.tgt=null;c.fail=0;}}else c.fail=0;c.prog=[c.x,c.z];c.progT=0;}
+      if(d<(t.id===85?1.6:1.8)&&Math.abs(t.p[1]-c.y)<5){c.eat=t.id===85?5+Math.random()*5:t.id===88?3:t.id===89?4:t.id===90?1.2*Math.max(1,c.raw):lv.eat*(0.7+Math.random()*0.6);c.yaw=c.dirYaw=Math.atan2(-(tx-c.x),-(tz-c.z));}
+      else{c.dirYaw=pathYaw(c,{key:c.key,x:tx,y:t.p[1],z:tz});sp=lv.spd*fatSpeed(c.kg);}}
   }
   let dy=c.dirYaw-c.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));c.yaw+=dy*Math.min(1,8*dt);
   c.vx=-Math.sin(c.yaw)*sp;c.vz=-Math.cos(c.yaw)*sp;c.vy-=26*dt;if(c.vy<-30)c.vy=-30;
   const blocked=moveBody(c,dt,c.r,c.h);
-  if(blocked&&c.ground&&sp>0)c.vy=8.2;
-  if(sp>0){c.walk+=dt*sp*2.2;c.kg=Math.max(25,c.kg-0.006*dt);}
-  c.stuck+=dt;if(c.stuck>3){if(sp>0&&Math.hypot(c.x-c.lx,c.z-c.lz)<0.6)c.tgt=null;c.stuck=0;c.lx=c.x;c.lz=c.z;} // 動けなくなったら目標を変える
-  if(!island.over)c.kg+=0.012*dt; // CPUはこっそりおやつを食べている
-  if(c.y<-5){c.x=24.5;c.z=24.5;c.y=standAt(c.x,c.z,null);c.vy=0;}
+  if(blocked&&c.ground&&sp>0){ // 1段の段差は自動でのぼる（上があいていれば）
+    const ax=c.x-Math.sin(c.yaw)*(c.r+0.35),az=c.z-Math.cos(c.yaw)*(c.r+0.35),Y=Math.floor(c.y+0.01);
+    if(solidAt(Math.floor(ax),Y,Math.floor(az))&&!hitsBox(c.x,Y+1,c.z,c.r,c.h)&&!hitsBox(ax,Y+1,az,c.r,c.h)){c.y=Y+1;c.x+=(ax-c.x)*0.5;c.z+=(az-c.z)*0.5;c.vy=0;}
+    else c.vy=8.2;}
+  if(sp>0){c.walk+=dt*sp*2.2;c.kg=Math.max(25,c.kg-0.0005*dt);}
+  if(c.y<-5){c.x=24.5;c.z=24.5;for(let yy=6;yy<H-2;yy++)if(standable(24,yy,24)){c.y=yy;break;}c.vy=0;}
 }
 function netCpus(list){
   if(!Array.isArray(list))return;
@@ -2186,11 +2255,11 @@ function islandEnd(){
   let best=0;try{best=parseFloat(localStorage.getItem(ISLAND_KEY))||0;}catch(e){}
   const rec=island.kg>best;if(rec)try{localStorage.setItem(ISLAND_KEY,String(island.kg));}catch(e){}
   gameClear();
-  const sp=sum('p'),sc=sum('c'),f=v=>(v>=0?'+':'')+v.toFixed(1)+'kg';
+  const sp=sum('p'),sc=sum('c'),f=v=>sgnKg(v)+'kg',lvName=cpus.length?'（CPU：'+(CPU_LV[island.lv]||CPU_LV[1]).name+'）':'';
   document.getElementById('clearTitle').textContent=team?(sp>=sc?'🏆 人間チームの勝ち！':'🤖 CPUチームの勝ち…'):rows.length>1&&rows[0].me?'🏆 あなたの勝ち！':'🏝️ 結果発表';
   document.getElementById('clearMsg').innerHTML=(team?'👫 人間チーム <b>'+f(sp)+'</b>　vs　🤖 CPUチーム <b>'+f(sc)+'</b><br><br>':'')
-    +rows.map((r,i)=>['🥇','🥈','🥉','4️⃣'][i]+' '+r.n+'　<b>'+r.kg.toFixed(1)+'kg</b>（'+f(r.kg-30)+'）').join('<br>')
-    +'<br><br>'+(rec?'🎉 自己ベスト更新！':'自己ベスト '+best.toFixed(1)+'kg');
+    +rows.map((r,i)=>['🥇','🥈','🥉','4️⃣'][i]+' '+r.n+'　<b>'+fmtKg(r.kg)+'kg</b>（'+f(r.kg-30)+'）').join('<br>')
+    +'<br>'+lvName+'<br>'+(rec?'🎉 自己ベスト更新！':'自己ベスト '+fmtKg(best)+'kg');
   clearBtnEl.textContent='もどる';islandAgainEl.style.display=net.role==='guest'?'none':'';
   updateRushBest();
 }
@@ -2217,7 +2286,7 @@ function rushClear(){
 }
 function updateRushBest(){let b=null,k=0;try{b=parseFloat(localStorage.getItem(RUSH_KEY));k=parseFloat(localStorage.getItem(ISLAND_KEY))||0;}catch(e){}
   const el=document.getElementById('rushBest');if(el)el.textContent=b>0?'ベストタイム '+fmtTime(b):'';
-  const el2=document.getElementById('islandBest');if(el2)el2.textContent=k>0?'自己ベスト '+k.toFixed(1)+'kg':'';}
+  const el2=document.getElementById('islandBest');if(el2)el2.textContent=k>0?'自己ベスト '+k.toFixed(2)+'kg':'';}
 function gameClear(){
   clearBtnEl.textContent='草原にもどる';islandAgainEl.style.display='none';
   document.getElementById('clearTitle').textContent='🎉 ぜんぶクリア！';
@@ -2240,10 +2309,10 @@ function step(dt){
   P.vx=(-sy*f+cy*s)*sp+P.kx; P.vz=(-cy*f-sy*s)*sp+P.kz;
   const damp=Math.min(1,6*dt);P.kx-=P.kx*damp;P.kz-=P.kz*damp;
   P.vy-=26*dt; if(P.vy<-30)P.vy=-30;
-  if((keys.Space||jumpHeld)&&P.ground){P.vy=8.2*(island?Math.max(0.92,1-(island.kg-30)/400):1);loseKg(0.02);} // ジャンプでも少しやせる
+  if((keys.Space||jumpHeld)&&P.ground){P.vy=8.2*(island?Math.max(0.92,1-(island.kg-30)/400):1);loseKg(0.002);} // ジャンプでも少しやせる
   const wasGround=P.ground;
   const blocked=moveBody(P,dt,PR,PH);
-  if(island&&len>0.1&&P.ground)loseKg(0.006*dt*len); // 走るとやせる
+  if(island&&len>0.1&&P.ground)loseKg(0.0005*dt*len); // 走ると少しやせる
   checkCells(dt);
   if(isTouch&&blocked&&wasGround&&len>0.3&&P.ground){
     const ax=P.x+(-sy*f+cy*s)*0.5, az=P.z+(-cy*f-sy*s)*0.5;
@@ -2332,7 +2401,7 @@ function breakBlock(){
   if(id===12){stageStats.gems++;seeItem('gem');toast('💎 宝石を見つけた！');}
   if(id===19){stageStats.chests++;inv.wood+=3;inv.stone+=3;saveInv();updateHud();seeItem('chest');toast('📦 宝箱！ 🪵+3 🪨+3');}
   if(id===24||id===25||id===26)harvestCrop(id);
-  if(id===86)addKg(0.5,'🥥 ヤシの実をたべた！');if(id===87)addKg(0.3,'🫐 きのみをたべた！');
+  if(id===86)gainFood(FOOD.coco,'🥥 ヤシの実をたべた！');if(id===87)gainFood(FOOD.bush,'🫐 きのみをたべた！');
   if(id===4||id===7||id===3||id===9||id===11||id===16||id===20){saveInv();updateHud();}
   buildMesh(); queueSave();
 }
@@ -2482,8 +2551,10 @@ onTap(document.getElementById('islandBtn'),()=>startIsland());
 const islandHudEl=document.getElementById('islandHud'),rainEl=document.getElementById('rain');
 onTap(document.getElementById('ihDrink'),()=>{if(started&&!paused())drinkWater();});
 const islandPickEl=document.getElementById('islandPick');
-onTap(document.getElementById('ipPvp'),()=>startIsland('pvp'));
-onTap(document.getElementById('ipTeam'),()=>startIsland('team'));
+onTap(document.getElementById('ipPvp'),()=>{pickMode='pvp';renderIslandPick();});
+onTap(document.getElementById('ipTeam'),()=>{pickMode='team';renderIslandPick();});
+document.querySelectorAll('#ipLvRow button').forEach((b,i)=>onTap(b,()=>{islandLv=i;renderIslandPick();}));
+onTap(document.getElementById('ipGo'),()=>startIsland(true));
 onTap(document.getElementById('ipCancel'),()=>{islandPickEl.style.display='none';});
 onTap(dexTabEnemyEl,()=>{dexTab='enemy';renderDex();});
 onTap(dexTabItemEl,()=>{dexTab='item';renderDex();});
@@ -2714,9 +2785,9 @@ function updateTags(){
     if(!c||!lastM||!started){tg.style.display='none';return;}
     const m=lastM,x=c.x,y=c.y+2.05,z=c.z;
     const cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cw=m[3]*x+m[7]*y+m[11]*z+m[15];
-    if(cw>0.1){tg.style.display='block';tg.style.left=((cx/cw+1)/2*innerWidth)+'px';tg.style.top=((1-cy/cw)/2*innerHeight)+'px';tg.textContent=c.name+' '+c.kg.toFixed(1)+'kg';}
+    if(cw>0.1){tg.style.display='block';tg.style.left=((cx/cw+1)/2*innerWidth)+'px';tg.style.top=((1-cy/cw)/2*innerHeight)+'px';tg.textContent=c.name+' '+fmtKg(c.kg)+'kg';}
     else tg.style.display='none';});
-  remoteTag.textContent=island&&remote&&remote.kg?'ともだち '+remote.kg.toFixed(1)+'kg':'ともだち';
+  remoteTag.textContent=island&&remote&&remote.kg?'ともだち '+fmtKg(remote.kg)+'kg':'ともだち';
   if(remote&&!remote.dead&&lastM&&started){
     const m=lastM,x=remote.x,y=remote.y+2.05,z=remote.z;
     const cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cw=m[3]*x+m[7]*y+m[11]*z+m[15];
@@ -3008,7 +3079,7 @@ function showResult(){
 function endCooking(){
   const bonus=COOK_INFO[ck.recipe].bonus;
   P.hp=Math.min(MAXHP,P.hp+healAmt+bonus);cookTotal+=cookSum;P.inv=3;P.safe=3;
-  if(island)setTimeout(()=>addKg(1.5+cookSum/80,'🍖 料理をたべた！'),900);
+  if(island)setTimeout(()=>gainFood(0.1+cookSum/2000,'🍖 料理をたべた！'),900);
   cookEl.style.display='none';cooking=false;ck=null;updateHud();
   toast('ごちそうさま！ 🍳 +'+cookSum);
   lockMouse();
@@ -3347,10 +3418,10 @@ function onNet(m){
   } else if(m.t==='islandReq'){
     if(net.role!=='host')return;
     if(stage===0&&!island){clearTimeout(saveTimer);save();}
-    beginIsland(m.v==='team'?'team':'pvp');toast('🏝️ 相手が無人島ふとりバトルを始めた！');
+    beginIsland(m.v==='team'?'team':'pvp',(m.lv|0)>=0&&(m.lv|0)<=2?m.lv|0:1);toast('🏝️ 相手が無人島ふとりバトルを始めた！');
   } else if(m.t==='islandGo'){
     if(net.role!=='guest')return;
-    island={t:ISLAND_TIME,kg:30,mode:m.v==='team'?'team':'pvp'};islandWater();lastIslandHud='';islandMode=island.mode;bossRush=null;fishing=null;cpus=[];
+    island={t:ISLAND_TIME,kg:30,mode:m.v==='team'?'team':'pvp',lv:m.lv|0};islandWater();lastIslandHud='';islandMode=island.mode;bossRush=null;fishing=null;cpus=[];
     document.getElementById('clear').style.display='none';clearing=false;
     if(dead){overEl.style.display='none';respawnOnly();started=true;}
     toast('🏝️ 5分でいちばん太った人の勝ち！ 食べまくれ！');
