@@ -164,6 +164,7 @@ body.touch #held.gun{right:40%;bottom:-6px}
 body.scoped #scope{display:block}
 body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 #craft{display:none;z-index:12;background:rgba(20,30,50,.7)}
+#islandPick{display:none;z-index:13;background:rgba(20,30,50,.7)}
 #craft .card{width:min(94vw,420px);padding:14px}
 #craft h2{margin:0 0 4px}
 #mats{font-weight:800;font-size:16px}
@@ -241,6 +242,15 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
     </div>
     <button id="reset">世界を作り直す</button>
     <p id="ver">ver 1.13.0</p>
+  </div>
+</div>
+<div id="islandPick" class="overlay">
+  <div class="card">
+    <h2>🏝️ 無人島ふとりバトル</h2>
+    <p>2人プレイの遊び方をえらんでね</p>
+    <div><button id="ipPvp" class="big" style="background:#0e9f8e;box-shadow:0 4px 0 #09695e">🧑‍🤝‍🧑 2人で対戦</button></div>
+    <div><button id="ipTeam" class="big" style="background:#e67e22;box-shadow:0 4px 0 #9c5210">👫 2人チーム vs 🤖 CPU2人</button></div>
+    <button id="ipCancel" class="big" style="background:#8a8a8a;box-shadow:0 4px 0 #555">やめる</button>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -1307,7 +1317,7 @@ function render(){
   const bindB=(buf)=>{gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.vertexAttribPointer(LB.pos,3,gl.FLOAT,false,24,0);gl.vertexAttribPointer(LB.uv,2,gl.FLOAT,false,24,12);gl.vertexAttribPointer(LB.sh,1,gl.FLOAT,false,24,20);};
   bindB(vbo);gl.uniform3f(LB.tint,1,1,1);
   gl.drawArrays(gl.TRIANGLES,0,vcount);
-  if(cpu){const out=[];avatarVerts(cpu,out);bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
+  if(cpus.length){const out=[];for(const c of cpus)avatarVerts(c,out);bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
   if(remote&&!remote.dead){const out=[];avatarVerts(remote,out);bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
   if(enemies.length){
     const out=[],ranges=[];
@@ -1954,7 +1964,9 @@ function checkGoal(){
 }
 function updateGoalHud(){
   const st=STAGES[stage],g=st.goal;let t;
-  if(island){let o='';if(cpu)o='　🤖 CPU '+cpu.kg.toFixed(1)+'kg';else if(remote&&remote.kg)o='　🧑 '+remote.kg.toFixed(1)+'kg';
+  if(island&&island.mode==='team'){const rk=remote&&remote.kg?remote.kg:30,ck=cpus.reduce((a,c)=>a+c.kg-30,0);
+    t='🏝️ ⏱ '+fmtTime(Math.max(0,Math.ceil(island.t)))+'　🍔 あなた '+island.kg.toFixed(1)+'kg　👫 +'+(island.kg+rk-60).toFixed(1)+'kg vs 🤖 +'+ck.toFixed(1)+'kg';}
+  else if(island){let o='';if(cpus.length)o='　🤖 CPU '+cpus[0].kg.toFixed(1)+'kg';else if(remote&&remote.kg)o='　🧑 '+remote.kg.toFixed(1)+'kg';
     t='🏝️ ⏱ '+fmtTime(Math.max(0,Math.ceil(island.t)))+'　🍔 あなた '+island.kg.toFixed(1)+'kg'+o;}
   else if(bossRush)t='👑 ボス戦モード '+(stage+1)+'/'+NSTAGE+'　'+(goalDone?'たおした！':bossName()+'をたおせ')+'　⏱ '+fmtTime(bossRush.t);
   else if(goalDone)t=st.icon+' クリア！ 🌀ポータルに入ろう';
@@ -1990,21 +2002,29 @@ function goStage(n){
 }
 // ---- 無人島ふとりバトル：5分でどれだけ太れるか。ひとりならCPU、2人プレイなら友だちと勝負 ----
 const ISLAND_TIME=300,ISLAND_KEY='kaitocraft_island_best';
-let cpu=null,fishing=null,regrowT=0;
+let cpus=[],fishing=null,regrowT=0; // cpus：ひとりなら1人、2人プレイの「2人 vs CPU」なら2人（ホストが動かしてゲストに送る）
 const fatK=kg=>Math.max(1,Math.min(2.6,1+(kg-30)/30)); // 見た目の太さ
 const fatSpeed=kg=>Math.max(0.55,1-(kg-30)/110);       // 太るほどおそくなる
-function startIsland(){
-  if(net.role==='guest'){netSend({t:'islandReq'});window.startGame();toast('🏝️ 無人島ふとりバトルを始めるよ！');return;}
+// mode：'solo'（ひとり vs CPU）/ 'pvp'（2人で対戦）/ 'team'（2人チーム vs CPU2人）
+let islandMode='solo';
+function startIsland(mode){
+  if(!net.connected)mode='solo';
+  else if(mode!=='pvp'&&mode!=='team'){islandPickEl.style.display='flex';return;} // 2人プレイのときは遊び方をえらぶ
+  islandPickEl.style.display='none';
+  if(net.role==='guest'){netSend({t:'islandReq',v:mode});window.startGame();toast('🏝️ 無人島ふとりバトルを始めるよ！');return;}
   if(stage===0){clearTimeout(saveTimer);save();}
-  beginIsland();window.startGame();
+  beginIsland(mode);window.startGame();
 }
-function beginIsland(){
+function beginIsland(mode){
+  if(mode)islandMode=mode;
+  if(!net.connected)islandMode='solo';else if(islandMode==='solo')islandMode='pvp';
   bossRush=null;fishing=null;regrowT=4;
-  island={t:ISLAND_TIME,kg:30};goStage(ISLAND);cpu=net.connected?null:makeCpu();
+  island={t:ISLAND_TIME,kg:30,mode:islandMode};goStage(ISLAND);
+  cpus=islandMode==='solo'?[makeCpu(0,1)]:islandMode==='team'?[makeCpu(0,2),makeCpu(1,2)]:[];
   document.getElementById('clear').style.display='none';clearing=false;
-  if(net.connected)netSend({t:'islandGo'});
+  if(net.connected)netSend({t:'islandGo',v:islandMode});
 }
-function endIsland(){island=null;cpu=null;fishing=null;}
+function endIsland(){island=null;cpus=[];fishing=null;}
 function addKg(d,msg){if(!island||island.over)return;island.kg=Math.max(25,island.kg+d);if(msg)toast(msg+'　'+(d>=0?'+':'')+d.toFixed(1)+'kg');updateGoalHud();}
 function loseKg(d){if(island&&!island.over)island.kg=Math.max(25,island.kg-d);}
 function islandFaint(){P.hp=MAXHP;P.inv=3;P.safe=0;spawn();updateHud();addKg(-1.5,'💫 たおれてやせてしまった…');}
@@ -2029,15 +2049,15 @@ function islandRegrow(dt){
     const q=e[Math.floor(Math.random()*e.length)];setB(...q,id);netBlock(...q,id);ch=true;}
   if(ch)buildMesh();
 }
-function makeCpu(){
-  const c={key:'CPU',x:26.5,z:25.5,y:0,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:0,dirYaw:0,walk:0,r:0.3,h:1.8,
-    appearance:(myAppearance+1)%APPEARANCES.length,weapon:'sword',pitch:0,swing:0,kick:0,recoil:0,scale:1,fat:1,kg:30,tgt:null,eat:0,stuck:0,lx:0,lz:0};
+function makeCpu(i,n){
+  const c={key:'CPU'+i,name:n>1?'🤖 CPU'+(i+1):'🤖 CPU',x:i?21.5:26.5,z:i?22.5:25.5,y:0,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:0,dirYaw:0,walk:0,r:0.3,h:1.8,
+    appearance:(myAppearance+1+i*2)%APPEARANCES.length,weapon:'sword',pitch:0,swing:0,kick:0,recoil:0,scale:1,fat:1,kg:30,tgt:null,eat:0,stuck:0,lx:0,lz:0};
   c.y=standAt(c.x,c.z,null);return c;
 }
 function cpuPick(c){
-  const list=[];
-  for(const q of islandSpots.coco)if(getB(...q)===86)list.push({p:q,id:86});
-  for(const q of islandSpots.bush)if(getB(...q)===87)list.push({p:q,id:87});
+  const list=[],taken=cpus.filter(o=>o!==c&&o.tgt).map(o=>o.tgt.p); // ほかのCPUがねらっている物はとらない
+  for(const q of islandSpots.coco)if(getB(...q)===86&&!taken.includes(q))list.push({p:q,id:86});
+  for(const q of islandSpots.bush)if(getB(...q)===87&&!taken.includes(q))list.push({p:q,id:87});
   for(const o of list)o.d=Math.hypot(o.p[0]+0.5-c.x,o.p[2]+0.5-c.z)+Math.random()*6;
   list.sort((a,b)=>a.d-b.d);
   if(list.length&&Math.random()<0.8)return list[0];
@@ -2046,20 +2066,20 @@ function cpuPick(c){
     if(getB(x,6,z)!==85)continue;const d=Math.hypot(x+0.5-c.x,z+0.5-c.z);if(d<bd){bd=d;best={p:[x,6,z],id:85};}}
   return best||list[0]||null;
 }
-function updateCpu(dt){
-  const c=cpu;c.fat=fatK(c.kg);let sp=0;
+function updateCpu(c,dt){
+  c.fat=fatK(c.kg);let sp=0;
   c.swing=Math.max(0,c.swing-dt);
   if(c.eat>0){
     c.eat-=dt;if(c.tgt&&c.tgt.id!==85&&c.eat>0.3&&Math.random()<dt*2)c.swing=0.3;
     if(c.eat<=0){const t=c.tgt;c.tgt=null;
       if(t&&t.id===85)c.kg+=Math.random()<0.15?1.5:0.6;
-      else if(t&&getB(...t.p)===t.id){setB(...t.p,0);buildMesh();c.kg+=t.id===86?0.5:0.3;}}
+      else if(t&&getB(...t.p)===t.id){setB(...t.p,0);netBlock(...t.p,0);buildMesh();c.kg+=t.id===86?0.5:0.3;}}
   } else if(!island.over){
     if(!c.tgt||(c.tgt.id!==85&&getB(...c.tgt.p)!==c.tgt.id))c.tgt=cpuPick(c);
     const t=c.tgt;
     if(t){const tx=t.p[0]+0.5,tz=t.p[2]+0.5,d=Math.hypot(tx-c.x,tz-c.z);
       if(d<(t.id===85?1.6:1.7)&&Math.abs(t.p[1]-c.y)<5){c.eat=t.id===85?4+Math.random()*4:0.9;c.yaw=c.dirYaw=Math.atan2(-(tx-c.x),-(tz-c.z));}
-      else{c.dirYaw=pathYaw(c,{key:'CPU',x:tx,y:t.p[1],z:tz});sp=3.3*fatSpeed(c.kg);}}
+      else{c.dirYaw=pathYaw(c,{key:c.key,x:tx,y:t.p[1],z:tz});sp=3.3*fatSpeed(c.kg);}}
   }
   let dy=c.dirYaw-c.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));c.yaw+=dy*Math.min(1,8*dt);
   c.vx=-Math.sin(c.yaw)*sp;c.vz=-Math.cos(c.yaw)*sp;c.vy-=26*dt;if(c.vy<-30)c.vy=-30;
@@ -2070,17 +2090,31 @@ function updateCpu(dt){
   if(!island.over)c.kg+=0.012*dt; // CPUはこっそりおやつを食べている
   if(c.y<-5){c.x=24.5;c.z=24.5;c.y=standAt(c.x,c.z,null);c.vy=0;}
 }
+function netCpus(list){
+  if(!Array.isArray(list))return;
+  while(cpus.length>list.length)cpus.pop();
+  list.forEach((a,i)=>{let c=cpus[i];
+    if(!c){c=cpus[i]={key:'CPU'+i,name:list.length>1?'🤖 CPU'+(i+1):'🤖 CPU',x:a[0],y:a[1],z:a[2],yaw:a[3],walk:0,r:0.3,h:1.8,weapon:'sword',pitch:0,swing:0,kick:0,recoil:0,scale:1,fat:1,kg:30};}
+    c.tx=a[0];c.ty=a[1];c.tz=a[2];c.tyaw=a[3];c.walk=a[4];c.kg=a[5];c.appearance=a[6]|0;c.swing=a[7]||0;c.fat=fatK(c.kg);});
+}
+function smoothCpus(dt){const k=Math.min(1,dt*12);
+  for(const c of cpus){if(c.tx===undefined)continue;c.x+=(c.tx-c.x)*k;c.y+=(c.ty-c.y)*k;c.z+=(c.tz-c.z)*k;
+    let dy=c.tyaw-c.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));c.yaw+=dy*k;}}
 function islandEnd(){
   if(!island||island.over)return;island.over=true;fishing=null;
-  if(net.connected&&net.role==='host')netSend({t:'islandEnd'});
-  const rows=[{n:'あなた',kg:island.kg}];
-  if(cpu)rows.push({n:'🤖 CPU',kg:cpu.kg});else if(remote&&remote.kg)rows.push({n:'🧑 ともだち',kg:remote.kg});
+  if(net.connected&&net.role==='host')netSend({t:'islandEnd',hk:island.kg,c:cpus.map(c=>c.kg)}); // 最後の体重をそろえる
+  const rows=[{n:'あなた',kg:island.kg,me:1,team:'p'}];
+  if(net.connected&&remote)rows.push({n:'🧑 ともだち',kg:remote.kg||30,team:'p'});
+  for(const c of cpus)rows.push({n:c.name,kg:c.kg,team:'c'});
   rows.sort((a,b)=>b.kg-a.kg);
+  const team=island.mode==='team',sum=t=>rows.filter(r=>r.team===t).reduce((a,r)=>a+r.kg-30,0);
   let best=0;try{best=parseFloat(localStorage.getItem(ISLAND_KEY))||0;}catch(e){}
   const rec=island.kg>best;if(rec)try{localStorage.setItem(ISLAND_KEY,String(island.kg));}catch(e){}
   gameClear();
-  document.getElementById('clearTitle').textContent=rows.length>1&&rows[0].n==='あなた'?'🏆 あなたの勝ち！':rows.length>1?'🏝️ 結果発表':'🏝️ 結果発表';
-  document.getElementById('clearMsg').innerHTML=rows.map((r,i)=>['🥇','🥈','🥉'][i]+' '+r.n+'　<b>'+r.kg.toFixed(1)+'kg</b>（'+(r.kg>=30?'+':'')+(r.kg-30).toFixed(1)+'kg）').join('<br>')
+  const sp=sum('p'),sc=sum('c'),f=v=>(v>=0?'+':'')+v.toFixed(1)+'kg';
+  document.getElementById('clearTitle').textContent=team?(sp>=sc?'🏆 人間チームの勝ち！':'🤖 CPUチームの勝ち…'):rows.length>1&&rows[0].me?'🏆 あなたの勝ち！':'🏝️ 結果発表';
+  document.getElementById('clearMsg').innerHTML=(team?'👫 人間チーム <b>'+f(sp)+'</b>　vs　🤖 CPUチーム <b>'+f(sc)+'</b><br><br>':'')
+    +rows.map((r,i)=>['🥇','🥈','🥉','4️⃣'][i]+' '+r.n+'　<b>'+r.kg.toFixed(1)+'kg</b>（'+f(r.kg-30)+'）').join('<br>')
     +'<br><br>'+(rec?'🎉 自己ベスト更新！':'自己ベスト '+best.toFixed(1)+'kg');
   clearBtnEl.textContent='もどる';islandAgainEl.style.display=net.role==='guest'?'none':'';
   updateRushBest();
@@ -2146,7 +2180,7 @@ function step(dt){
   P.safe-=dt;
   if(P.safe<=0&&P.hp<MAXHP){P.hp=Math.min(MAXHP,P.hp+1);P.safe=3;updateHud();}
   playTime+=dt;P.inv-=dt;
-  if(island){updateFishing(dt);if(net.role!=='guest'&&!island.over){island.t-=dt;islandRegrow(dt);if(island.t<=0)islandEnd();}if(cpu)updateCpu(dt);}
+  if(island){updateFishing(dt);if(net.role!=='guest'&&!island.over){island.t-=dt;islandRegrow(dt);if(island.t<=0)islandEnd();}if(net.role==='guest')smoothCpus(dt);else for(const c of cpus)updateCpu(c,dt);}
   if(bossRush&&net.role!=='guest'&&!goalDone)bossRush.t+=dt;
   updateEnemies(dt);updateItems(dt);updateWeapons(dt);if(doors.length)updateDoors();
   if(net.role!=='guest')checkGoal();else updateGoalHud();
@@ -2365,6 +2399,10 @@ function openDex(){dexTab='enemy';renderDex();dexEl.style.display='flex';}
 onTap(document.getElementById('openDex'),openDex);
 onTap(document.getElementById('bossRushBtn'),()=>startBossRush());
 onTap(document.getElementById('islandBtn'),()=>startIsland());
+const islandPickEl=document.getElementById('islandPick');
+onTap(document.getElementById('ipPvp'),()=>startIsland('pvp'));
+onTap(document.getElementById('ipTeam'),()=>startIsland('team'));
+onTap(document.getElementById('ipCancel'),()=>{islandPickEl.style.display='none';});
 onTap(dexTabEnemyEl,()=>{dexTab='enemy';renderDex();});
 onTap(dexTabItemEl,()=>{dexTab='item';renderDex();});
 onTap(document.getElementById('dexClose'),()=>{dexEl.style.display='none';});
@@ -2590,12 +2628,12 @@ function updateTags(){
     n++;
   }
   for(let i=n;i<tagPool.length;i++)tagPool[i].style.display='none';
-  if(cpu&&lastM&&started){
-    const m=lastM,x=cpu.x,y=cpu.y+2.05,z=cpu.z;
+  cpuTags.forEach((tg,i)=>{const c=cpus[i];
+    if(!c||!lastM||!started){tg.style.display='none';return;}
+    const m=lastM,x=c.x,y=c.y+2.05,z=c.z;
     const cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cw=m[3]*x+m[7]*y+m[11]*z+m[15];
-    if(cw>0.1){cpuTag.style.display='block';cpuTag.style.left=((cx/cw+1)/2*innerWidth)+'px';cpuTag.style.top=((1-cy/cw)/2*innerHeight)+'px';cpuTag.textContent='🤖 CPU '+cpu.kg.toFixed(1)+'kg';}
-    else cpuTag.style.display='none';
-  } else cpuTag.style.display='none';
+    if(cw>0.1){tg.style.display='block';tg.style.left=((cx/cw+1)/2*innerWidth)+'px';tg.style.top=((1-cy/cw)/2*innerHeight)+'px';tg.textContent=c.name+' '+c.kg.toFixed(1)+'kg';}
+    else tg.style.display='none';});
   remoteTag.textContent=island&&remote&&remote.kg?'ともだち '+remote.kg.toFixed(1)+'kg':'ともだち';
   if(remote&&!remote.dead&&lastM&&started){
     const m=lastM,x=remote.x,y=remote.y+2.05,z=remote.z;
@@ -3011,7 +3049,7 @@ try{const v=localStorage.getItem(MPMON_KEY);if(v!==null)mpMonsters=v==='1';}catc
 function setMpMonsters(v){mpMonsters=v;try{localStorage.setItem(MPMON_KEY,v?'1':'0');}catch(e){}}
 const mpMsgEl=document.getElementById('mpMsg'),codeIn=document.getElementById('mpCode'),roomEl=document.getElementById('room');
 const remoteTag=document.createElement('div');remoteTag.className='etag';remoteTag.textContent='ともだち';document.getElementById('tags').appendChild(remoteTag);
-const cpuTag=document.createElement('div');cpuTag.className='etag';cpuTag.style.display='none';document.getElementById('tags').appendChild(cpuTag);
+const cpuTags=[0,1].map(()=>{const t=document.createElement('div');t.className='etag';t.style.display='none';document.getElementById('tags').appendChild(t);return t;});
 function mpSay(t,err){mpMsgEl.innerHTML=t;mpMsgEl.style.color=err?'#c62828':'';}
 function roomHud(){roomEl.textContent=net.code?('🏠'+net.code+' 👥'+(net.connected?2:1)):'';const l=(!net.peer&&!net.busy&&!rejoin)?mpLast():null;mpBackEl.style.display=l?'':'none';
   if(l)mpBackEl.textContent=l.r==='host'?'🔁 部屋 '+l.c+' を作り直す':'🔁 部屋 '+l.c+' にもどる';}
@@ -3221,20 +3259,22 @@ function onNet(m){
   } else if(m.t==='goal'){
     if(net.role!=='guest')return;
     stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;bossPhase=m.p|0;net.hostMonsters=!!m.mm;bossRush=(typeof m.r==='number'&&m.r>=0)?{t:m.r}:null;
-    if(typeof m.il==='number'){if(m.il>=0){if(!island)island={t:m.il,kg:30};else island.t=m.il;}else if(island&&!island.over)endIsland();}
+    if(typeof m.il==='number'){if(m.il>=0){if(!island)island={t:m.il,kg:30,mode:m.im==='team'?'team':'pvp'};else island.t=m.il;}else if(island&&!island.over)endIsland();}
     updateGoalHud();
   } else if(m.t==='islandReq'){
     if(net.role!=='host')return;
     if(stage===0&&!island){clearTimeout(saveTimer);save();}
-    beginIsland();toast('🏝️ 相手が無人島ふとりバトルを始めた！');
+    beginIsland(m.v==='team'?'team':'pvp');toast('🏝️ 相手が無人島ふとりバトルを始めた！');
   } else if(m.t==='islandGo'){
     if(net.role!=='guest')return;
-    island={t:ISLAND_TIME,kg:30};bossRush=null;fishing=null;cpu=null;
+    island={t:ISLAND_TIME,kg:30,mode:m.v==='team'?'team':'pvp'};islandMode=island.mode;bossRush=null;fishing=null;cpus=[];
     document.getElementById('clear').style.display='none';clearing=false;
     if(dead){overEl.style.display='none';respawnOnly();started=true;}
     toast('🏝️ 5分でいちばん太った人の勝ち！ 食べまくれ！');
+  } else if(m.t==='cpus'){
+    if(net.role==='guest'&&island)netCpus(m.c);
   } else if(m.t==='islandEnd'){
-    if(net.role==='guest')islandEnd();
+    if(net.role==='guest'){if(remote&&m.hk)remote.kg=m.hk;if(Array.isArray(m.c))m.c.forEach((k,i)=>{if(cpus[i])cpus[i].kg=k;});islandEnd();}
   } else if(m.t==='rushReq'){
     if(net.role!=='host')return;
     if(stage===0&&!bossRush){clearTimeout(saveTimer);save();}
@@ -3283,6 +3323,8 @@ function netTick(dt){
   net.sendT-=dt;
   if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3),ap:myAppearance,w:weapon,dd:dead?1:0,kg:island?+island.kg.toFixed(2):0});}
   if(net.out.length){netSend({t:'blk',c:net.out});net.out=[];}
+  if(net.role==='host'&&island&&cpus.length){net.cpuT=(net.cpuT||0)-dt;
+    if(net.cpuT<=0){net.cpuT=0.1;netSend({t:'cpus',c:cpus.map(c=>[+c.x.toFixed(2),+c.y.toFixed(2),+c.z.toFixed(2),+c.yaw.toFixed(2),+c.walk.toFixed(2),+c.kg.toFixed(2),c.appearance,+c.swing.toFixed(2)])});}}
   if(net.role==='host'&&(mpMonsters||bossRush)){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
@@ -3293,7 +3335,7 @@ function netTick(dt){
   if(net.role==='host'){
     net.goalT-=dt;
     if(net.goalT<=0){net.goalT=0.5;const rt=bossRush?Math.floor(bossRush.t):-1,il=island?Math.ceil(Math.max(0,island.t)):-1,g=JSON.stringify([stageStats,goalDone,mpMonsters,bossPhase,rt,il]);
-      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,p:bossPhase,mm:(mpMonsters||bossRush)?1:0,r:rt,il});}}
+      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,p:bossPhase,mm:(mpMonsters||bossRush)?1:0,r:rt,il,im:island?island.mode:''});}}
   }
 }
 const APPEARANCES=[
@@ -3440,7 +3482,7 @@ function loop(now){
   if(scoped&&(weapon!=='sniper'||dead||!started||paused()))setScope(false);
   fov+=((scoped?20:72)-fov)*Math.min(1,dt*14);
   if(started&&!paused()){const n=Math.ceil(dt/0.016);for(let i=0;i<n&&started&&!paused();i++)step(dt/n);}
-  else if(net.connected&&net.role==='host'){updateEnemies(dt);updateWeapons(dt);if(bossRush&&!goalDone)bossRush.t+=dt;if(island&&!island.over&&!clearing){island.t-=dt;if(island.t<=0)islandEnd();}if(!clearing)checkGoal();} // やられている間も相手は戦っている
+  else if(net.connected&&net.role==='host'){updateEnemies(dt);updateWeapons(dt);if(bossRush&&!goalDone)bossRush.t+=dt;if(island&&!island.over&&!clearing){island.t-=dt;islandRegrow(dt);for(const c of cpus)updateCpu(c,dt);if(island.t<=0)islandEnd();}if(!clearing)checkGoal();} // やられている間も相手は戦っている
   if(cooking)cookUpdate(dt);
   if(!started&&!dead) yaw+=dt*0.08; // タイトル画面だけ回す
   cam[0]=P.x;cam[1]=P.y+EYE;cam[2]=P.z;
