@@ -60,6 +60,15 @@ body{background:#87ceeb;color:var(--ui-fg);font-family:"Hiragino Maru Gothic Pro
 #goal{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:14px;padding:5px 12px;border-radius:14px;pointer-events:none;white-space:nowrap;z-index:3}
 body.touch #goal{top:calc(84px + env(safe-area-inset-top,0px));font-size:12px}
 #goal.done{background:rgba(123,31,162,.8)}
+#islandHud{position:fixed;left:50%;transform:translateX(-50%);top:calc(40px + env(safe-area-inset-top,0px));display:none;align-items:center;gap:8px;background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:13px;padding:4px 6px 4px 12px;border-radius:14px;white-space:nowrap;z-index:4}
+body.touch #islandHud{top:calc(112px + env(safe-area-inset-top,0px));font-size:12px}
+#ihBar{display:inline-block;width:70px;height:9px;background:rgba(255,255,255,.25);border-radius:5px;overflow:hidden}
+#ihBladder{display:block;height:100%;width:0;background:#4fc3f7}
+#ihDrink{font:inherit;font-weight:800;font-size:13px;border:none;border-radius:10px;padding:5px 10px;background:#29b6f6;color:#fff;cursor:pointer}
+#ihDrink small{font-size:10px;opacity:.8}
+body.touch #ihDrink small{display:none}
+#rain{position:fixed;inset:0;pointer-events:none;display:none;z-index:2;background:repeating-linear-gradient(105deg,rgba(200,220,255,.0) 0 18px,rgba(200,220,255,.35) 18px 19px);background-size:120px 120px;animation:rainfall .35s linear infinite}
+@keyframes rainfall{from{background-position:0 0}to{background-position:-30px 120px}}
 #goal.boss{background:rgba(183,28,28,.85)}
 #mud{position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;background:
  radial-gradient(circle at 28% 36%,rgba(96,64,34,.95) 0 11%,rgba(96,64,34,0) 12%),
@@ -292,6 +301,8 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
   </div>
 </div>
 <div id="goal"></div>
+<div id="islandHud"><span id="ihWater"></span><span id="ihPee">🚽</span><b id="ihBar"><i id="ihBladder"></i></b><button id="ihDrink">🥤 のむ<small>（R）</small></button></div>
+<div id="rain"></div>
 <div id="bossbar"><i></i></div>
 <div id="btnMenu" aria-label="メニューを開く" role="button">☰</div>
 <div id="over" class="overlay">
@@ -419,7 +430,7 @@ const BLOCKS={
   11:{name:'マグマ岩',t:[42,42,42]},12:{name:'宝石',t:[45,45,45]},13:{name:'ポータル',t:[47,47,47]},14:{name:'溶岩',t:[43,43,43]},15:{name:'光る石',t:[44,44,44]},16:{name:'島の石',t:[46,46,46]},
   17:{name:'かべ紙',t:[48,48,48]},18:{name:'屋根',t:[49,49,49]},19:{name:'宝箱',t:[51,50,50]},20:{name:'コンクリート',t:[52,52,52]},21:{name:'クジラの肉',t:[55,55,55]},22:{name:'ほね',t:[56,56,56]},23:{name:'胃液',t:[57,57,57]},
   24:{name:'ニンジン',t:[78,78,78]},25:{name:'たまねぎ',t:[79,79,79]},26:{name:'キノコ',t:[80,80,80]},
-  85:{name:'海',t:[123,123,123]},86:{name:'ヤシの実',t:[124,124,124]},87:{name:'きのみのしげみ',t:[125,125,125]},
+  85:{name:'海',t:[123,123,123]},88:{name:'わき水',t:[126,126,126]},89:{name:'たき火',t:[127,127,127]},90:{name:'ろ過器',t:[129,128,8]},86:{name:'ヤシの実',t:[124,124,124]},87:{name:'きのみのしげみ',t:[125,125,125]},
   27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]},29:{name:'水晶',t:[93,93,93]},30:{name:'岩盤',t:[94,94,94]}
 };
 const TRANS={5:true,8:true,13:true,28:true,85:true};
@@ -473,6 +484,8 @@ const isButton=id=>id>=BTN_BASE&&id<BTN_BASE+12;
 let pressedButtons=[];
 // ベッドの足側：id 81〜84（向き0〜3）。頭側は正面の反対どなりにある
 const BED_FOOT=81,FNORM=[[0,-1],[1,0],[0,1],[-1,0]];
+// たき火：丸太の上にほのお
+SHAPE[89]=[[[0.1,0,0.1],[0.9,0.2,0.9],[4,4,4,5,4,4],false],[[0.25,0.2,0.25],[0.75,0.8,0.75],[127,127,127,127,127,127],true]];TRANS[89]=true;
 for(let r=0;r<4;r++){const id=BED_FOOT+r;BLOCKS[id]={name:'ベッド',t:[FW,FW,FW],furn:0};TRANS[id]=true;SHAPE[id]=FURN[0].foot.map(b=>rotBox(b,r));}
 // とびらの上半分：79 とじている / 80 あいている（下半分 27/28 といっしょに開け閉めする）
 BLOCKS[79]={name:'とびら（とじている）',t:[8,122,8]};BLOCKS[80]={name:'とびら（あいている）',t:[87,87,87]};TRANS[80]=true;NONSOLID[80]=true;
@@ -542,7 +555,7 @@ const STAGES=[
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},boss:{type:'wombat',hp:30,base:1.25,at:[26.5,29,27.5]},spawn:[24.5,4,20.5]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},boss:{type:'yoshio',hp:60,base:1.6},spawn:[8.5,null,24.5]},
   // 無人島ふとりバトル専用（ステージえらびには出さない）
-  {name:'無人島',icon:'🏝️',extra:true,sky:[0.55,0.82,0.98],fog:[26,70],mobs:{zero:0,zombie:2,mimic:0,cow:3},goal:{type:'fat',n:1,text:''},boss:null,spawn:[24.5,null,24.5]}
+  {name:'無人島',icon:'🏝️',extra:true,sky:[0.55,0.82,0.98],fog:[26,70],mobs:{zero:0,zombie:2,mimic:0,cow:1},goal:{type:'fat',n:1,text:''},boss:null,spawn:[24.5,null,24.5]}
 ];
 const NSTAGE=6,ISLAND=6; // ふつうのステージの数、無人島のステージ番号
 // ボス戦モード：null か {t:経過秒}（6体のボスと順番に戦う）
@@ -607,6 +620,15 @@ function genIsland(rnd,seed){
     if(h<7||getB(x,h+1,z)!==0||Math.hypot(x-cx,z-cz)<4)continue;
     setB(x,h+1,z,3);if(rnd()<0.6)setB(x+1,h+1,z,3);if(rnd()<0.4)setB(x,h+2,z,3);n++;
   }
+  // わき水（地面からわいている）
+  for(let n=0,tries=0;n<3&&tries<300;tries++){
+    const x=5+Math.floor(rnd()*(W-10)),z=5+Math.floor(rnd()*(D-10)),h=top(x,z),d=Math.hypot(x-cx,z-cz);
+    if(h<7||d<6||d>11||getB(x,h,z)!==1||getB(x,h+1,z)!==0)continue;
+    setB(x,h,z,88);n++;
+  }
+  // 支給品：たき火とろ過器（スタート地点のそば）
+  const ph=top(cx+2,cz),qh=top(cx-2,cz);
+  if(ph>=5){setB(cx+2,ph+1,cz,89);}if(qh>=5){setB(cx-2,qh+1,cz,90);}
 }
 function genMagma(rnd,seed){
   for(let z=0;z<D;z++)for(let x=0;x<W;x++){
@@ -725,7 +747,7 @@ let saveTimer=null;
 function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,800);}
 
 // ---------- textures ----------
-const atlas=document.createElement('canvas');atlas.width=2048;atlas.height=16;
+const atlas=document.createElement('canvas');atlas.width=2304;atlas.height=16;
 const ATLAS_TILES=atlas.width/16;
 const actx=atlas.getContext('2d');
 const TR=mulberry32(7);
@@ -990,6 +1012,10 @@ paint(122,(x,y)=>{ // とびらの上半分（まど）
 paint(123,(x,y)=>((x*3+y*7)%11===0||(x+y*5)%13===0)?[150,215,245,255]:vary([48,140,210],14)); // 海
 paint(124,(x,y)=>((x+y*2)%5===0||(x*2-y+16)%7===0)?vary([150,104,58],12):vary([104,66,34],14)); // ヤシの実（せんい）
 paint(125,(x,y)=>((x*5+y*3)%9===0&&x>1&&x<14&&y>1&&y<14)?[210,40,70,255]:((x*7+y*11)%13===0)?[250,120,160,255]:vary([56,132,52],30)); // きのみのしげみ
+paint(126,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);if(d>7)return vary([120,120,120],20);return ((x*5+y*3)%7===0)?[220,245,255,255]:vary([90,190,235],14);}); // わき水
+paint(127,(x,y)=>{const w=(y-1)*0.55+Math.sin(x*1.7+y)*0.6,d=Math.abs(x-7.5);if(y<2||d>w)return [0,0,0,0];return d<w*0.45&&y>6?[255,236,120,255]:y<7?vary([255,150,40],30):vary([240,90,25],30);}); // たき火のほのお（下が太い）
+paint(128,(x,y)=>y<4?vary([230,220,170],10):y<8?vary([40,40,44],10):y<12?vary([200,190,140],12):vary([150,150,150],12)); // ろ過器の横（砂・炭・砂利）
+paint(129,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);return d<5?vary([80,170,220],10):vary([176,140,88],16);}); // ろ過器の上
 paint(121,(x,y)=>y===0||y===1?vary([170,80,50],8):vary([200,104,64],12)); // はちうえ
 // 岩盤（いちばん下の、こわせない層）
 paint(94,()=>TR()<0.3?vary([38,38,42],10):vary([86,86,92],24));
@@ -1825,7 +1851,7 @@ function updateEnemies(dt){
   const aliveZ=enemies.filter(e=>e.dying<=0&&e.type==='zero').length;
   const aliveC=enemies.filter(e=>e.dying<=0&&e.type==='cow').length;
   if(spawnTimer<=0&&aliveZ<STAGES[stage].mobs.zero){spawnEnemy('zero');spawnTimer=Math.max(5,12-kills*0.5);}
-  if(cowTimer<=0&&aliveC<STAGES[stage].mobs.cow){spawnEnemy('cow');cowTimer=10;}
+  if(cowTimer<=0&&aliveC<STAGES[stage].mobs.cow){spawnEnemy('cow');cowTimer=stage===ISLAND?100:10;} // 無人島の牛はめったに出ない
   zombieTimer-=dt;
   if(zombieTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='zombie').length<STAGES[stage].mobs.zombie){spawnEnemy('zombie');zombieTimer=8;}
   mimicTimer-=dt;
@@ -2016,15 +2042,64 @@ function startIsland(mode){
   beginIsland(mode);window.startGame();
 }
 function beginIsland(mode){
+  lastIslandHud='';
   if(mode)islandMode=mode;
   if(!net.connected)islandMode='solo';else if(islandMode==='solo')islandMode='pvp';
   bossRush=null;fishing=null;regrowT=4;
-  island={t:ISLAND_TIME,kg:30,mode:islandMode};goStage(ISLAND);
+  island={t:ISLAND_TIME,kg:30,mode:islandMode};islandWater();goStage(ISLAND);
   cpus=islandMode==='solo'?[makeCpu(0,1)]:islandMode==='team'?[makeCpu(0,2),makeCpu(1,2)]:[];
   document.getElementById('clear').style.display='none';clearing=false;
   if(net.connected)netSend({t:'islandGo',v:islandMode});
 }
-function endIsland(){island=null;cpus=[];fishing=null;}
+function endIsland(){island=null;cpus=[];fishing=null;islandHudEl.style.display='none';rainEl.style.display='none';}
+// 水：わき水・雨水は「生水」。ろ過器かたき火で「飲み水」にしてから飲む。飲むと水の重さだけ太るが、おしっこで出ていく
+const WATER_KG=0.4,RAW_MAX=5;
+function islandWater(){const i=island;if(!i)return null;if(i.raw===undefined){i.raw=0;i.clean=0;i.bladder=0;i.water=0;i.boil=0;i.boilN=0;i.pee=0;i.rain=0;i.nextRain=50+Math.random()*30;i.rainAcc=0;i.warned=false;}return i;}
+function drinkWater(){
+  const i=islandWater();if(!i||i.over||dead)return;
+  if(i.pee>0){toast('🚽 おしっこ中…');return;}
+  if(i.clean>0){i.clean--;addKg(WATER_KG,'🥤 飲み水をごくごく！');i.water+=WATER_KG;i.bladder+=20;}
+  else if(i.raw>0){i.raw--;
+    if(Math.random()<0.5){addKg(-0.8,'🤢 生水でおなかをこわした…');}else{addKg(WATER_KG,'💧 生水をそのまま飲んだ（あぶない！）');i.water+=WATER_KG;i.bladder+=20;}}
+  else{toast('💧 飲み水がない…わき水をくむか、雨を待とう');return;}
+  sfx('pickup',{kind:'milk'});
+  if(i.bladder>=70&&!i.warned){i.warned=true;setTimeout(()=>{if(island&&island.pee<=0)toast('🚽 おしっこしたくなってきた…飲みすぎ注意！');},1200);}
+  updateIslandHud();
+}
+function peeNow(){
+  const i=island;if(!i||i.pee>0)return;
+  const lose=i.water;i.pee=2.5;i.water=0;i.bladder=0;i.warned=false;
+  loseKg(lose);toast('🚽 がまんできない！ おしっこ…　-'+lose.toFixed(1)+'kg');updateGoalHud();
+}
+function useSpring(){const i=islandWater();if(!i)return;if(i.raw>=RAW_MAX){toast('💧 水筒がいっぱい（生水 '+RAW_MAX+'）');return;}i.raw++;sfx('pickup',{kind:'milk'});toast('💧 わき水をくんだ（生水 '+i.raw+'）ろ過か煮沸してから飲もう');updateIslandHud();}
+function useFilter(){const i=islandWater();if(!i)return;if(i.raw<=0){toast('🧪 ろ過する生水がないよ');return;}i.raw--;i.clean++;toast('🧪 ろ過した！ 飲み水 '+i.clean);updateIslandHud();}
+function useFire(){const i=islandWater();if(!i)return;if(i.boil>0){toast('🔥 煮沸中…あと'+Math.ceil(i.boil)+'秒');return;}if(i.raw<=0){toast('🔥 煮沸する生水がないよ');return;}
+  i.boilN=i.raw;i.raw=0;i.boil=4;toast('🔥 生水 '+i.boilN+'はいを煮沸しています…（4秒）');updateIslandHud();}
+function islandOutdoors(){const x=Math.floor(P.x),z=Math.floor(P.z);for(let y=Math.floor(P.y)+2;y<H;y++)if(solidAt(x,y,z))return false;return true;}
+function updateWater(dt){
+  const i=islandWater();if(!i||i.over)return;
+  if(i.boil>0){i.boil-=dt;if(i.boil<=0){i.clean+=i.boilN;toast('🔥 煮沸完了！ 飲み水 +'+i.boilN);i.boilN=0;updateIslandHud();}}
+  if(i.pee>0){i.pee-=dt;}
+  if(i.water>0)i.bladder+=dt*0.8; // 水が体にあるあいだ、少しずつたまる
+  if(i.bladder>=100)peeNow();
+  // 雨：ホストが決めてゲストに送る
+  if(net.role!=='guest'){if(i.rain>0){i.rain-=dt;if(i.rain<=0){i.nextRain=55+Math.random()*35;toast('🌤️ 雨がやんだ');}}
+    else{i.nextRain-=dt;if(i.nextRain<=0){i.rain=18;toast('☔ 雨がふってきた！ 外にいると雨水がたまるよ');}}}
+  if(i.rain>0&&islandOutdoors()){i.rainAcc+=dt;if(i.rainAcc>=3){i.rainAcc=0;if(i.raw<RAW_MAX){i.raw++;toast('☔ 雨水がたまった（生水 '+i.raw+'）');}}}
+  rainEl.style.display=i.rain>0?'block':'none';
+  const base=STAGES[ISLAND].sky,k=i.rain>0?0.62:1;skyCol=[base[0]*k,base[1]*k,base[2]*k];
+  updateIslandHud();
+}
+let lastIslandHud='';
+function updateIslandHud(){
+  const i=island;if(!i||i.raw===undefined){islandHudEl.style.display='none';return;}
+  islandHudEl.style.display='flex';
+  const b=Math.min(100,Math.round(i.bladder)),h='💧生水 '+i.raw+'　🥤飲み水 '+i.clean+(i.boil>0?'　🔥…':'')+'|'+b+'|'+(i.pee>0?1:0);
+  if(h===lastIslandHud)return;lastIslandHud=h;
+  document.getElementById('ihWater').textContent='💧生水 '+i.raw+'　🥤飲み水 '+i.clean+(i.boil>0?'　🔥煮沸中':'');
+  const f=document.getElementById('ihBladder');f.style.width=b+'%';f.style.background=b>=70?'#e53935':b>=40?'#fbc02d':'#4fc3f7';
+  document.getElementById('ihPee').textContent=i.pee>0?'🚽 おしっこ中':'🚽';
+}
 function addKg(d,msg){if(!island||island.over)return;island.kg=Math.max(25,island.kg+d);if(msg)toast(msg+'　'+(d>=0?'+':'')+d.toFixed(1)+'kg');updateGoalHud();}
 function loseKg(d){if(island&&!island.over)island.kg=Math.max(25,island.kg-d);}
 function islandFaint(){P.hp=MAXHP;P.inv=3;P.safe=0;spawn();updateHud();addKg(-1.5,'💫 たおれてやせてしまった…');}
@@ -2161,7 +2236,7 @@ function step(dt){
   if(keys.KeyD||keys.ArrowRight)s+=1; if(keys.KeyA||keys.ArrowLeft)s-=1;
   if(joy.id!==null){f+=-joy.dy/50;s+=joy.dx/50;}
   const len=Math.hypot(f,s); if(len>1){f/=len;s/=len;}
-  const sp=4.6*(island?fatSpeed(island.kg):1), sy=Math.sin(yaw), cy=Math.cos(yaw);
+  const sp=4.6*(island?fatSpeed(island.kg)*(island.pee>0?0:1):1), sy=Math.sin(yaw), cy=Math.cos(yaw);
   P.vx=(-sy*f+cy*s)*sp+P.kx; P.vz=(-cy*f-sy*s)*sp+P.kz;
   const damp=Math.min(1,6*dt);P.kx-=P.kx*damp;P.kz-=P.kz*damp;
   P.vy-=26*dt; if(P.vy<-30)P.vy=-30;
@@ -2180,7 +2255,7 @@ function step(dt){
   P.safe-=dt;
   if(P.safe<=0&&P.hp<MAXHP){P.hp=Math.min(MAXHP,P.hp+1);P.safe=3;updateHud();}
   playTime+=dt;P.inv-=dt;
-  if(island){updateFishing(dt);if(net.role!=='guest'&&!island.over){island.t-=dt;islandRegrow(dt);if(island.t<=0)islandEnd();}if(net.role==='guest')smoothCpus(dt);else for(const c of cpus)updateCpu(c,dt);}
+  if(island){updateFishing(dt);updateWater(dt);if(net.role!=='guest'&&!island.over){island.t-=dt;islandRegrow(dt);if(island.t<=0)islandEnd();}if(net.role==='guest')smoothCpus(dt);else for(const c of cpus)updateCpu(c,dt);}
   if(bossRush&&net.role!=='guest'&&!goalDone)bossRush.t+=dt;
   updateEnemies(dt);updateItems(dt);updateWeapons(dt);if(doors.length)updateDoors();
   if(net.role!=='guest')checkGoal();else updateGoalHud();
@@ -2240,6 +2315,8 @@ function breakBlock(){
   if(id===13){toast('🌀 ポータルは中に入ると次のステージへ進むよ');return;}
   if(id===30){toast('岩盤はこわせないよ');return;}
   if(id===85){toast('🎣 海は右クリック（タッチは🧱）でつりができるよ');return;}
+  if(id===88){toast('💧 わき水は右クリック（タッチは🧱）でくめるよ');return;}
+  if(id===89||id===90){toast(id===89?'🔥 たき火は支給品。右クリックで生水を煮沸できるよ':'🧪 ろ過器は支給品。右クリックで生水をろ過できるよ');return;}
   if((id===3||id===9)&&!inv.own.pickaxe){
     const key=x+','+y+','+z; if(mineKey!==key){mineKey=key;mineN=0;}
     mineN++; if(weapon==='sword'||weapon==='pickaxe')replay(heldEl,'swing');netAct('swing');
@@ -2281,6 +2358,9 @@ function placeBlock(){
   const hitId=getB(r.hit[0],r.hit[1],r.hit[2]);
   if(hitId===10){openCraft();return;}
   if(hitId===85&&island){fishAct();return;}
+  if(island&&hitId===88){useSpring();return;}
+  if(island&&hitId===89){useFire();return;}
+  if(island&&hitId===90){useFilter();return;}
   if(furnKind(hitId)===0){sleepBed();return;}
   if(isButton(hitId)){pressButton(r.hit[0],r.hit[1],r.hit[2]);return;}
   if(!r.prev) return;
@@ -2399,6 +2479,8 @@ function openDex(){dexTab='enemy';renderDex();dexEl.style.display='flex';}
 onTap(document.getElementById('openDex'),openDex);
 onTap(document.getElementById('bossRushBtn'),()=>startBossRush());
 onTap(document.getElementById('islandBtn'),()=>startIsland());
+const islandHudEl=document.getElementById('islandHud'),rainEl=document.getElementById('rain');
+onTap(document.getElementById('ihDrink'),()=>{if(started&&!paused())drinkWater();});
 const islandPickEl=document.getElementById('islandPick');
 onTap(document.getElementById('ipPvp'),()=>startIsland('pvp'));
 onTap(document.getElementById('ipTeam'),()=>startIsland('team'));
@@ -2712,6 +2794,7 @@ addEventListener('keydown',e=>{keys[e.code]=true;
   if(/^Digit[0-9]$/.test(e.code)){const n=+e.code.slice(5);select(n===0?9:n-1);}
   if(e.code==='KeyQ'&&started)cycleWeapon();
   if(e.code==='KeyF'&&started)kick();
+  if(e.code==='KeyR'&&started&&island&&!paused())drinkWater();
   if(e.code==='Space')e.preventDefault();});
 addEventListener('keyup',e=>{keys[e.code]=false;});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
@@ -3259,7 +3342,7 @@ function onNet(m){
   } else if(m.t==='goal'){
     if(net.role!=='guest')return;
     stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;bossPhase=m.p|0;net.hostMonsters=!!m.mm;bossRush=(typeof m.r==='number'&&m.r>=0)?{t:m.r}:null;
-    if(typeof m.il==='number'){if(m.il>=0){if(!island)island={t:m.il,kg:30,mode:m.im==='team'?'team':'pvp'};else island.t=m.il;}else if(island&&!island.over)endIsland();}
+    if(typeof m.il==='number'){if(m.il>=0){if(!island){island={t:m.il,kg:30,mode:m.im==='team'?'team':'pvp'};islandWater();}else island.t=m.il;if(island.raw!==undefined)island.rain=m.rn?Math.max(island.rain,1):0;}else if(island&&!island.over)endIsland();}
     updateGoalHud();
   } else if(m.t==='islandReq'){
     if(net.role!=='host')return;
@@ -3267,7 +3350,7 @@ function onNet(m){
     beginIsland(m.v==='team'?'team':'pvp');toast('🏝️ 相手が無人島ふとりバトルを始めた！');
   } else if(m.t==='islandGo'){
     if(net.role!=='guest')return;
-    island={t:ISLAND_TIME,kg:30,mode:m.v==='team'?'team':'pvp'};islandMode=island.mode;bossRush=null;fishing=null;cpus=[];
+    island={t:ISLAND_TIME,kg:30,mode:m.v==='team'?'team':'pvp'};islandWater();lastIslandHud='';islandMode=island.mode;bossRush=null;fishing=null;cpus=[];
     document.getElementById('clear').style.display='none';clearing=false;
     if(dead){overEl.style.display='none';respawnOnly();started=true;}
     toast('🏝️ 5分でいちばん太った人の勝ち！ 食べまくれ！');
@@ -3334,8 +3417,8 @@ function netTick(dt){
   }
   if(net.role==='host'){
     net.goalT-=dt;
-    if(net.goalT<=0){net.goalT=0.5;const rt=bossRush?Math.floor(bossRush.t):-1,il=island?Math.ceil(Math.max(0,island.t)):-1,g=JSON.stringify([stageStats,goalDone,mpMonsters,bossPhase,rt,il]);
-      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,p:bossPhase,mm:(mpMonsters||bossRush)?1:0,r:rt,il,im:island?island.mode:''});}}
+    if(net.goalT<=0){net.goalT=0.5;const rt=bossRush?Math.floor(bossRush.t):-1,il=island?Math.ceil(Math.max(0,island.t)):-1,g=JSON.stringify([stageStats,goalDone,mpMonsters,bossPhase,rt,il,island&&island.rain>0]);
+      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,p:bossPhase,mm:(mpMonsters||bossRush)?1:0,r:rt,il,im:island?island.mode:'',rn:island&&island.rain>0?1:0});}}
   }
 }
 const APPEARANCES=[
@@ -3389,7 +3472,7 @@ function newRun(){
   P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;signTimer=7;ghastTimer=12;magaiTimer=6;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];mirrorBalls=[];tracers=[];debris=[];fireHeld=false;
   const mb=STAGES[stage].mobs;
   if(bossPhase===1){if(stageStats.boss===0)spawnBoss();}
-  else if(bossPhase===0){if(mb.zero)spawnEnemy('zero');for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');}
+  else if(bossPhase===0){if(mb.zero)spawnEnemy('zero');if(stage===ISLAND)cowTimer=70;else for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');}
   updateHud();
 }
 function gameOver(cause){
