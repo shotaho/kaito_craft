@@ -234,7 +234,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.11.0</p>
+    <p id="ver">ver 1.12.0</p>
   </div>
 </div>
 <div id="cook" class="overlay">
@@ -282,6 +282,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
     <h1>ゲームオーバー</h1>
     <p id="result"></p>
     <button id="again" class="big">もう一度</button>
+    <div><button id="againReset" class="big" style="display:none;background:#c0392b;box-shadow:0 4px 0 #7d2419">ボスを全回復してやり直す</button></div>
   </div>
 </div>
 
@@ -405,7 +406,7 @@ const BLOCKS={
 };
 const TRANS={5:true,8:true,13:true,28:true};
 const NONSOLID={13:true,14:true,23:true,28:true},HAZARD={14:true,23:true};
-const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,20,17,18,15,11,16,22,21,29];
+const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,67,20,17,18,15,11,16,22,21,29];
 const HOTBAR=BASE_HOTBAR.slice();
 
 // ---------- 家具 ----------
@@ -441,6 +442,15 @@ function rotBox(b,r){
 }
 FURN.forEach((f,k)=>{for(let r=0;r<4;r++){const id=FURN_BASE+k*4+r;
   BLOCKS[id]={name:f.name,t:[FW,FW,FW],furn:k};TRANS[id]=true;SHAPE[id]=f.boxes.map(b=>rotBox(b,r));}});
+// ---------- ボタン ----------
+// id = 67 + 取りつけた向き*2 + 押している(1)。向き：0:-x 1:+x 2:床 3:天井 4:-z 5:+z のブロックにくっつく
+const BTN_BASE=67;
+{const a=5/16,b=11/16,c=6/16,e=10/16;
+ for(let f=0;f<6;f++)for(let pr=0;pr<2;pr++){const id=BTN_BASE+f*2+pr,t=pr?1/16:2/16;
+  const box=[[[0,c,a],[t,e,b]],[[1-t,c,a],[1,e,b]],[[a,0,c],[b,t,e]],[[a,1-t,c],[b,1,e]],[[a,c,0],[b,e,t]],[[a,c,1-t],[b,e,1]]][f];
+  BLOCKS[id]={name:'ボタン',t:[3,3,3]};TRANS[id]=true;NONSOLID[id]=true;SHAPE[id]=[[box[0],box[1],[3,3,3,3,3,3],false]];}}
+const isButton=id=>id>=BTN_BASE&&id<BTN_BASE+12;
+let pressedButtons=[];
 const furnKind=id=>id>=FURN_BASE&&id<FURN_BASE+FURN.length*4?(id-FURN_BASE)>>2:-1;
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
@@ -973,10 +983,10 @@ function furnBox(out,ox,oy,oz,b){const mn=b[0],mx=b[1],T=b[2],st=b[3];
       out.push(ox+x,oy+y,oz+z,(tile+0.002+u*0.996)/ATLAS_TILES,v,f.s);}}
 }
 function buildMesh(){
-  const out=[];
+  const out=[];pressedButtons=[];
   for(let y=0;y<H;y++)for(let z=0;z<D;z++)for(let x=0;x<W;x++){
     const id=world[idx(x,y,z)]; if(!id) continue;
-    if(SHAPE[id]){for(const b of SHAPE[id])furnBox(out,x,y,z,b);continue;}
+    if(SHAPE[id]){for(const b of SHAPE[id])furnBox(out,x,y,z,b);if(isButton(id)&&(id-BTN_BASE)%2)pressedButtons.push([x,y,z]);continue;}
     const t=BLOCKS[id].t;
     for(const f of FACES){
       const n=getB(x+f.d[0],y+f.d[1],z+f.d[2]);
@@ -1396,6 +1406,71 @@ function refreshTargets(){
 }
 function getPlayer(key){return playerTargets.find(t=>t.key===key)||null;}
 function nearestPlayer(e){let best=null,bd=1e9;for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z)+Math.abs(t.y-e.y)*0.5;if(d<bd){bd=d;best=t;}}return best;}
+// ---- 道さがし：プレイヤーから逆向きに歩ける場所を広げて「あと何歩」の地図を作り、敵はそれにそって進む ----
+const flows={};
+const airAt=(x,y,z)=>{if(x<0||z<0||x>=W||z>=D||y<0)return false;if(y>=H)return true;const b=world[idx(x,y,z)];return !b||(NONSOLID[b]&&!HAZARD[b]);};
+// w×w マスの足場に、高さ hh の体が立てるか（ふつうの敵は 1×1・高さ2、大きいボスは 2×2 や 3×3）
+function standable(x,y,z,w,hh){
+  w=w||1;hh=hh||2;
+  if(x<0||z<0||x+w>W||z+w>D||y<0||y+hh>H)return false;
+  for(let k=0;k<hh;k++)for(let i=0;i<w;i++)for(let j=0;j<w;j++)if(!airAt(x+i,y+k,z+j))return false;
+  if(y===0)return !voidBelow;
+  for(let i=0;i<w;i++)for(let j=0;j<w;j++){const f=world[idx(x+i,y-1,z+j)];if(f!==0&&!NONSOLID[f])return true;}
+  return false;
+}
+function standCell(x,y,z,down,w,hh){for(let k=0;k<=down;k++)if(standable(x,y-k,z,w,hh))return y-k;return -1;}
+function airBox(x,z,w,y0,y1){for(let y=y0;y<=y1;y++)for(let i=0;i<w;i++)for(let j=0;j<w;j++)if(!airAt(x+i,y,z+j))return false;return true;}
+function buildFlow(starts,w,hh){
+  const dist=new Int16Array(W*D*H).fill(-1),q=new Int32Array(40000);let h=0,t=0;
+  for(const[sx,sy,sz]of starts){const i=idx(sx,sy,sz);if(dist[i]<0){dist[i]=0;q[t++]=i;}}
+  const N=[[1,0],[-1,0],[0,1],[0,-1]];
+  while(h<t){
+    const c=q[h++],x=c%W,z=((c/W)|0)%D,y=(c/(W*D))|0,d=dist[c];
+    if(d>=80)continue;
+    for(const[ox,oz]of N){const vx=x+ox,vz=z+oz;if(vx<0||vz<0||vx+w>W||vz+w>D)continue;
+      // v から c へ歩けるか：1段なら飛び乗れる、3段までなら飛び降りられる
+      for(let vy=y-1;vy<=y+3;vy++){
+        const vi=idx(vx,vy<0?0:vy,vz);if(vy<0||vy>=H||dist[vi]>=0)continue;
+        if(!standable(vx,vy,vz,w,hh))continue;
+        if(vy===y-1&&!airBox(vx,vz,w,vy+hh,vy+hh))continue;
+        if(vy>y&&!airBox(x,z,w,y+hh,vy+hh-1))continue;
+        dist[vi]=d+1;if(t<q.length)q[t++]=vi;}}
+  }
+  return dist;
+}
+function flowFor(tg,w,hh){
+  w=w||1;hh=hh||2;
+  const key=tg.key+'|'+w+'|'+hh,tx=Math.floor(tg.x),tz=Math.floor(tg.z);if(tx<0||tz<0||tx>=W||tz>=D)return null;
+  const ty=standCell(tx,Math.min(H-2,Math.floor(tg.y+0.05)),tz,6);if(ty<0)return flows[key]||null;
+  let f=flows[key];const now=performance.now();
+  if(!f||(now-f.at>(f.x===tx&&f.y===ty&&f.z===tz?2000:300))){
+    const starts=[];for(let i=0;i<w;i++)for(let j=0;j<w;j++){const ax=tx-i,az=tz-j;for(const y of [ty,ty+1,ty-1])if(standable(ax,y,az,w,hh)){starts.push([ax,y,az]);break;}}
+    f={x:tx,y:ty,z:tz,at:now,dist:starts.length?buildFlow(starts,w,hh):null};flows[key]=f;}
+  return f.dist?f:null;
+}
+// 敵がつぎに向かう向き（道が見つからないときはまっすぐ）
+function pathYaw(e,tg){
+  const dx=tg.x-e.x,dz=tg.z-e.z,direct=Math.atan2(-dx,-dz);
+  if(typeof tg.key!=='string')return direct;
+  const w=Math.max(1,Math.ceil(2*e.r-0.01)),hh=Math.max(2,Math.ceil(e.h-0.05)),half=w/2;
+  const f=flowFor(tg,w,hh);if(!f)return direct;
+  const ex=Math.floor(e.x-half+0.5),ez=Math.floor(e.z-half+0.5);if(ex<0||ez<0||ex+w>W||ez+w>D)return direct;
+  const ey=standCell(ex,Math.min(H-hh,Math.floor(e.y+0.05)),ez,3,w,hh);if(ey<0)return direct;
+  const cd=f.dist[idx(ex,ey,ez)];if(cd<=1)return direct;
+  const at=(x,z)=>{if(x<0||z<0||x+w>W||z+w>D)return -1;let best=-1;
+    for(let y=ey+1;y>=ey-3;y--){if(y<0||y>=H)continue;const v=f.dist[idx(x,y,z)];if(v>=0&&(best<0||v<best))best=v;}return best;};
+  // 同じ歩数の道が2つあるときは、前に選んだ向きを優先する（左右にゆれないように）
+  const px=e.pdx!==undefined?e.pdx:dx,pz=e.pdz!==undefined?e.pdz:dz;
+  let bx=0,bz=0,bv=cd,bs=-9;
+  for(let ox=-1;ox<=1;ox++)for(let oz=-1;oz<=1;oz++){if(!ox&&!oz)continue;
+    if(ox&&oz&&(at(ex+ox,ez)<0||at(ex,ez+oz)<0))continue; // ななめは角をけずらない
+    const v=at(ex+ox,ez+oz);if(v<0)continue;
+    const cx=ex+ox+half-e.x,cz=ez+oz+half-e.z,al=(ox*px+oz*pz)/((Math.hypot(ox,oz)*Math.hypot(px,pz))||1);
+    if(v<bv||(v===bv&&v<cd&&al>bs)){bv=v;bs=al;bx=cx;bz=cz;}}
+  if(bv>=cd){e.pdx=e.pdz=undefined;return direct;}
+  e.pdx=bx;e.pdz=bz;
+  return Math.atan2(-bx,-bz);
+}
 function hurtTarget(t,dmg,fx,fz,noKnock,mud){
   if(t.key==='P'){hurtPlayer(dmg,fx,fz,noKnock);if(mud)mudScreen();}
   else netSend({t:'hurt',dmg,x:+fx.toFixed(2),z:+fz.toFixed(2),nk:noKnock?1:0,mud:mud?1:0});
@@ -1414,7 +1489,7 @@ function updateMimic(e,dt){
   const tx=tg?tg.x:e.x,tz=tg?tg.z:e.z,ty=tg?tg.y:e.y,tr=tg?tg.r:0;
   const b=e.base||1,dx=tx-e.x,dz=tz-e.z,dist=Math.hypot(dx,dz)||0.001,reach=0.85*b+tr;
   let sp=0;
-  if(tg){e.dirYaw=Math.atan2(-dx,-dz);if(dist>reach&&e.atk<=0)sp=2.9;}
+  if(tg){if(dist>reach&&e.atk<=0){sp=2.9;e.dirYaw=pathYaw(e,tg);}else e.dirYaw=Math.atan2(-dx,-dz);}
   else{if(Math.random()<dt*0.3)e.dirYaw=Math.random()*6.28;sp=0.8;}
   let dy=e.dirYaw-e.yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));e.yaw+=dy*Math.min(1,8*dt);
   e.vx=-Math.sin(e.yaw)*sp+e.kx;e.vz=-Math.cos(e.yaw)*sp+e.kz;
@@ -1485,7 +1560,7 @@ function updateMagai(e,dt){
   const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyP=tg?tg.y-e.y:99;
   let sp=0;
   const b=e.base||1;
-  if(tg&&dist<30){e.dirYaw=Math.atan2(-dx,-dz);if(e.atk<=0&&dist>1.6*b)sp=e.spd;}
+  if(tg&&(dist<30||e.boss)){if(e.atk<=0&&dist>1.6*b){sp=e.spd;e.dirYaw=pathYaw(e,tg);}else e.dirYaw=Math.atan2(-dx,-dz);}
   steer(e,dt,sp,6);
   // 空の島のボスは島のふちで止まる（自分から落ちない）
   if(e.boss&&voidBelow&&e.ground&&sp>0){const fx=e.x-Math.sin(e.yaw)*(e.r+0.4),fz=e.z-Math.cos(e.yaw)*(e.r+0.4);
@@ -1502,14 +1577,14 @@ function updateMagai(e,dt){
 function updateWombat(e,dt){
   const tg=nearestPlayer(e);
   const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001;
-  const b=e.base||1,sees=!!tg&&dist<18&&Math.abs(tg.y-e.y)<3;
+  const b=e.base||1,sees=!!tg&&(e.boss?dist<60&&Math.abs(tg.y-e.y)<8:dist<18&&Math.abs(tg.y-e.y)<3); // ボスはどこにいても気づく
   let sp=0;
   if(e.atk>0){
     e.dirYaw=Math.atan2(-dx,-dz);e.atk-=dt;
     if(!sees||dist>4.5*b){e.atk=0;e.cd=0.8;}
     else if(e.atk<=0){e.atk=0;e.cd=2.5;wombatBlast(e);}
   } else if(sees){
-    e.dirYaw=Math.atan2(-dx,-dz);if(dist>1.6)sp=e.spd;
+    if(dist>1.6){sp=e.spd;e.dirYaw=pathYaw(e,tg);}else e.dirYaw=Math.atan2(-dx,-dz);
     if(dist<2.3*b&&e.cd<=0){e.atk=WOMBAT_FUSE;sfx('wombatFuse');}
   } else {
     e.think-=dt;
@@ -1520,9 +1595,11 @@ function updateWombat(e,dt){
   // 屋上から落ちないよう、足元に床がない方向へは進まない
   if(e.ground&&sp>0){
     const fx=e.x-Math.sin(e.yaw)*(e.r+0.25),fz=e.z-Math.cos(e.yaw)*(e.r+0.25);
-    if(!solidAt(Math.floor(fx),Math.floor(e.y)-1,Math.floor(fz))){e.vx=e.kx;e.vz=e.kz;e.think=0;}
+    const X=Math.floor(fx),Z=Math.floor(fz),Y=Math.floor(e.y);
+    if(!solidAt(X,Y-1,Z)&&!solidAt(X,Y-2,Z)&&!solidAt(X,Y-3,Z)&&!solidAt(X,Y-4,Z)){e.vx=e.kx;e.vz=e.kz;e.think=0;} // 3段までならおりられる
   }
-  moveBody(e,dt,e.r,e.h);
+  const blocked=moveBody(e,dt,e.r,e.h);
+  if(blocked&&e.ground&&sp>0)e.vy=8.2; // 1段なら飛び乗る
   e.walk+=dt*sp*3;e.hurt-=dt;e.cd-=dt;
 }
 // サイカットカー：近づくと口を大きくひらき、とびかかって食べようとする
@@ -1537,8 +1614,8 @@ function updateSaika(e,dt){
     if(t>0.55&&t<0.85)sp=e.spd*3.2;
     if(t>0.6&&!e.struck&&tg&&dist<2.6*b&&Math.abs(dyT)<2*b){e.struck=true;hurtTarget(tg,e.dmg,e.x,e.z);if(tg.key==='P')toast('パクッ！ 食べられそう！');}
     e.atk-=dt;if(e.atk<=0){e.atk=0;e.cd=1.4;}
-  } else if(tg&&dist<30){
-    e.dirYaw=Math.atan2(-dx,-dz);if(dist>1.8*b)sp=e.spd;
+  } else if(tg&&(dist<30||e.boss)){
+    if(dist>1.8*b){sp=e.spd;e.dirYaw=pathYaw(e,tg);}else e.dirYaw=Math.atan2(-dx,-dz);
     if(dist<4.2*b&&Math.abs(dyT)<2*b&&e.cd<=0){e.atk=SAIKA_ATK;e.struck=false;}
   }
   steer(e,dt,sp,5);
@@ -1570,8 +1647,8 @@ function updateImo(e,dt){
     e.atk-=dt;
     if(e.atk<=0.2&&!e.struck){e.struck=true;if(tg)throwMud(e,tg);}
     if(e.atk<=0){e.atk=0;e.cd=1.0+Math.random()*0.8;}
-  } else if(tg&&dist<30){
-    if(dist>2.2*b)sp=e.spd;
+  } else if(tg&&(dist<30||e.boss)){
+    if(dist>2.2*b){sp=e.spd;e.dirYaw=pathYaw(e,tg);}
     if(e.cd<=0&&Math.abs(tg.y-e.y)<4*b){
       if(dist<7*b&&Math.random()<0.75)e.atk=1+IMO_CROUCH;
       else if(dist<18){e.atk=IMO_MUD;e.struck=false;}
@@ -1616,8 +1693,8 @@ function updateYoshio(e,dt){
       if(tg&&dist<2.8*b&&Math.abs(dyT)<2*b)hurtTarget(tg,e.dmg,e.x,e.z);
     }
     if(e.atk<=0){e.atk=0;e.cd=1.2;}
-  } else if(tg&&dist<30){
-    e.dirYaw=Math.atan2(-dx,-dz);if(dist>1.6*b)sp=e.spd;
+  } else if(tg&&(dist<30||e.boss)){
+    if(dist>1.6*b){sp=e.spd;e.dirYaw=pathYaw(e,tg);}else e.dirYaw=Math.atan2(-dx,-dz);
     if(dist<2.6*b&&Math.abs(dyT)<2*b&&e.cd<=0)e.atk=YOSHIO_ATK;
   }
   steer(e,dt,sp,6);
@@ -1690,10 +1767,10 @@ function updateEnemies(dt){
     if(e.type==='yoshio'){updateYoshio(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     const tg=nearestPlayer(e);
     const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
-    if(tg)e.yaw=Math.atan2(-dx,-dz);
     const b=e.base||1,chase=tg&&dist<30&&dist>1.2*b&&e.atk<=0?1:0;
+    if(tg)e.yaw=chase?pathYaw(e,tg):Math.atan2(-dx,-dz);
     const sp=e.spd;
-    e.vx=dx/dist*sp*chase+e.kx;e.vz=dz/dist*sp*chase+e.kz;
+    e.vx=-Math.sin(e.yaw)*sp*chase+e.kx;e.vz=-Math.cos(e.yaw)*sp*chase+e.kz;
     const damp=Math.min(1,5*dt);e.kx-=e.kx*damp;e.kz-=e.kz*damp;
     e.vy-=26*dt;if(e.vy<-30)e.vy=-30;
     const blocked=moveBody(e,dt,e.r,e.h);
@@ -1748,9 +1825,25 @@ function goalProgress(){const g=STAGES[stage].goal;
 // ---- ボス戦：ステージのゴールを達成すると、ほかの敵が消えてボスがあらわれる。ボスをたおすとクリア ----
 let bossPhase=0,bossCheckT=0; // 0:ふつう 1:ボス戦中 2:ボスをたおした
 const bossName=()=>{const bd=STAGES[stage].boss;return bd.name||ENEMY_NAME[bd.type];};
+let pendingBossHp=0;
+// ボスが歩いてプレイヤーのところまで来られる場所をえらぶ（せまいドアの向こうに出ないように）
+function bossSpot(bd){
+  if(voidBelow)return null;
+  const st=enemyDims(bd.type),b=bd.base||1,w=Math.max(1,Math.ceil(2*st.r*b-0.01)),hh=Math.max(2,Math.ceil(st.h*b-0.05));
+  refreshTargets();const tg=playerTargets[0];if(!tg)return null;
+  const f=flowFor(tg,w,hh);if(!f)return null;
+  const ok=(i,lo,hi)=>{const v=f.dist[i];if(v<lo||v>hi)return false;const x=i%W,z=((i/W)|0)%D,y=(i/(W*D))|0,m=w>>1;return solidAt(x+m,y-1,z+m);};
+  let c=[];for(let i=0;i<f.dist.length;i++)if(ok(i,10,26))c.push(i);
+  if(!c.length)for(let i=0;i<f.dist.length;i++)if(ok(i,5,999))c.push(i);
+  if(!c.length)return null;
+  const i=c[Math.floor(Math.random()*c.length)],x=i%W,z=((i/W)|0)%D,y=(i/(W*D))|0;
+  return [x+w/2,y,z+w/2];
+}
 function spawnBoss(){
   const bd=STAGES[stage].boss;
-  return spawnEnemy(bd.type,bossRush?null:bd.at,{boss:true,base:bd.base,hp:bd.hp,dmg:bd.dmg,low:true});
+  const e=spawnEnemy(bd.type,(bossRush||!bd.at)?bossSpot(bd):bd.at,{boss:true,base:bd.base,hp:bd.hp,dmg:bd.dmg,low:true});
+  if(e&&pendingBossHp>0){if(pendingBossHp<bd.hp)e.hp=pendingBossHp;pendingBossHp=0;}
+  return e;
 }
 function startBoss(){
   bossPhase=1;bossCheckT=0;
@@ -1767,7 +1860,7 @@ function finishStage(){
   if(bossRush){
     if(stage===STAGES.length-1){rushClear();return;}
     toast('👑 '+bossName()+'をたおした！ 次のボスへ…');
-    const at=stage;setTimeout(()=>{if(bossRush&&stage===at&&goalDone&&!dead)goStage(stage+1);},2500);
+    const at=stage;setTimeout(()=>{if(bossRush&&stage===at&&goalDone&&(!dead||net.connected))goStage(stage+1);},2500);
     return;
   }
   progress.unlocked=Math.max(progress.unlocked,Math.min(stage+1,STAGES.length-1));saveProgress();
@@ -1806,7 +1899,7 @@ function enterPortal(){
 }
 function goStage(n){
   n=Math.max(0,Math.min(STAGES.length-1,n));
-  stage=n;selStage=n;goalDone=false;bossPhase=bossRush?1:0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
+  stage=n;selStage=n;goalDone=false;bossPhase=bossRush?1:0;pendingBossHp=0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
   if(!bossRush){progress.unlocked=Math.max(progress.unlocked,n);saveProgress();}
   applyStageLook(n);
   // ボス戦モードの草原は、セーブした世界をこわさないように新しく作る
@@ -1819,13 +1912,16 @@ function goStage(n){
 const RUSH_KEY='kaitocraft_bossrush_best';
 const fmtTime=t=>{t=Math.floor(t);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');};
 function startBossRush(){
-  if(net.role==='guest'){mpSay('ボス戦モードは部屋を作った人が始めてね',true);return;}
+  if(net.role==='guest'){ // ゲストが押したら、部屋を作った人の世界でボス戦モードを始めてもらう
+    netSend({t:'rushReq'});window.startGame();toast('👑 ボス戦モードを始めるよ！');return;}
   if(stage===0){clearTimeout(saveTimer);save();} // 草原の世界をセーブしてから始める
   bossRush={t:0};goStage(0);window.startGame();
+  if(net.connected)netSend({t:'rushGo'});
 }
 function endBossRush(){bossRush=null;}
 function rushClear(){
   const t=bossRush.t;let best=null;
+  if(net.connected&&net.role==='host')netSend({t:'rushClear',time:t});
   try{best=parseFloat(localStorage.getItem(RUSH_KEY));}catch(e){}
   const rec=!(best>0)||t<best;
   if(rec)try{localStorage.setItem(RUSH_KEY,String(t));}catch(e){}
@@ -1912,9 +2008,11 @@ function updateDoors(){
   for(const d of doors){
     const cur=world[idx(d.x,d.y,d.z)];
     if(cur!==27&&cur!==28)continue;
-    const dist=Math.hypot(P.x-(d.x+0.5),P.y-d.y,P.z-(d.z+0.5));
-    if(cur===27&&dist<1.8){world[idx(d.x,d.y,d.z)]=28;netBlock(d.x,d.y,d.z,28);changed=true;}
-    else if(cur===28&&dist>2.6){world[idx(d.x,d.y,d.z)]=27;netBlock(d.x,d.y,d.z,27);changed=true;}
+    let dist=dead?99:Math.hypot(P.x-(d.x+0.5),P.y-d.y,P.z-(d.z+0.5));
+    if(remote&&!remote.dead&&remote.tx!==undefined)dist=Math.min(dist,Math.hypot(remote.tx-(d.x+0.5),remote.ty-d.y,remote.tz-(d.z+0.5)));
+    const held=pressedButtons.some(b=>Math.abs(b[0]-d.x)<=4&&Math.abs(b[1]-d.y)<=3&&Math.abs(b[2]-d.z)<=4);
+    if(cur===27&&(dist<1.8||held)){world[idx(d.x,d.y,d.z)]=28;netBlock(d.x,d.y,d.z,28);changed=true;}
+    else if(cur===28&&dist>2.6&&!held){world[idx(d.x,d.y,d.z)]=27;netBlock(d.x,d.y,d.z,27);changed=true;}
   }
   if(changed)buildMesh();
 }
@@ -1948,12 +2046,21 @@ function sleepBed(){
   if(now<bedReady){toast('🛏️ まだねむくない…（あと'+Math.ceil((bedReady-now)/1000)+'秒）');return;}
   bedReady=now+45000;P.hp=MAXHP;updateHud();sfx('pickup',{kind:'milk'});toast('🛏️ ぐっすり眠った！ 体力が全回復');
 }
+function pressButton(x,y,z){
+  const id=getB(x,y,z);if(!isButton(id))return;
+  if((id-BTN_BASE)%2===0){world[idx(x,y,z)]=id+1;netBlock(x,y,z,id+1);buildMesh();}
+  sfx('blockPlace');netAct('swing');toast('🔘 カチッ！ 近くのとびらが開いた');
+  const k=x+','+y+','+z;clearTimeout(pressButton.t[k]);
+  pressButton.t[k]=setTimeout(()=>{const c=getB(x,y,z);if(isButton(c)&&(c-BTN_BASE)%2){world[idx(x,y,z)]=c-1;netBlock(x,y,z,c-1);buildMesh();}},4000);
+}
+pressButton.t={};
 function placeBlock(){
   if(paused()) return;
   const r=raycast(6); if(!r) return;
   const hitId=getB(r.hit[0],r.hit[1],r.hit[2]);
   if(hitId===10){openCraft();return;}
   if(furnKind(hitId)===0){sleepBed();return;}
+  if(isButton(hitId)){pressButton(r.hit[0],r.hit[1],r.hit[2]);return;}
   if(!r.prev) return;
   const [x,y,z]=r.prev; if(x<0||z<0||x>=W||z>=D||y<0||y>=H) return;
   const fk=furnKind(HOTBAR[sel]);let pid=HOTBAR[sel];
@@ -1961,6 +2068,10 @@ function placeBlock(){
     if((inv.furn[FURN[fk].key]|0)<=0){toast('🛠️ '+FURN[fk].name+'は作業台で作ろう');return;}
     // 正面をプレイヤーのほうへ向ける
     const d=fwd();pid=FURN_BASE+fk*4+(Math.abs(d[0])>Math.abs(d[2])?(d[0]>0?3:1):(d[2]>0?0:2));
+  }
+  if(pid===BTN_BASE){ // ボタンはクリックしたブロックの面にくっつける
+    const ox=r.hit[0]-x,oy=r.hit[1]-y,oz=r.hit[2]-z;
+    pid=BTN_BASE+2*(ox<0?0:ox>0?1:oy<0?2:oy>0?3:oz<0?4:5);
   }
   world[idx(x,y,z)]=pid;
   if(enemies.some(e=>e.dying<=0&&hitsBox(e.x,e.y,e.z,e.r,e.h))){world[idx(x,y,z)]=0;return;}
@@ -2320,6 +2431,7 @@ function buildHotbar(){
   const d=document.createElement('div');d.className='slot';
   const c=document.createElement('canvas'),fk=furnKind(id);
   if(fk>=0){c.width=c.height=32;drawFurn(c.getContext('2d'),fk);}
+  else if(id===BTN_BASE){c.width=c.height=16;const g=c.getContext('2d');g.fillStyle='#8a8a8a';g.fillRect(4,5,8,6);g.fillStyle='#b4b4b4';g.fillRect(4,5,8,1);g.fillRect(4,5,1,6);g.fillStyle='#5a5a5a';g.fillRect(4,10,8,1);g.fillRect(11,5,1,6);}
   else{c.width=c.height=16;c.getContext('2d').drawImage(atlas,BLOCKS[id].t[1]*16,0,16,16,0,0,16,16);}
   d.appendChild(c);
   if(fk>=0){const n=document.createElement('span');n.className='cnt';d.appendChild(n);}
@@ -2854,6 +2966,19 @@ function onNet(m){
   } else if(m.t==='goal'){
     if(net.role!=='guest')return;
     stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;bossPhase=m.p|0;net.hostMonsters=!!m.mm;bossRush=(typeof m.r==='number'&&m.r>=0)?{t:m.r}:null;updateGoalHud();
+  } else if(m.t==='rushReq'){
+    if(net.role!=='host')return;
+    if(stage===0&&!bossRush){clearTimeout(saveTimer);save();}
+    bossRush={t:0};goStage(0);toast('👑 相手がボス戦モードを始めた！');
+    if(dead){dead=false;overEl.style.display='none';P.hp=MAXHP;}
+    netSend({t:'rushGo'});
+  } else if(m.t==='rushGo'){
+    if(net.role!=='guest')return;
+    bossRush={t:0};if(dead){overEl.style.display='none';respawnOnly();started=true;}
+    toast('👑 ボス戦モード スタート！');
+  } else if(m.t==='rushClear'){
+    if(net.role!=='guest')return;
+    bossRush={t:m.time};rushClear();
   } else if(m.t==='portal'){
     if(net.role==='host'&&goalDone)goStage(stage+1);
   } else if(m.t==='mobs'){
@@ -2958,7 +3083,10 @@ function gameOver(cause){
   dead=true;started=false;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
   const m=Math.floor(playTime/60),s=Math.floor(playTime%60);
-  document.getElementById('result').textContent=bossRush?(cause?cause+' ':'')+`ボス戦モード ${stage+1}/${STAGES.length}：${bossName()}にやられた…　タイム ${fmtTime(bossRush.t)}。「もう一度」でこのボスからやり直せるよ。`
+  const b=bossRush&&enemies.find(x=>x.boss&&x.dying<=0),guest=net.role==='guest';
+  againBtn.textContent=!bossRush?'もう一度':goalDone?'次のボスへ':guest||net.connected?'復活する（ボスの体力はそのまま）':'つづきから（ボスの体力はそのまま）';
+  againResetBtn.style.display=bossRush&&!goalDone&&!guest?'':'none';
+  document.getElementById('result').textContent=bossRush?(cause?cause+' ':'')+`ボス戦モード ${stage+1}/${STAGES.length}：${bossName()}にやられた…`+(b?`（ボスの体力 ${Math.ceil(b.hp)}/${b.maxhp}）`:'')+`　タイム ${fmtTime(bossRush.t)}`
     :(cause?cause+' ':'')+`エンティティゼロを ${kills} 体たおした。生きのびた時間は ${m}分${s}秒。料理スコアは ${cookTotal} 点。`;
   overEl.style.display='flex';
 }
@@ -3001,12 +3129,20 @@ function openMenu(){
 }
 onTap(document.getElementById('btnMenu'),openMenu);
 addEventListener('keydown',e=>{if(e.code==='Escape'&&started&&!dead){if(menuOpen)window.startGame();else openMenu();}});
-onTap(document.getElementById('clearBtn'),()=>{document.getElementById('clear').style.display='none';clearing=false;endBossRush();goStage(0);lockMouse();});
-function again(e){if(e)e.preventDefault();initAudio();overEl.style.display='none';
-  if(bossRush&&goalDone)goStage(stage+1);else newRun(); // ボス戦モード：たおしたあとなら次のボスへ
+onTap(document.getElementById('clearBtn'),()=>{document.getElementById('clear').style.display='none';clearing=false;endBossRush();if(net.role!=='guest')goStage(0);lockMouse();});
+// ボス戦モードのやり直し：keep=ボスの体力はそのまま / reset=ボスを全回復
+function again(e,how){if(e)e.preventDefault();initAudio();overEl.style.display='none';
+  if(!bossRush)newRun();
+  else if(net.role==='guest')respawnOnly(); // ゲストはその場で復活（ボスは部屋を作った人の世界にいる）
+  else if(goalDone)goStage(stage+1); // たおしたあとなら次のボスへ
+  else if(how==='reset'){pendingBossHp=0;newRun();if(net.connected)toast('👑 ボスが全回復した！');}
+  else if(net.connected)respawnOnly(); // 2人プレイ：相手が戦っているのでボスはそのまま
+  else{const b=enemies.find(x=>x.boss&&x.dying<=0);pendingBossHp=b?Math.max(1,Math.ceil(b.hp)):0;newRun();}
   started=true;lockMouse();}
-const againBtn=document.getElementById('again');
-againBtn.addEventListener('click',again);againBtn.addEventListener('touchend',again,{passive:false});
+function respawnOnly(){P.hp=MAXHP;P.safe=0;P.inv=3;dead=false;fireHeld=false;spawn();updateHud();}
+const againBtn=document.getElementById('again'),againResetBtn=document.getElementById('againReset');
+againBtn.addEventListener('click',e=>again(e,'keep'));againBtn.addEventListener('touchend',e=>again(e,'keep'),{passive:false});
+againResetBtn.addEventListener('click',e=>again(e,'reset'));againResetBtn.addEventListener('touchend',e=>again(e,'reset'),{passive:false});
 document.getElementById('reset').addEventListener('click',()=>{
   if(net.role==='guest'){mpSay('ゲストは世界を作り直せません',true);return;}
   endBossRush();goalDone=false;bossPhase=0;stageStats={kills:0,gems:0,chests:0,boss:0};
@@ -3029,7 +3165,7 @@ function loop(now){
   if(scoped&&(weapon!=='sniper'||dead||!started||paused()))setScope(false);
   fov+=((scoped?20:72)-fov)*Math.min(1,dt*14);
   if(started&&!paused()){const n=Math.ceil(dt/0.016);for(let i=0;i<n&&started&&!paused();i++)step(dt/n);}
-  else if(net.connected&&net.role==='host'){updateEnemies(dt);updateWeapons(dt);}
+  else if(net.connected&&net.role==='host'){updateEnemies(dt);updateWeapons(dt);if(bossRush&&!goalDone)bossRush.t+=dt;if(!clearing)checkGoal();} // やられている間も相手は戦っている
   if(cooking)cookUpdate(dt);
   if(!started&&!dead) yaw+=dt*0.08; // タイトル画面だけ回す
   cam[0]=P.x;cam[1]=P.y+EYE;cam[2]=P.z;
