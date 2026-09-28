@@ -60,10 +60,12 @@ body{background:#87ceeb;color:var(--ui-fg);font-family:"Hiragino Maru Gothic Pro
 #goal{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:14px;padding:5px 12px;border-radius:14px;pointer-events:none;white-space:nowrap;z-index:3}
 body.touch #goal{top:calc(84px + env(safe-area-inset-top,0px));font-size:12px}
 #goal.done{background:rgba(123,31,162,.8)}
-#islandHud{position:fixed;left:50%;transform:translateX(-50%);top:calc(40px + env(safe-area-inset-top,0px));display:none;align-items:center;gap:8px;background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:13px;padding:4px 6px 4px 12px;border-radius:14px;white-space:nowrap;z-index:4}
-body.touch #islandHud{top:calc(112px + env(safe-area-inset-top,0px));font-size:12px}
+#islandHud{position:fixed;left:50%;transform:translateX(-50%);top:calc(40px + env(safe-area-inset-top,0px));display:none;flex-direction:column;align-items:center;gap:3px;background:rgba(0,0,0,.45);color:#fff;font-weight:800;font-size:12px;padding:4px 8px;border-radius:12px;white-space:nowrap;z-index:4;max-width:calc(100vw - 150px)}
+.ihr{display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:center}
+#ihBelly{display:block;height:100%;width:0;background:#a1887f}
+body.touch #islandHud{top:calc(112px + env(safe-area-inset-top,0px));font-size:11px;left:62px;right:8px;transform:none;margin:0 auto;width:max-content;max-width:calc(100vw - 72px)}
 #ihBar,.ihb{display:inline-block;width:70px;height:9px;background:rgba(255,255,255,.25);border-radius:5px;overflow:hidden}
-body.touch #ihBar,body.touch .ihb{width:46px}
+body.touch #ihBar,body.touch .ihb{width:34px}
 #ihBladder{display:block;height:100%;width:0;background:#4fc3f7}
 #ihSta{display:block;height:100%;width:100%;background:#8bc34a}
 #sleepFx{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,10,40,.72);color:#fff;font-size:22px;z-index:5;pointer-events:none}
@@ -71,7 +73,7 @@ body.touch #ihBar,body.touch .ihb{width:46px}
 body.touch #cpuFeed{top:calc(150px + env(safe-area-inset-top,0px))}
 #cpuFeed div{background:rgba(0,0,0,.5);color:#fff;font-size:12px;font-weight:700;padding:3px 8px;border-radius:10px;transition:opacity 1s}
 #cpuFeed div.old{opacity:.35}
-#ihDrink{font:inherit;font-weight:800;font-size:13px;border:none;border-radius:10px;padding:5px 10px;background:#29b6f6;color:#fff;cursor:pointer}
+#ihDrink{font:inherit;font-weight:800;font-size:12px;border:none;border-radius:10px;padding:3px 8px;background:#29b6f6;color:#fff;cursor:pointer}
 #ihDrink small{font-size:10px;opacity:.8}
 body.touch #ihDrink small{display:none}
 #rain{position:fixed;inset:0;pointer-events:none;display:none;z-index:2;background:repeating-linear-gradient(105deg,rgba(200,220,255,.0) 0 18px,rgba(200,220,255,.35) 18px 19px);background-size:120px 120px;animation:rainfall .35s linear infinite}
@@ -160,6 +162,7 @@ body.scoped #bScope{background:rgba(255,213,74,.55)}
 #cres strong{font-size:22px}
 #wbar{position:fixed;left:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:3}
 body.touch #wbar{top:calc(100px + env(safe-area-inset-top,0px));transform:none}
+body.touch.isl #wbar{top:calc(122px + env(safe-area-inset-top,0px))} /* 無人島：上の時計とかさならないように */
 .wb{width:46px;height:46px;border-radius:8px;background:var(--ui-bg);border:3px solid var(--ui-border);padding:4px;cursor:pointer}
 .wb.on{border-color:#ff5252}
 .wb canvas{width:100%;height:100%;image-rendering:pixelated;display:block}
@@ -261,7 +264,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.15.0</p>
+    <p id="ver">ver 1.16.0</p>
   </div>
 </div>
 <div id="islandPick" class="overlay">
@@ -315,7 +318,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
   </div>
 </div>
 <div id="goal"></div>
-<div id="islandHud"><span>⚡</span><b class="ihb"><i id="ihSta"></i></b><span id="ihWater"></span><span id="ihPee">🚽</span><b id="ihBar"><i id="ihBladder"></i></b><button id="ihDrink">🥤 のむ<small>（R）</small></button></div>
+<div id="islandHud"><div class="ihr"><span>⚡</span><b class="ihb"><i id="ihSta"></i></b><span id="ihPee">🚽</span><b id="ihBar"><i id="ihBladder"></i></b><span id="ihPoo">💩</span><b class="ihb"><i id="ihBelly"></i></b></div><div class="ihr"><span id="ihWater"></span><button id="ihDrink">🥤<small> のむ(R)</small></button></div></div>
 <div id="rain"></div>
 <div id="sleepFx"><b>💤 Zzz… つかれて寝ている</b></div>
 <div id="cpuFeed"></div>
@@ -446,11 +449,11 @@ const BLOCKS={
   11:{name:'マグマ岩',t:[42,42,42]},12:{name:'宝石',t:[45,45,45]},13:{name:'ポータル',t:[47,47,47]},14:{name:'溶岩',t:[43,43,43]},15:{name:'光る石',t:[44,44,44]},16:{name:'島の石',t:[46,46,46]},
   17:{name:'かべ紙',t:[48,48,48]},18:{name:'屋根',t:[49,49,49]},19:{name:'宝箱',t:[51,50,50]},20:{name:'コンクリート',t:[52,52,52]},21:{name:'クジラの肉',t:[55,55,55]},22:{name:'ほね',t:[56,56,56]},23:{name:'胃液',t:[57,57,57]},
   24:{name:'ニンジン',t:[78,78,78]},25:{name:'たまねぎ',t:[79,79,79]},26:{name:'キノコ',t:[80,80,80]},
-  85:{name:'海',t:[123,123,123]},88:{name:'わき水',t:[126,126,126]},91:{name:'鍋',t:[117,117,117]},92:{name:'ペットボトル',t:[130,130,130]},93:{name:'鍋（水あり）',t:[117,117,117]},89:{name:'たき火',t:[127,127,127]},90:{name:'ろ過器',t:[129,128,8]},86:{name:'ヤシの実',t:[124,124,124]},87:{name:'きのみのしげみ',t:[125,125,125]},
+  85:{name:'海',t:[123,123,123]},94:{name:'川',t:[131,131,131]},88:{name:'わき水',t:[126,126,126]},91:{name:'鍋',t:[117,117,117]},92:{name:'ペットボトル',t:[130,130,130]},93:{name:'鍋（水あり）',t:[117,117,117]},89:{name:'たき火',t:[127,127,127]},90:{name:'ろ過器',t:[129,128,8]},86:{name:'ヤシの実',t:[124,124,124]},87:{name:'きのみのしげみ',t:[125,125,125]},
   27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]},29:{name:'水晶',t:[93,93,93]},30:{name:'岩盤',t:[94,94,94]}
 };
-const TRANS={5:true,8:true,13:true,28:true,85:true};
-const NONSOLID={13:true,14:true,23:true,28:true,85:true},HAZARD={14:true,23:true};
+const TRANS={5:true,8:true,13:true,28:true,85:true,94:true};
+const NONSOLID={13:true,14:true,23:true,28:true,85:true,94:true},HAZARD={14:true,23:true};
 const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,67,20,17,18,15,11,16,22,21,29];
 const HOTBAR=BASE_HOTBAR.slice();
 
@@ -602,9 +605,9 @@ function genStage(n,seed){
 }
 function addBedrock(n){if(!STAGES[n].void)fill(0,0,0,W-1,0,D-1,30);}
 // 無人島：まわりは海。ヤシの木（ヤシの実）と、きのみのしげみがある
-let islandSpots={coco:[],bush:[]};
+let islandSpots={coco:[],bush:[],river:[]};
 function genIsland(rnd,seed){
-  islandSpots={coco:[],bush:[]};
+  islandSpots={coco:[],bush:[],river:[]};
   const cx=24,cz=24;
   fill(0,1,0,W-1,4,D-1,3);fill(0,5,0,W-1,5,D-1,6);fill(0,6,0,W-1,6,D-1,85); // 海の底は砂、水は1マス
   const hm=[];
@@ -617,6 +620,13 @@ function genIsland(rnd,seed){
     hm[z*W+x]=h;
   }
   const top=(x,z)=>hm[z*W+x];
+  // 川：まん中の近くから海まで流れる（川の近くを掘ると、ときどき湧き水が出る）
+  {let a=rnd()*Math.PI*2,x=cx+Math.cos(a)*4.5,z=cz+Math.sin(a)*4.5;
+   for(let k=0;k<40;k++){a+=(rnd()-0.5)*0.5;x+=Math.cos(a);z+=Math.sin(a);
+     for(const[ox,oz]of [[0,0],[1,0],[0,1]]){const X=Math.round(x)+ox,Z=Math.round(z)+oz;
+       if(X<1||Z<1||X>=W-1||Z>=D-1||Math.hypot(X-cx,Z-cz)<4)continue;const h=hm[Z*W+X];if(h<6)continue;
+       setB(X,h,Z,94);for(let y=h+1;y<H;y++)setB(X,y,Z,0);islandSpots.river.push([X,h,Z]);}
+     if(Math.hypot(x-cx,z-cz)>15)break;}}
   // ヤシの木
   for(let n=0,tries=0;n<11&&tries<400;tries++){
     const x=4+Math.floor(rnd()*(W-8)),z=4+Math.floor(rnd()*(D-8)),h=top(x,z);
@@ -639,12 +649,6 @@ function genIsland(rnd,seed){
     const x=4+Math.floor(rnd()*(W-8)),z=4+Math.floor(rnd()*(D-8)),h=top(x,z);
     if(h<7||getB(x,h+1,z)!==0||Math.hypot(x-cx,z-cz)<4)continue;
     setB(x,h+1,z,3);if(rnd()<0.6)setB(x+1,h+1,z,3);if(rnd()<0.4)setB(x,h+2,z,3);n++;
-  }
-  // わき水（地面からわいている）
-  for(let n=0,tries=0;n<3&&tries<300;tries++){
-    const x=5+Math.floor(rnd()*(W-10)),z=5+Math.floor(rnd()*(D-10)),h=top(x,z),d=Math.hypot(x-cx,z-cz);
-    if(h<7||d<6||d>11||getB(x,h,z)!==1||getB(x,h+1,z)!==0)continue;
-    setB(x,h,z,88);n++;
   }
   // 支給品：たき火とろ過器（スタート地点のそば）
   const ph=top(cx+2,cz),qh=top(cx-2,cz);
@@ -1043,6 +1047,7 @@ paint(127,(x,y)=>{const w=(y-1)*0.55+Math.sin(x*1.7+y)*0.6,d=Math.abs(x-7.5);if(
 paint(128,(x,y)=>y<4?vary([230,220,170],10):y<8?vary([40,40,44],10):y<12?vary([200,190,140],12):vary([150,150,150],12)); // ろ過器の横（砂・炭・砂利）
 paint(129,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);return d<5?vary([80,170,220],10):vary([176,140,88],16);}); // ろ過器の上
 paint(130,(x,y)=>(x===0||x===15)?[150,200,225,255]:(y>=6&&y<=9)?[40,120,200,255]:vary([200,232,245],10)); // ペットボトル
+paint(131,(x,y)=>((x*5+y*2)%9===0)?[170,210,200,255]:vary([88,150,150],16)); // 川（すこしにごっている）
 paint(121,(x,y)=>y===0||y===1?vary([170,80,50],8):vary([200,104,64],12)); // はちうえ
 // 岩盤（いちばん下の、こわせない層）
 paint(94,()=>TR()<0.3?vary([38,38,42],10):vary([86,86,92],24));
@@ -1158,7 +1163,7 @@ resize();
 
 // ---------- エンティティゼロ（見た目） ----------
 const ebo=gl.createBuffer();
-const T_BUG=[119,119,119,119,119,119],T_BUGW=[9,9,9,9,9,9],T_HEAD=[13,13,14,12,11,12],T_COW=[16,16,16,16,16,16],T_LEG=[18,18,12,16,18,18],T_CFACE=[20,20,20,20,17,20],T_HORN=[19,19,19,19,19,19],T_PINK=[21,21,21,21,21,21],T_SKIN=[14,14,14,14,14,14],T_STEEL=[15,15,15,15,15,15],T_WOOD=[4,4,4,4,4,4];
+const T_BUG=[119,119,119,119,119,119],T_BUGW=[44,44,44,44,44,44],T_HEAD=[13,13,14,12,11,12],T_COW=[16,16,16,16,16,16],T_LEG=[18,18,12,16,18,18],T_CFACE=[20,20,20,20,17,20],T_HORN=[19,19,19,19,19,19],T_PINK=[21,21,21,21,21,21],T_SKIN=[14,14,14,14,14,14],T_STEEL=[15,15,15,15,15,15],T_WOOD=[4,4,4,4,4,4];
 function pushBox(out,mn,mx,tiles,xf){
   for(let fi=0;fi<6;fi++){const f=FACES[fi],tile=tiles[fi];
     for(const k of ORDER){const c=f.c[k];
@@ -1383,11 +1388,11 @@ function render(){
       gl.drawArrays(gl.TRIANGLES,s,n);
     }
   }
-  if(items.length||rockets.length||booms.length||mirrorBalls.length||tracers.length||debris.length){
+  if(items.length||rockets.length||booms.length||mirrorBalls.length||tracers.length||debris.length||(island&&bugs.length)){
     const out=[];
     for(const it of items){const o={x:it.x,y:it.y+0.1+Math.sin(it.t*3)*0.06,z:it.z,yaw:it.t*2,scale:1};
       pushBox(out,[-0.16,0,-0.16],[0.16,0.3,0.16],it.kind==='meat'?T_MEAT:T_MILK,part(o,[0,0,0],0));}
-    if(island)for(const b of bugs){const o={x:b.x,y:b.y+Math.sin(b.t*9)*0.05,z:b.z,yaw:b.t*3,scale:1};pushBox(out,[-0.07,-0.05,-0.1],[0.07,0.05,0.1],T_BUG,part(o,[0,0,0],0));pushBox(out,[-0.18,0.04,-0.03],[0.18,0.06,0.06],T_BUGW,part(o,[0,0,0],Math.sin(b.t*30)*0.4));}
+    if(island)for(const b of bugs){const o={x:b.x,y:b.y+Math.sin(b.t*9)*0.08,z:b.z,yaw:b.t*1.3+Math.PI/2,scale:1},fl=Math.sin(b.t*18)*0.7;pushBox(out,[-0.05,-0.05,-0.14],[0.05,0.05,0.14],T_BUG,part(o,[0,0,0],0));pushBox(out,[0.04,0,-0.12],[0.32,0.02,0.14],T_BUGW,part({x:o.x,y:o.y,z:o.z,yaw:o.yaw,scale:1},[0,0,0],0));pushBox(out,[-0.32,0,-0.12],[-0.04,0.02,0.14],T_BUGW,part(o,[0,0,0],fl*0.3));}
     for(const r of rockets){const o={x:r.x,y:r.y,z:r.z,yaw:r.yaw,scale:1};
       if(r.owner==='ghast')pushBox(out,[-0.18,-0.18,-0.18],[0.18,0.18,0.18],T_BOOM,part(o,[0,0,0],r.t*6));
       else if(r.owner==='mud')pushBox(out,[-0.2,-0.2,-0.2],[0.2,0.2,0.2],T_MUD,part(o,[0,0,0],r.t*5));
@@ -2102,28 +2107,35 @@ function beginIsland(mode,lv){
   document.getElementById('clear').style.display='none';clearing=false;
   if(net.connected)netSend({t:'islandGo',v:islandMode,lv:islandLv});
   islandItemsOn();
-  setTimeout(()=>{if(island&&!island.over)toast('🏝️ 持ち物はナイフ・つりざお・虫取り網だけ。砂浜のペットボトルをさがそう！');},2600);
+  setTimeout(()=>{if(island&&!island.over)toast('🏝️ 持ち物はナイフ・つりざお・虫取り網だけ。左のアイコンをおして使おう！');},2600);
 }
-function islandItemsOn(){weapon='knife';selectWeapon('knife');}
+function islandItemsOn(){weapon='knife';selectWeapon('knife');document.body.classList.add('isl');}
 function endIsland(){
   const was=!!island;island=null;cpus=[];fishing=null;bugs=[];
-  islandHudEl.style.display='none';rainEl.style.display='none';sleepEl.style.display='none';cpuFeedEl.innerHTML='';
+  islandHudEl.style.display='none';rainEl.style.display='none';sleepEl.style.display='none';cpuFeedEl.innerHTML='';document.body.classList.remove('isl');
   if(was&&ITEMS[weapon])selectWeapon('sword');
 }
 // 島の持ち物・水・体力
 const WATER_KG=0.5,BLADDER_CUP=20,BLADDER_CREEP=0.5,RAW_SICK=0.3,POT_MAX=5,STA_MAX=100;
 function islandState(){const i=island;if(!i)return null;if(i.bottles===undefined){
-  i.bottles=[];i.pot=0;i.bait=0;i.fish=[];i.wood=0;i.board=false;
+  i.bottles=[];i.pot=0;i.bait=0;i.fish=[];i.wood=0;i.board=false;i.springs={};i.belly=0;i.foodKg=0;i.poo=0;i.pwarn=false;
   i.bladder=0;i.water=0;i.boil=0;i.pee=0;i.rain=0;i.nextRain=35+Math.random()*25;i.warned=false;i.sta=STA_MAX;i.sleep=0;i.tired=false;}
   return i;}
 function islandItems(){const i=islandState();const l=['knife','rod','net'];if(i&&i.bottles.length)l.push('bottle');if(i&&i.fish.length)l.push('fish');if(i&&i.board)l.push('board');return l;}
 const nB=s=>island?island.bottles.filter(b=>b===s).length:0;
-function islandBusy(){const i=island;if(!i)return false;if(i.sleep>0){toast('💤 ねむっている…');return true;}if(i.pee>0){toast('🚽 おしっこ中…');return true;}return false;}
+function islandBusy(){const i=island;if(!i)return false;if(i.sleep>0){toast('💤 ねむっている…');return true;}if(i.pee>0){toast('🚽 おしっこ中…');return true;}if(i.poo>0){toast('💩 うんち中…');return true;}return false;}
 function tire(n){const i=island;if(!i||i.sleep>0)return;i.sta=Math.max(0,i.sta-n);}
 // アイテムをつかう（左クリック・⚔️ボタン）
 function useItem(){
   if(paused()||dead||islandBusy())return;
   const i=islandState();if(!i)return;
+  const r=raycast(6),hid=r?getB(...r.hit):0;
+  if(hid===88){fillBottle('spring',r.hit);return;}
+  if(hid===91||hid===93){fillBottle('pot');return;}
+  if(hid===89){useFire();return;}
+  if(hid===90){useFilter();return;}
+  if(hid===92){pickBottle(...r.hit);return;}
+  if(hid===10){openCraft();return;}
   if(weapon==='knife'){if(swordCd<=0)tire(1.2);primary();return;} // ナイフは剣と同じ（実やきのみ・原木をとる）
   if(swordCd>0)return;swordCd=0.3;replay(heldEl,'swing');netAct('swing');tire(1.2);
   if(weapon==='net'){catchBug();return;}
@@ -2144,6 +2156,7 @@ function drinkWater(){
   if(i.bladder>=70&&!i.warned){i.warned=true;setTimeout(()=>{if(island&&island.pee<=0)toast('🚽 おしっこしたくなってきた…飲みすぎ注意！');},1200);}
   updateIslandHud();
 }
+function peeOrPoo(){poopNow();}
 function peeNow(){
   const i=island;if(!i||i.pee>0)return;
   const lose=i.water;i.pee=2.5;i.water=0;i.bladder=0;i.warned=false;
@@ -2151,11 +2164,12 @@ function peeNow(){
 }
 function pickBottle(x,y,z){const i=islandState();if(!i)return;setB(x,y,z,0);netBlock(x,y,z,0);buildMesh();i.bottles.push('empty');sfx('pickup',{kind:'milk'});
   toast('🧴 ペットボトルをひろった！（'+i.bottles.length+'本）わき水や鍋の水をくめるよ');rebuildWbar();updateIslandHud();}
-function fillBottle(from){
+function fillBottle(from,pos){
   const i=islandState();if(!i)return;
   if(weapon!=='bottle'){toast(i.bottles.length?'🧴 ペットボトルを持って右クリックでくめるよ':'🧴 ペットボトルがない…砂浜をさがそう');return;}
   const k=i.bottles.indexOf('empty');if(k<0){toast('🧴 空のペットボトルがない（先に飲むか、煮沸しよう）');return;}
   if(from==='pot'){if(i.pot<=0){toast('🍲 鍋に水がない。雨がふるとたまるよ');return;}i.pot--;if(net.role==='guest')netSend({t:'pot'});}
+  if(from==='spring'&&pos){const key=pos.join(','),sp=i.springs[key]||(i.springs[key]={n:3,t:40});sp.n--;if(sp.n<=0)drySpring(key);}
   i.bottles[k]='raw';sfx('pickup',{kind:'milk'});
   toast((from==='pot'?'🍲 鍋の雨水':'💧 わき水')+'をくんだ（生水）。たき火にかけると飲み水になるよ');updateIslandHud();
 }
@@ -2167,24 +2181,34 @@ function useFire(){
   if(nB('raw')<=0){toast('🔥 煮沸する生水がないよ');return;}
   i.boil=4;toast('🔥 生水 '+nB('raw')+'本を煮沸しています…（4秒）');tire(2);updateIslandHud();
 }
+// 川の近くを掘ると、ときどき湧き水が出る（しばらくすると、かれてしまう）
+function nearRiver(x,y,z){for(let a=-3;a<=3;a++)for(let b=-3;b<=3;b++)for(let c=-2;c<=2;c++)if(getB(x+a,y+c,z+b)===94)return true;return false;}
+function digSpring(x,y,z){
+  const i=islandState();if(!i||!nearRiver(x,y,z))return;
+  if(Math.random()<0.5){setB(x,y,z,88);netBlock(x,y,z,88);i.springs[x+','+y+','+z]={n:3,t:40};toast('💧 湧き水がわいてきた！ ペットボトルでくもう（しばらくするとかれるよ）');}
+  else toast('⛏️ 湧き水は出なかった…川の近くをもう少し掘ってみよう');
+}
+function drySpring(key){const i=island;if(!i)return;delete i.springs[key];const q=key.split(',').map(Number);
+  if(getB(...q)===88){setB(...q,2);netBlock(...q,2);buildMesh();toast('💧 湧き水がかれてしまった');}}
 function useFilter(){const i=islandState();if(!i)return;if(weapon!=='bottle'){toast('🧪 ペットボトルを持って右クリックでろ過できるよ');return;}
   const k=i.bottles.indexOf('raw');if(k<0){toast('🧪 ろ過する生水がないよ');return;}i.bottles[k]='clean';toast('🧪 ろ過した！ 飲み水になった');updateIslandHud();}
 // 虫取り網：飛んでいる虫をつかまえて、つりのえさにする
 function spawnBug(){
-  const spots=islandSpots.bush.concat(islandSpots.coco.length?[]:[]);
-  for(let k=0;k<20;k++){const x=4+Math.floor(Math.random()*(W-8)),z=4+Math.floor(Math.random()*(D-8));
+  for(let k=0;k<30;k++){const near=Math.random()<0.6,x=near?Math.floor(P.x+(Math.random()-0.5)*20):4+Math.floor(Math.random()*(W-8)),z=near?Math.floor(P.z+(Math.random()-0.5)*20):4+Math.floor(Math.random()*(D-8));
+    if(x<2||z<2||x>=W-2||z>=D-2)continue;
     let y=-1;for(let yy=6;yy<H-2;yy++)if(standable(x,yy,z)){y=yy;break;}
     if(y<7||getB(x,y-1,z)!==1)continue;
     bugs.push({x:x+0.5,y:y+0.6+Math.random()*0.8,z:z+0.5,hx:x+0.5,hz:z+0.5,t:Math.random()*6});return;}
 }
 function updateBugs(dt){
-  bugT-=dt;if(bugT<=0){bugT=4;if(bugs.length<7)spawnBug();}
+  if(!island.bugInit){island.bugInit=true;for(let k=0;k<7;k++)spawnBug();} // はじめから何匹か飛んでいる
+  bugT-=dt;if(bugT<=0){bugT=2.5;if(bugs.length<10)spawnBug();}
   for(const b of bugs){b.t+=dt;b.x=b.hx+Math.sin(b.t*1.3)*1.2;b.z=b.hz+Math.cos(b.t*0.9)*1.2;}
 }
 function catchBug(){
   const i=islandState(),f=fwd();let best=-1,bd=3.2;
-  bugs.forEach((b,k)=>{const vx=b.x-cam[0],vy=b.y-cam[1],vz=b.z-cam[2],d=Math.hypot(vx,vy,vz);if(d<bd&&(vx*f[0]+vy*f[1]+vz*f[2])/d>0.75){bd=d;best=k;}});
-  if(best<0){toast('🥅 ひらり…虫に近づいてふろう（草の上を飛んでいるよ）');return;}
+  bugs.forEach((b,k)=>{const vx=b.x-cam[0],vy=b.y-cam[1],vz=b.z-cam[2],d=Math.hypot(vx,vy,vz);if(d<bd&&(d<1.3||(vx*f[0]+vy*f[1]+vz*f[2])/d>0.6)){bd=d;best=k;}});
+  if(best<0){toast('🥅 ひらり…ちょうちょうの近くでふろう（草の上を飛んでいるよ）');return;}
   bugs.splice(best,1);i.bait++;sfx('pickup',{kind:'meat'});toast('🐛 虫をつかまえた！ つりのえさ '+i.bait);updateIslandHud();
 }
 // つり：海の近くでつりざおを持ってボタン → しばらく待つ →「ひいてる！」でもう一回。えさ（虫）がいる
@@ -2216,10 +2240,11 @@ function cookFish(){
 }
 let islandCookBig=false;
 // 疲れ：走る・ジャンプ・作業で減り、休むともどる。0になるとその場で寝てしまう
-function updateStamina(dt,moving){
+function updateStamina(dt,moving,wet){
   const i=island;if(!i||i.over)return;
   if(i.sleep>0){i.sleep-=dt;if(i.sleep<=0){i.sta=60;sleepEl.style.display='none';toast('☀️ 目がさめた！');}return;}
-  if(moving)i.sta-=dt*1.6;else i.sta=Math.min(STA_MAX,i.sta+dt*3);
+  if(moving||wet)i.sta-=dt*((moving?2.6:0)+(wet?4:0));else i.sta=Math.min(STA_MAX,i.sta+dt*3);
+  if(wet&&!i.wetWarn){i.wetWarn=true;toast('🌊 水に入るとすぐつかれるよ');}if(!wet)i.wetWarn=false;
   if(i.sta<25&&!i.tired){i.tired=true;toast('😪 つかれてきた…少し休もう（止まっていると回復）');}
   if(i.sta>40)i.tired=false;
   if(i.sta<=0){i.sta=0;i.sleep=7;fishing=null;sleepEl.style.display='flex';toast('💤 つかれて寝てしまった…');}
@@ -2232,6 +2257,11 @@ function updateIsland(dt){
   if(i.pee>0)i.pee-=dt;
   if(i.water>0)i.bladder+=dt*BLADDER_CREEP; // おなかの水は少しずつおしっこになる（ずっとは重くいられない）
   if(i.bladder>=100)peeNow();
+  if(i.poo>0)i.poo-=dt;
+  i.belly=Math.max(0,i.belly-dt*0.35); // 少しずつ消化する
+  if(i.belly>=70&&!i.pwarn){i.pwarn=true;toast('💩 おなかがゴロゴロしてきた…食べすぎ注意！');}
+  if(i.belly>=100)peeOrPoo();
+  for(const key in i.springs){const sp=i.springs[key];sp.t-=dt;if(sp.t<=0)drySpring(key);}
   updateBugs(dt);
   // 雨：ホストが決めてゲストに送る。雨水は鍋にだけたまる
   if(net.role!=='guest'){
@@ -2250,16 +2280,22 @@ function updateIslandHud(){
   const i=island;if(!i||i.bottles===undefined){islandHudEl.style.display='none';return;}
   islandHudEl.style.display='flex';
   const b=Math.min(100,Math.round(i.bladder)),s=Math.round(i.sta);
-  const w='🧴'+i.bottles.length+'（生'+nB('raw')+' 飲'+nB('clean')+'）'+(i.boil>0?'🔥':'')+'　🍲'+i.pot+'　🐛'+i.bait+'　🐟'+i.fish.length+(i.board?'　🪵まな板':'　🪵'+i.wood);
-  const h=w+'|'+b+'|'+(i.pee>0?1:0)+'|'+s+'|'+(i.sleep>0?1:0);
+  const w='🧴'+i.bottles.length+'(生'+nB('raw')+'/飲'+nB('clean')+')'+(i.boil>0?'🔥':'')+' 🍲'+i.pot+' 🐛'+i.bait+' 🐟'+i.fish.length+(i.board?' 🪵板':' 🪵'+i.wood),pb=Math.min(100,Math.round(i.belly));
+  const h=w+'|'+b+'|'+(i.pee>0?1:0)+'|'+s+'|'+(i.sleep>0?1:0)+'|'+pb+'|'+(i.poo>0?1:0);
   if(h===lastIslandHud)return;lastIslandHud=h;
   document.getElementById('ihWater').textContent=w;
   const f=document.getElementById('ihBladder');f.style.width=b+'%';f.style.background=b>=70?'#e53935':b>=40?'#fbc02d':'#4fc3f7';
-  document.getElementById('ihPee').textContent=i.pee>0?'🚽 おしっこ中':'🚽';
+  document.getElementById('ihPee').textContent=i.pee>0?'🚽…':'🚽';document.getElementById('ihPoo').textContent=i.poo>0?'💩…':'💩';
+  const pe=document.getElementById('ihBelly');pe.style.width=pb+'%';pe.style.background=pb>=70?'#e53935':'#a1887f';
   const g=document.getElementById('ihSta');g.style.width=s+'%';g.style.background=s<25?'#ff7043':'#8bc34a';
 }
 function addKg(d,msg){if(!island||island.over)return;island.kg=Math.max(25,island.kg+d);if(msg)toast(msg+'　'+sgnKg(d)+'kg');updateGoalHud();}
-function gainFood(d,msg){addKg(d,msg);}
+function gainFood(d,msg){addKg(d,msg);const i=islandState();if(!i)return;i.foodKg+=d;i.belly+=Math.min(35,6+d*250);updateIslandHud();}
+function poopNow(){
+  const i=island;if(!i||i.poo>0)return;
+  const lose=i.foodKg*0.4;i.poo=3;i.foodKg*=0.6;i.belly=0;i.pwarn=false;
+  loseKg(lose);toast('💩 がまんできない！ うんち…　-'+fmtKg(lose)+'kg');updateGoalHud();
+}
 function loseKg(d){if(island&&!island.over)island.kg=Math.max(25,island.kg-d);}
 function islandFaint(){P.hp=MAXHP;P.inv=3;P.safe=0;spawn();updateHud();addKg(-0.3,'💫 たおれてやせてしまった…');}
 // 食べられたヤシの実・きのみは、少しずつまた生える（ホストだけ）
@@ -2276,13 +2312,14 @@ function makeCpu(i,n){const lv=CPU_LV[islandLv]||CPU_LV[1];
   return {name:n>1?'🤖 CPU'+(i+1):'🤖 CPU',kg:30,lv,next:3+Math.random()*lv.every,bottles:lv.bottles,water:0,bladder:0,drinkAt:lv.smart?33:60+Math.random()*150,drinkCd:0};}
 function cpuNotify(c,txt,d){
   const msg=c.name+'：'+txt+(d?'　'+sgnKg(d)+'kg':'');showCpuFeed(msg);
-  if(net.connected&&net.role==='host')netSend({t:'cpuEv',m:msg});
+
 }
-function showCpuFeed(msg){const el=document.createElement('div');el.textContent='📢 '+msg;cpuFeedEl.prepend(el);while(cpuFeedEl.children.length>3)cpuFeedEl.lastChild.remove();setTimeout(()=>el.classList.add('old'),6000);}
+function showCpuFeed(msg){return; // CPUのできごとは表示しない（体重だけ）
+  const el=document.createElement('div');el.textContent='📢 '+msg;cpuFeedEl.prepend(el);while(cpuFeedEl.children.length>3)cpuFeedEl.lastChild.remove();setTimeout(()=>el.classList.add('old'),6000);}
 function updateCpuSim(dt){
   if(!island||island.over)return;
   for(const c of cpus){
-    const lv=c.lv;
+    const lv=c.lv;c.belly=Math.max(0,(c.belly||0)-dt*0.35);
     if(c.water>0){c.bladder+=dt*BLADDER_CREEP;if(c.bladder>=100){c.kg-=c.water;cpuNotify(c,'🚽 おしっこ…',-c.water);c.water=0;c.bladder=0;}}
     // 水：つよいCPUは最後にがぶ飲み、ふつうは1本をどこかで飲む
     c.drinkCd-=dt;
@@ -2295,7 +2332,8 @@ function updateCpuSim(dt){
     else if(r<0.8){const big=Math.random()<0.15;d=big?FOOD.bigFish:FOOD.fish;t=big?'🐟 大物をつって刺身に！':'🐟 魚をつって刺身で食べた';}
     else if(r<0.9){d=0.12+Math.random()*0.08;t='🍳 魚を料理して食べた';}
     else{t='💤 つかれて寝ている…';}
-    d*=lv.food;c.kg+=d;cpuNotify(c,t,d);
+    d*=lv.food;c.kg+=d;c.foodKg=(c.foodKg||0)+d;c.belly=(c.belly||0)+(d>0?Math.min(35,6+d*250):0);
+    if(c.belly>=100){const l=c.foodKg*0.4;c.kg-=l;c.foodKg*=0.6;c.belly=0;}
   }
 }
 function netCpus(list){
@@ -2366,7 +2404,7 @@ function step(dt){
   if(keys.KeyD||keys.ArrowRight)s+=1; if(keys.KeyA||keys.ArrowLeft)s-=1;
   if(joy.id!==null){f+=-joy.dy/50;s+=joy.dx/50;}
   const len=Math.hypot(f,s); if(len>1){f/=len;s/=len;}
-  const sp=4.6*(island?fatSpeed(island.kg)*(island.pee>0||island.sleep>0?0:1):1), sy=Math.sin(yaw), cy=Math.cos(yaw);
+  const sp=4.6*(island?fatSpeed(island.kg)*(island.pee>0||island.poo>0||island.sleep>0?0:1):1), sy=Math.sin(yaw), cy=Math.cos(yaw);
   P.vx=(-sy*f+cy*s)*sp+P.kx; P.vz=(-cy*f-sy*s)*sp+P.kz;
   const damp=Math.min(1,6*dt);P.kx-=P.kx*damp;P.kz-=P.kz*damp;
   P.vy-=26*dt; if(P.vy<-30)P.vy=-30;
@@ -2385,7 +2423,7 @@ function step(dt){
   P.safe-=dt;
   if(P.safe<=0&&P.hp<MAXHP){P.hp=Math.min(MAXHP,P.hp+1);P.safe=3;updateHud();}
   playTime+=dt;P.inv-=dt;
-  if(island){updateFishing(dt);updateIsland(dt);updateStamina(dt,len>0.1);if(net.role!=='guest'&&!island.over){island.t-=dt;islandRegrow(dt);if(island.t<=0)islandEnd();}if(net.role!=='guest')updateCpuSim(dt);}
+  if(island){updateFishing(dt);updateIsland(dt);updateStamina(dt,len>0.1,[85,94].includes(getB(Math.floor(P.x),Math.floor(P.y+0.1),Math.floor(P.z))));if(net.role!=='guest'&&!island.over){island.t-=dt;islandRegrow(dt);if(island.t<=0)islandEnd();}if(net.role!=='guest')updateCpuSim(dt);}
   if(bossRush&&net.role!=='guest'&&!goalDone)bossRush.t+=dt;
   updateEnemies(dt);updateItems(dt);updateWeapons(dt);if(doors.length)updateDoors();
   if(net.role!=='guest')checkGoal();else updateGoalHud();
@@ -2446,7 +2484,8 @@ function breakBlock(){
   if(id===30){toast('岩盤はこわせないよ');return;}
   if(island&&islandBusy())return;
   if(id===85){toast('🎣 海の近くで、つりざおを持ってボタンでつりができるよ');return;}
-  if(id===88){toast('💧 ペットボトルを持って右クリック（タッチは🧱）でわき水をくめるよ');return;}
+  if(id===88){toast('💧 ペットボトルを持ってアイコンをおすと、湧き水をくめるよ');return;}
+  if(id===94){toast('🏞️ 川の水はにごっていて飲めない。川の近くの地面を掘ると湧き水が出るかも');return;}
   if(id===91||id===93){toast('🍲 鍋は支給品。雨がふると水がたまるよ');return;}
   if(id===92){pickBottle(x,y,z);return;}
   if(id===89||id===90){toast(id===89?'🔥 たき火は支給品。右クリックで生水を煮沸できるよ':'🧪 ろ過器は支給品。右クリックで生水をろ過できるよ');return;}
@@ -2457,6 +2496,7 @@ function breakBlock(){
   }
   mineKey=null;
   world[idx(x,y,z)]=0;sfx('blockBreak',{id});netBlock(x,y,z,0);netAct('swing');
+  if(island&&(id===1||id===2||id===6))digSpring(x,y,z);
   {const pt=partnerOf(x,y,z,id);if(pt){world[idx(pt[0],pt[1],pt[2])]=0;netBlock(pt[0],pt[1],pt[2],0);}}
   if(id===27||id===28)removeDoor(x,y,z);
   if(id===79||id===80)removeDoor(x,y-1,z);
@@ -2494,7 +2534,7 @@ function placeBlock(){
   if(hitId===10){openCraft();return;}
   if(island){
     if(islandBusy())return;
-    if(hitId===88){fillBottle('spring');return;}
+    if(hitId===88){fillBottle('spring',r.hit);return;}
     if(hitId===89){useFire();return;}
     if(hitId===90){useFilter();return;}
     if(hitId===91||hitId===93){fillBottle('pot');return;}
@@ -2665,7 +2705,7 @@ function rebuildWbar(){
   wbar.style.display=list.length>1?'flex':'none';
   for(const w of list){const b=document.createElement('div');b.className='wb'+(w===weapon?' on':'');b.title=WNAME[w];
     const c=document.createElement('canvas');c.width=c.height=16;drawIcon(c.getContext('2d'),w);b.appendChild(c);
-    onTap(b,()=>selectWeapon(w));wbar.appendChild(b);}
+    onTap(b,()=>{if(island&&ITEMS[w]&&weapon===w)useItem();else selectWeapon(w);});wbar.appendChild(b);} // 無人島：持っているアイテムのアイコンをもう一度おすと使う
 }
 function selectWeapon(w){
   weapon=w;fireHeld=false;spin=0;
@@ -2673,7 +2713,7 @@ function selectWeapon(w){
   heldEl.classList.remove('swing','recoil');heldEl.classList.toggle('gun',!!GUNS[w]);
   document.body.classList.toggle('sniper',w==='sniper');
   const bs=document.getElementById('bSword');if(bs)bs.textContent=ITEM_EMOJI[w]||(w==='sword'?'⚔️':w==='pickaxe'?'⛏️':w==='rocket'?'🚀':'🔫');
-  rebuildWbar();toast(WNAME[w]+'に持ちかえた');
+  rebuildWbar();toast(island&&ITEMS[w]?(ITEM_EMOJI[w]+' '+WNAME[w]+'を持った（もう一度アイコンをおすと使う）'):WNAME[w]+'に持ちかえた');
 }
 function cycleWeapon(){const l=ownedWeapons();selectWeapon(l[(l.indexOf(weapon)+1)%l.length]);}
 function attackDown(){
