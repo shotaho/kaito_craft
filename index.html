@@ -255,7 +255,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.14.0</p>
+    <p id="ver">ver 1.14.1</p>
   </div>
 </div>
 <div id="islandPick" class="overlay">
@@ -562,8 +562,8 @@ const STAGES=[
   {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},boss:{type:'imo',hp:50},spawn:[20.5,5,12.5]},
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},boss:{type:'wombat',hp:30,base:1.25,at:[26.5,29,27.5]},spawn:[24.5,4,20.5]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},boss:{type:'yoshio',hp:60,base:1.6},spawn:[8.5,null,24.5]},
-  // 無人島ふとりバトル専用（ステージえらびには出さない）
-  {name:'無人島',icon:'🏝️',extra:true,sky:[0.55,0.82,0.98],fog:[26,70],mobs:{zero:0,zombie:2,mimic:0,cow:1},goal:{type:'fat',n:1,text:''},boss:null,spawn:[24.5,null,24.5]}
+  // 無人島ふとりバトル専用（ステージえらびには出さない）。モンスターは出ない（牛はたまに出る食べ物）
+  {name:'無人島',icon:'🏝️',extra:true,sky:[0.55,0.82,0.98],fog:[26,70],mobs:{zero:0,zombie:0,mimic:0,cow:1},goal:{type:'fat',n:1,text:''},boss:null,spawn:[24.5,null,24.5]}
 ];
 const NSTAGE=6,ISLAND=6; // ふつうのステージの数、無人島のステージ番号
 // ボス戦モード：null か {t:経過秒}（6体のボスと順番に戦う）
