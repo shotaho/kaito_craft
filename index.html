@@ -264,7 +264,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.16.0</p>
+    <p id="ver">ver 1.16.1</p>
   </div>
 </div>
 <div id="islandPick" class="overlay">
@@ -2232,7 +2232,7 @@ function updateFishing(dt){
 }
 function takeFish(){const i=island;const k=i.fish.length-1;const f=i.fish[k];i.fish.splice(k,1);if(!i.fish.length&&weapon==='fish')selectWeapon('knife');else rebuildWbar();updateIslandHud();return f;}
 function eatSashimi(){const i=islandState();if(!i||!i.fish.length)return;const f=takeFish();
-  gainFood(f==='big'?FOOD.bigFish:FOOD.fish,'🍣 ナイフでさばいて刺身で食べた！');}
+  gainFood(f==='big'?FOOD.bigFish:FOOD.fish,'🍣 ナイフでさばいて刺身で食べた！',f==='big'?25:15);}
 function cookFish(){
   const i=islandState();if(!i.fish.length){toast('🐟 魚がないよ');return;}
   if(!i.board){toast('🪵 料理にはまな板がいるよ。原木をこわして木材を集め、作業台で作ろう');return;}
@@ -2290,7 +2290,7 @@ function updateIslandHud(){
   const g=document.getElementById('ihSta');g.style.width=s+'%';g.style.background=s<25?'#ff7043':'#8bc34a';
 }
 function addKg(d,msg){if(!island||island.over)return;island.kg=Math.max(25,island.kg+d);if(msg)toast(msg+'　'+sgnKg(d)+'kg');updateGoalHud();}
-function gainFood(d,msg){addKg(d,msg);const i=islandState();if(!i)return;i.foodKg+=d;i.belly+=Math.min(35,6+d*250);updateIslandHud();}
+function gainFood(d,msg,sta){const i=islandState();if(i&&sta&&!(i.sleep>0)){const g=Math.min(sta,STA_MAX-i.sta);if(g>0){i.sta+=g;if(i.sta>40)i.tired=false;msg+='　⚡+'+Math.round(g);}}addKg(d,msg);if(!i)return;i.foodKg+=d;i.belly+=Math.min(35,6+d*250);updateIslandHud();}
 function poopNow(){
   const i=island;if(!i||i.poo>0)return;
   const lose=i.foodKg*0.4;i.poo=3;i.foodKg*=0.6;i.belly=0;i.pwarn=false;
@@ -2507,7 +2507,7 @@ function breakBlock(){
   if(id===12){stageStats.gems++;seeItem('gem');toast('💎 宝石を見つけた！');}
   if(id===19){stageStats.chests++;inv.wood+=3;inv.stone+=3;saveInv();updateHud();seeItem('chest');toast('📦 宝箱！ 🪵+3 🪨+3');}
   if(id===24||id===25||id===26)harvestCrop(id);
-  if(id===86)gainFood(FOOD.coco,'🥥 ヤシの実をたべた！');if(id===87)gainFood(FOOD.bush,'🫐 きのみをたべた！');
+  if(id===86)gainFood(FOOD.coco,'🥥 ヤシの実をたべた！',12);if(id===87)gainFood(FOOD.bush,'🫐 きのみをたべた！',8);
   if(id===4||id===7||id===3||id===9||id===11||id===16||id===20){saveInv();updateHud();}
   buildMesh(); queueSave();
 }
@@ -3207,7 +3207,7 @@ function showResult(){
 function endCooking(){
   const bonus=COOK_INFO[ck.recipe].bonus;
   P.hp=Math.min(MAXHP,P.hp+healAmt+bonus);cookTotal+=cookSum;P.inv=3;P.safe=3;
-  if(island){const big=islandCookBig;islandCookBig=false;setTimeout(()=>gainFood(0.1+cookSum/2000+(big?0.08:0),'🍳 料理を食べた！'),900);}
+  if(island){const big=islandCookBig;islandCookBig=false;setTimeout(()=>gainFood(0.1+cookSum/2000+(big?0.08:0),'🍳 料理を食べた！',big?50:35),900);}
   cookEl.style.display='none';cooking=false;ck=null;updateHud();
   toast('ごちそうさま！ 🍳 +'+cookSum);
   lockMouse();
