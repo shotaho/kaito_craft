@@ -266,7 +266,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.18.0</p>
+    <p id="ver">ver 1.19.0</p>
   </div>
 </div>
 <div id="islandPick" class="overlay">
@@ -455,9 +455,13 @@ const BLOCKS={
   85:{name:'海',t:[123,123,123]},94:{name:'川',t:[131,131,131]},88:{name:'わき水',t:[126,126,126]},91:{name:'鍋',t:[117,117,117]},92:{name:'ペットボトル',t:[130,130,130]},93:{name:'鍋（水あり）',t:[117,117,117]},89:{name:'たき火',t:[127,127,127]},90:{name:'ろ過器',t:[129,128,8]},86:{name:'ヤシの実',t:[124,124,124]},87:{name:'きのみのしげみ',t:[125,125,125]},
   27:{name:'とびら（とじている）',t:[8,86,8]},28:{name:'とびら（あいている）',t:[87,87,87]},29:{name:'水晶',t:[93,93,93]},30:{name:'岩盤',t:[94,94,94]}
 };
-const TRANS={5:true,8:true,13:true,28:true,85:true,94:true};
-const NONSOLID={13:true,14:true,23:true,28:true,85:true,94:true},HAZARD={14:true,23:true};
-const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,67,20,17,18,15,11,16,22,21,29];
+// ボタンとびら（赤）：ボタンでしか開かない。95 とじている / 96 あいている、上半分 97 / 98
+BLOCKS[95]={name:'ボタンとびら',t:[135,132,135]};BLOCKS[96]={name:'ボタンとびら（あいている）',t:[134,134,134]};
+BLOCKS[97]={name:'ボタンとびら',t:[135,133,135]};BLOCKS[98]={name:'ボタンとびら（あいている）',t:[134,134,134]};
+const TRANS={5:true,8:true,13:true,28:true,85:true,94:true,96:true,98:true};
+const NONSOLID={13:true,14:true,23:true,28:true,85:true,94:true,96:true,98:true},HAZARD={14:true,23:true};
+const WATER={85:true,94:true}; // 海・川（水面を少し低くして、波を動かす）
+const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,95,67,20,17,18,15,11,16,22,21,29];
 const HOTBAR=BASE_HOTBAR.slice();
 
 // ---------- 家具 ----------
@@ -520,6 +524,8 @@ const furnKind=id=>id>=FURN_BASE&&id<FURN_BASE+FURN.length*4?(id-FURN_BASE)>>2:(
 function partnerOf(x,y,z,id){
   if(id===27||id===28){const t=getB(x,y+1,z);return (t===79||t===80)?[x,y+1,z]:null;}
   if(id===79||id===80){const b=getB(x,y-1,z);return (b===27||b===28)?[x,y-1,z]:null;}
+  if(id===95||id===96){const t=getB(x,y+1,z);return (t===97||t===98)?[x,y+1,z]:null;}
+  if(id===97||id===98){const b=getB(x,y-1,z);return (b===95||b===96)?[x,y-1,z]:null;}
   if(id>=FURN_BASE&&id<FURN_BASE+4){const r=id-FURN_BASE,n=FNORM[r],fx=x+n[0],fz=z+n[1];return getB(fx,y,fz)===BED_FOOT+r?[fx,y,fz]:null;}
   if(id>=BED_FOOT&&id<BED_FOOT+4){const r=id-BED_FOOT,n=FNORM[r],hx=x-n[0],hz=z-n[1];return getB(hx,y,hz)===FURN_BASE+r?[hx,y,hz]:null;}
   return null;
@@ -950,6 +956,19 @@ paint(86,(x,y)=>{ // とじている
   if(x>=2&&x<=13&&((y>=1&&y<=6)||(y>=9&&y<=14)))return vary([150,110,65],14);
   return vary([110,78,42],16);});
 paint(87,(x,y)=>(x===0||x===15||y===0||y===15)?[90,65,35,255]:[0,0,0,0]); // あいている（わく）
+// ボタンとびら（赤い鉄のとびら。まんなかにボタンのしるし）
+const RDOOR=[178,40,40],RDOOR_DK=[120,24,24];
+paint(132,(x,y)=>{
+  if(x===0||x===15||y===15)return vary(RDOOR_DK,8);
+  if(Math.hypot(x-7.5,y-6.5)<2.6)return Math.hypot(x-7.5,y-6.5)<1.6?[255,210,60,255]:[60,60,60,255]; // ボタンのしるし
+  if(y===1||y===12||x===2||x===13)return vary(RDOOR_DK,10);
+  return vary(RDOOR,12);});
+paint(133,(x,y)=>{
+  if(x===0||x===15||y===0)return vary(RDOOR_DK,8);
+  if(x>=4&&x<=11&&y>=4&&y<=10)return (x===7||x===8||y===7)?[70,70,70,255]:[170,215,235,255]; // 小さなまど
+  return vary(RDOOR,12);});
+paint(134,(x,y)=>(x<=1||x>=14||y<=1||y>=14)?vary(RDOOR_DK,8):[0,0,0,0]); // あいている（赤いわく）
+paint(135,()=>vary(RDOOR_DK,10));
 
 // マガイヤス
 const MAGW=[236,235,231];
@@ -1133,12 +1152,13 @@ function buildMesh(){
   for(let y=0;y<H;y++)for(let z=0;z<D;z++)for(let x=0;x<W;x++){
     const id=world[idx(x,y,z)]; if(!id) continue;
     if(SHAPE[id]){for(const b of SHAPE[id])furnBox(out,x,y,z,b);if(isButton(id)&&(id-BTN_BASE)%2)pressedButtons.push([x,y,z]);continue;}
-    const t=BLOCKS[id].t;
+    const t=BLOCKS[id].t,wh=WATER[id]&&!WATER[getB(x,y+1,z)]?0.82:1; // 水面は少し低く
     for(const f of FACES){
       const n=getB(x+f.d[0],y+f.d[1],z+f.d[2]);
       if(n && !(TRANS[n]&&n!==id)) continue;
+      if(WATER[id]&&WATER[n]&&f.d[1]===0)continue; // 海と川のさかいめの面は出さない
       const tile=f.d[1]===1?t[0]:f.d[1]===-1?t[2]:t[1];
-      for(const k of ORDER){const c=f.c[k];out.push(x+c[0],y+c[1],z+c[2],(tile+0.002+c[3]*0.996)/ATLAS_TILES,c[4],f.s);}
+      for(const k of ORDER){const c=f.c[k];out.push(x+c[0],y+c[1]*wh,z+c[2],(tile+0.002+c[3]*0.996)/ATLAS_TILES,c[4],f.s);}
     }
   }
   gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
@@ -2433,7 +2453,7 @@ function startVs(){
 function vsInvOn(){
   const bak=vs?vs.bak:JSON.parse(JSON.stringify(inv));
   vs={ph:'prep',t:VS_PREP,cd:0,placed:new Set(),bak,cpu:!net.connected,seed:(Math.random()*1e9)|0};
-  inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,armor1:false,armor2:false},furn:{}};
+  inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,remote:false,armor1:false,armor2:false},furn:{}};
   crowd=[];vsCheer=0;P.hp=MAXHP;P.inv=0;buildHotbar();selectWeapon('sword');updateHud();
   document.getElementById('clear').style.display='none';clearing=false;
 }
@@ -2535,6 +2555,13 @@ function kingDown(mine){ // たおした人だけ回復（ゲストがたおし�
   vsCheer=3;
   if(mine){P.hp=Math.min(MAXHP,P.hp+KING_HEAL);updateHud();toast('👑 キングガストをたおした！ ❤️+'+KING_HEAL);sfx('pickup',{kind:'milk'});}
   else toast('👑 キングガストがたおされた！');
+}
+function useRemote(){
+  if(fireCd>0||dead||paused())return;fireCd=0.5;replay(heldEl,'recoil');sfx('blockPlace');netAct('swing');
+  const p={x:Math.floor(P.x),y:Math.floor(P.y),z:Math.floor(P.z),until:performance.now()+4000};remotePresses.push(p);
+  if(net.connected)netSend({t:'rmt',x:p.x,y:p.y,z:p.z});
+  const n=doors.filter(d=>{const c=getB(d.x,d.y,d.z);return (c===95||c===96)&&Math.abs(d.x-p.x)<=10&&Math.abs(d.y-p.y)<=4&&Math.abs(d.z-p.z)<=10;}).length;
+  toast(n?'🔘 ピッ！ ボタンとびらが開いた':'🔘 ピッ！ …近くにボタンとびらがない（10マスまで）');
 }
 // 対戦ステージの外（かべの上・観客席）には出られない
 function arenaClamp(b,rr){if(stage!==VS_ARENA)return;rr=rr||12.2;const dx=b.x-24,dz=b.z-24,d=Math.hypot(dx,dz);if(d>rr){b.x=24+dx/d*rr;b.z=24+dz/d*rr;}}
@@ -2648,7 +2675,7 @@ function step(dt){
   if(keys.KeyD||keys.ArrowRight)s+=1; if(keys.KeyA||keys.ArrowLeft)s-=1;
   if(joy.id!==null){f+=-joy.dy/50;s+=joy.dx/50;}
   const len=Math.hypot(f,s); if(len>1){f/=len;s/=len;}
-  const sp=4.6*(island?fatSpeed(island.kg)*(island.pee>0||island.poo>0||island.sleep>0?0:1):1)*(vs&&vs.cd>0?0:1), sy=Math.sin(yaw), cy=Math.cos(yaw);
+  const sp=4.6*(island?fatSpeed(island.kg)*(island.pee>0||island.poo>0||island.sleep>0?0:1):1)*(vs&&vs.cd>0?0:1)*(WATER[getB(Math.floor(P.x),Math.floor(P.y+0.1),Math.floor(P.z))]?0.7:1), sy=Math.sin(yaw), cy=Math.cos(yaw); // 水の中はゆっくり
   P.vx=(-sy*f+cy*s)*sp+P.kx; P.vz=(-cy*f-sy*s)*sp+P.kz;
   const damp=Math.min(1,6*dt);P.kx-=P.kx*damp;P.kz-=P.kz*damp;
   P.vy-=26*dt; if(P.vy<-30)P.vy=-30;
@@ -2700,23 +2727,37 @@ function rescanDoors(){
   doors=[];
   for(let i=0;i<world.length;i++){
     if(world[i]===80)world[i]=79;
-    if(world[i]===27||world[i]===28){
-      world[i]=27;
+    if(world[i]===98)world[i]=97;
+    if(world[i]===96)world[i]=95;
+    if(world[i]===27||world[i]===28||world[i]===95){
+      if(world[i]===28)world[i]=27;
       const y=Math.floor(i/(D*W)),rem=i%(D*W),z=Math.floor(rem/W),x=rem%W;
       doors.push({x,y,z});
     }
   }
 }
+// 手に持つリモコンボタンを押した場所（4秒のあいだ、10マス以内のボタンとびらが開く）
+let remotePresses=[],doorHintT=0;
 function updateDoors(){
-  let changed=false;
+  let changed=false;const now=performance.now();
+  if(remotePresses.length)remotePresses=remotePresses.filter(p=>p.until>now);
   for(const d of doors){
     const cur=world[idx(d.x,d.y,d.z)];
-    if(cur!==27&&cur!==28)continue;
+    const bd=cur===95||cur===96; // ボタンとびら
+    if(cur!==27&&cur!==28&&!bd)continue;
     let dist=dead?99:Math.hypot(P.x-(d.x+0.5),P.y-d.y,P.z-(d.z+0.5));
     if(remote&&!remote.dead&&remote.tx!==undefined)dist=Math.min(dist,Math.hypot(remote.tx-(d.x+0.5),remote.ty-d.y,remote.tz-(d.z+0.5)));
-    const held=pressedButtons.some(b=>Math.abs(b[0]-d.x)<=4&&Math.abs(b[1]-d.y)<=3&&Math.abs(b[2]-d.z)<=4);
-    const set=open=>{world[idx(d.x,d.y,d.z)]=open?28:27;netBlock(d.x,d.y,d.z,open?28:27);changed=true;
-      const t=getB(d.x,d.y+1,d.z);if(t===79||t===80){world[idx(d.x,d.y+1,d.z)]=open?80:79;netBlock(d.x,d.y+1,d.z,open?80:79);}};
+    const held=pressedButtons.some(b=>Math.abs(b[0]-d.x)<=4&&Math.abs(b[1]-d.y)<=3&&Math.abs(b[2]-d.z)<=4)
+      ||remotePresses.some(p=>Math.abs(p.x-d.x)<=10&&Math.abs(p.y-d.y)<=4&&Math.abs(p.z-d.z)<=10);
+    const set=open=>{const lo=bd?(open?96:95):(open?28:27);world[idx(d.x,d.y,d.z)]=lo;netBlock(d.x,d.y,d.z,lo);changed=true;
+      const t=getB(d.x,d.y+1,d.z);
+      if(!bd&&(t===79||t===80)){world[idx(d.x,d.y+1,d.z)]=open?80:79;netBlock(d.x,d.y+1,d.z,open?80:79);}
+      if(bd&&(t===97||t===98)){world[idx(d.x,d.y+1,d.z)]=open?98:97;netBlock(d.x,d.y+1,d.z,open?98:97);}};
+    if(bd){ // ボタンとびらは近づいても開かない。ボタンが押されている間だけ開く（中にだれかいる間は閉めない）
+      if(cur===95&&held){set(true);sfx('blockPlace');}
+      else if(cur===96&&!held&&dist>1.2)set(false);
+      else if(cur===95&&dist<1.5&&now>doorHintT){doorHintT=now+5000;toast('🔴 ボタンとびらはボタンで開くよ（リモコンボタンでもOK）');}
+      continue;}
     if(cur===27&&(dist<1.8||held))set(true);
     else if(cur===28&&dist>2.6&&!held)set(false);
   }
@@ -2746,8 +2787,8 @@ function breakBlock(){
   world[idx(x,y,z)]=0;sfx('blockBreak',{id});netBlock(x,y,z,0);netAct('swing');if(vs)vs.placed.delete(pkey);
   if(island&&(id===1||id===2||id===6))digSpring(x,y,z);
   {const pt=partnerOf(x,y,z,id);if(pt){world[idx(pt[0],pt[1],pt[2])]=0;netBlock(pt[0],pt[1],pt[2],0);}}
-  if(id===27||id===28)removeDoor(x,y,z);
-  if(id===79||id===80)removeDoor(x,y-1,z);
+  if(id===27||id===28||id===95||id===96)removeDoor(x,y,z);
+  if(id===79||id===80||id===97||id===98)removeDoor(x,y-1,z);
   {const fk=furnKind(id);if(fk>=0){const key=FURN[fk].key;const first=inv.furn[key]===undefined;inv.furn[key]=(inv.furn[key]|0)+1;saveInv();if(first)buildHotbar();else updateFurnCounts();toast('📦 '+FURN[fk].name+'をしまった');}}
   if(island&&(id===4||id===7)){islandState().wood++;toast('🪵 木材 '+island.wood+'（作業台でまな板を作れるよ）');updateIslandHud();}
   else if(id===4||id===7)inv.wood+=vs?2:1; // 対戦の準備タイムは2倍集まる
@@ -2806,9 +2847,10 @@ function placeBlock(){
   // とびらは上にもう1マス、ベッドは奥にもう1マス（頭側）を使う
   let ex=null;
   if(pid===27)ex=[x,y+1,z,79];
+  else if(pid===95)ex=[x,y+1,z,97];
   else if(fk===0){const r=pid-FURN_BASE,n=FNORM[r];ex=[x-n[0],y,z-n[1],pid];pid=BED_FOOT+r;}
   if(ex&&(ex[0]<0||ex[2]<0||ex[0]>=W||ex[2]>=D||ex[1]>=H||world[idx(ex[0],ex[1],ex[2])]!==0)){
-    toast(pid===27?'🚪 とびらは上に1マスあけて置いてね':'🛏️ ベッドは奥に2マス分の場所がいるよ');return;}
+    toast(pid===27||pid===95?'🚪 とびらは上に1マスあけて置いてね':'🛏️ ベッドは奥に2マス分の場所がいるよ');return;}
   world[idx(x,y,z)]=pid;if(ex)world[idx(ex[0],ex[1],ex[2])]=ex[3];
   const undo=()=>{world[idx(x,y,z)]=0;if(ex)world[idx(ex[0],ex[1],ex[2])]=0;};
   if(enemies.some(e=>e.dying<=0&&hitsBox(e.x,e.y,e.z,e.r,e.h))){undo();return;}
@@ -2819,7 +2861,7 @@ function placeBlock(){
     if(ny>P.y&&ny-P.y<=1.01&&!hits(P.x,ny,P.z)){P.y=ny;P.vy=0;}
     else {world[idx(x,y,z)]=0;return;}
   }
-  if(pid===27)addDoor(x,y,z);
+  if(pid===27||pid===95){addDoor(x,y,z);if(pid===95)toast('🔴 ボタンとびら：近くにボタンを置くか、リモコンボタンで開けよう');}
   if(fk>=0){inv.furn[FURN[fk].key]--;saveInv();updateFurnCounts();}
   if(vs){vs.placed.add(x+','+y+','+z);if(ex)vs.placed.add(ex[0]+','+ex[1]+','+ex[2]);}
   sfx('blockPlace');netBlock(x,y,z,pid);if(ex)netBlock(ex[0],ex[1],ex[2],ex[3]);netAct('swing');
@@ -2839,7 +2881,7 @@ function kick(){
 
 // ---------- 武器と作業台 ----------
 const INV_KEY='blockcraft-inv-v1';
-let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,armor1:false,armor2:false},furn:{}};
+let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,remote:false,armor1:false,armor2:false},furn:{}};
 try{const j=JSON.parse(localStorage.getItem(INV_KEY)||'null');if(j&&j.own)inv={wood:j.wood|0,stone:j.stone|0,carrot:j.carrot|0,onion:j.onion|0,mushroom:j.mushroom|0,own:Object.assign(inv.own,j.own),furn:{}};if(j&&j.furn&&typeof j.furn==='object')for(const f of FURN)if(j.furn[f.key]!==undefined)inv.furn[f.key]=Math.max(0,j.furn[f.key]|0);}catch(e){}
 function saveInv(){if(vs)return;try{localStorage.setItem(INV_KEY,JSON.stringify(inv));}catch(e){}}
 const CROP_LABEL={24:'🥕 ニンジン',25:'🧅 たまねぎ',26:'🍄 キノコ'},CROP_KEY={24:'carrot',25:'onion',26:'mushroom'};
@@ -2925,11 +2967,12 @@ const RECIPES=[
   {id:'mg',name:'マシンガン',desc:'⚔️おしっぱなしで連射',wood:4,stone:8},
   {id:'sniper',name:'スナイパーライフル',desc:'のぞきこんで遠くの敵をねらいうち。1発が強い',wood:5,stone:10},
   {id:'rocket',name:'ロケットランチャー',desc:'ばくはつで敵もブロックもふっとばす',wood:6,stone:12},
-  {id:'minigun',name:'ミニガン',desc:'回りだすと超連射',wood:8,stone:16}];
+  {id:'minigun',name:'ミニガン',desc:'回りだすと超連射',wood:8,stone:16},
+  {id:'remote',name:'リモコンボタン',desc:'持って⚔️をおすと、10マス以内の赤いボタンとびらが開く',wood:1,stone:1}];
 const ARMORS=[
   {id:'armor1',name:'木のよろい',desc:'受けるダメージを 25% へらす',wood:5,stone:0,armor:1},
   {id:'armor2',name:'石のよろい',desc:'受けるダメージを 45% へらす（かぶとつき）',wood:2,stone:7,armor:2}];
-const WNAME={knife:'ナイフ',rod:'つりざお',net:'虫取り網',bottle:'ペットボトル',fish:'魚',board:'まな板',sword:'剣',pistol:'ピストル',mg:'マシンガン',sniper:'スナイパーライフル',minigun:'ミニガン',rocket:'ロケットランチャー',pickaxe:'ピッケル'};
+const WNAME={remote:'リモコンボタン',knife:'ナイフ',rod:'つりざお',net:'虫取り網',bottle:'ペットボトル',fish:'魚',board:'まな板',sword:'剣',pistol:'ピストル',mg:'マシンガン',sniper:'スナイパーライフル',minigun:'ミニガン',rocket:'ロケットランチャー',pickaxe:'ピッケル'};
 function drawIcon(c,id){
   c.clearRect(0,0,16,16);
   const px=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h);};
@@ -2939,6 +2982,7 @@ function drawIcon(c,id){
   if(id==='bottle'){px(6,1,4,2,'#1565c0');px(5,3,6,11,'#b3e5fc');px(5,7,6,3,'#1e88e5');px(5,13,6,1,'#81d4fa');return;}
   if(id==='fish'){px(3,6,9,5,'#78909c');px(4,5,7,1,'#90a4ae');px(4,11,7,1,'#607d8b');px(12,5,3,7,'#546e7a');px(5,7,1,1,'#111');return;}
   if(id==='board'){px(2,4,12,9,'#d7a86e');px(2,4,12,1,'#e8c08a');px(2,12,12,1,'#a0764a');px(13,7,2,3,'#a0764a');return;}
+  if(id==='remote'){px(4,2,8,12,'#5f5f5f');px(4,2,8,1,'#8d8d8d');px(11,2,1,12,'#444');px(5,4,6,6,'#333');px(6,5,4,4,'#e53935');px(7,5,2,1,'#ff8a80');px(5,11,2,1,'#bbb');px(9,11,2,1,'#bbb');return;}
   if(id==='armor1'||id==='armor2'){const a=id==='armor1'?['#b07a45','#8a5a2e','#d6a266']:['#9a9a9a','#666','#c8c8c8'];
     px(1,2,5,4,a[0]);px(10,2,5,4,a[0]);px(3,5,10,10,a[0]);px(1,2,5,1,a[2]);px(10,2,5,1,a[2]);px(3,5,10,1,a[2]);px(12,5,1,10,a[1]);px(3,14,10,1,a[1]);px(7,7,2,6,a[1]);return;}
   if(id==='sword'){for(let i=5;i<=14;i++){px(i,15-i,1,1,'#9fb6c1');px(i-1,15-i,1,1,'#5f7883');px(i,16-i,1,1,'#5f7883');}
@@ -2952,7 +2996,7 @@ function drawIcon(c,id){
 }
 let weapon='sword',fireHeld=false,fireCd=0,spin=0;
 const wbar=document.getElementById('wbar'),flashEl=document.getElementById('flash');
-function ownedWeapons(){if(island)return islandItems();return ['sword',...['pickaxe','pistol','mg','sniper','minigun','rocket'].filter(w=>inv.own[w])];}
+function ownedWeapons(){if(island)return islandItems();return ['sword',...['pickaxe','pistol','mg','sniper','minigun','rocket','remote'].filter(w=>inv.own[w])];}
 function onTap(el,fn){let last=0;const h=e=>{e.preventDefault();e.stopPropagation();const n=Date.now();if(n-last<350)return;last=n;fn();};
   el.addEventListener('touchstart',h,{passive:false});el.addEventListener('click',h);}
 function rebuildWbar(){
@@ -2967,14 +3011,14 @@ function selectWeapon(w){
   drawIcon(heldEl.getContext('2d'),w);
   heldEl.classList.remove('swing','recoil');heldEl.classList.toggle('gun',!!GUNS[w]);
   document.body.classList.toggle('sniper',w==='sniper');
-  const bs=document.getElementById('bSword');if(bs)bs.textContent=ITEM_EMOJI[w]||(w==='sword'?'⚔️':w==='pickaxe'?'⛏️':w==='rocket'?'🚀':'🔫');
+  const bs=document.getElementById('bSword');if(bs)bs.textContent=ITEM_EMOJI[w]||(w==='sword'?'⚔️':w==='pickaxe'?'⛏️':w==='rocket'?'🚀':w==='remote'?'🔘':'🔫');
   rebuildWbar();toast(island&&ITEMS[w]?(ITEM_EMOJI[w]+' '+WNAME[w]+'を持った（もう一度アイコンをおすと使う）'):WNAME[w]+'に持ちかえた');
 }
 function cycleWeapon(){const l=ownedWeapons();selectWeapon(l[(l.indexOf(weapon)+1)%l.length]);}
 function attackDown(){
   if(dead||paused()) return;
   if(island&&ITEMS[weapon]){useItem();return;} // 無人島ではアイテムをつかう
-  if(weapon==='sword') primaryTouch(); else if(weapon==='pickaxe') pickAttack(); else if(weapon==='rocket') fireRocket(); else if(weapon==='pistol') firePistol(); else if(weapon==='sniper') fireSniper(); else fireHeld=true;
+  if(weapon==='sword') primaryTouch(); else if(weapon==='pickaxe') pickAttack(); else if(weapon==='rocket') fireRocket(); else if(weapon==='pistol') firePistol(); else if(weapon==='sniper') fireSniper(); else if(weapon==='remote') useRemote(); else fireHeld=true;
 }
 function attackUp(){fireHeld=false;}
 function primaryTouch(){swordAttack();}
@@ -3798,7 +3842,8 @@ function onNet(m){
   } else if(m.t==='blk'){
     for(const c of m.c){const[x,y,z,id]=c;if(x>=0&&z>=0&&y>=0&&x<W&&z<D&&y<H){const old=world[idx(x,y,z)];
       if(net.role==='host'&&id===0){if(old===12)stageStats.gems++;if(old===19)stageStats.chests++;}world[idx(x,y,z)]=id;
-      if(vs){const k=x+','+y+','+z;if(id)vs.placed.add(k);else vs.placed.delete(k);}}}
+      if(vs){const k=x+','+y+','+z;if(id)vs.placed.add(k);else vs.placed.delete(k);}
+      if((id===27||id===95)&&!doors.some(d=>d.x===x&&d.y===y&&d.z===z))addDoor(x,y,z);}} // 相手が置いたとびらも開け閉めする
     buildMesh();if(net.role==='host')queueSave();
     if(hits(P.x,P.y,P.z)){let y=Math.floor(P.y);while(y<H&&hits(P.x,y,P.z))y++;P.y=y;}
   } else if(m.t==='act'){
@@ -3835,6 +3880,8 @@ function onNet(m){
     vsStartFight();
   } else if(m.t==='vsEnd'){
     if(vs)vsResult(m.r>0?1:m.r<0?-1:0,m.why==='time'?'time':'down',true);
+  } else if(m.t==='rmt'){ // 相手がリモコンボタンを押した
+    if(typeof m.x==='number'&&typeof m.y==='number'&&typeof m.z==='number')remotePresses.push({x:m.x|0,y:m.y|0,z:m.z|0,until:performance.now()+4000});
   } else if(m.t==='vsKing'){
     if(net.role==='guest'&&vs)kingDown(true);
   } else if(m.t==='vsQuit'){
@@ -3953,6 +4000,7 @@ HELD_MODEL.net=[[[-0.02,-0.68,-0.8],[0.02,-0.64,0.1],T_WOOD],[[-0.15,-0.8,-1.1],
 HELD_MODEL.bottle=[[[-0.06,-0.8,-0.1],[0.06,-0.5,0.02],T_BLUE]];
 HELD_MODEL.fish=[[[-0.04,-0.78,-0.3],[0.04,-0.62,0.05],T_STEEL]];
 HELD_MODEL.board=[[[-0.15,-0.72,-0.25],[0.15,-0.66,0.05],T_WOOD]];
+HELD_MODEL.remote=[[[-0.07,-0.82,-0.12],[0.07,-0.55,0.05],T_GUN],[[-0.035,-0.75,-0.16],[0.035,-0.66,-0.12],T_BOOM]];
 function avatarVerts(e,out){
   const tex=apTex(e.appearance||0),w=HELD_MODEL[e.weapon]?e.weapon:'sword',gun=!!GUNS[w],twoHand=gun&&w!=='pistol';
   const sw=Math.sin(e.walk)*0.6,aim=Math.PI/2+Math.max(-0.9,Math.min(0.9,e.pitch||0));
@@ -4077,6 +4125,22 @@ ensureTable();rescanDoors();
 buildMesh();newRun();select(0);nameEl.style.opacity=0;rebuildWbar();
 
 const crossEl=document.getElementById('cross');
+// 海と川の波：タイルをかきなおして動かす（無人島にいるときだけ）
+let waveT=0,wavePh=0;
+function waterTile(tile,base,light,crest,ph){
+  const img=actx.createImageData(16,16);
+  for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+    const w=Math.sin((x+ph)*0.78+y*0.45)+Math.sin((y-ph*0.7)*0.9-x*0.35),n=(hash(x,y,tile)-0.5)*14;
+    const c=w>1.75?crest:w>1.05?light:base,o=(y*16+x)*4;
+    img.data[o]=cl(c[0]+n);img.data[o+1]=cl(c[1]+n);img.data[o+2]=cl(c[2]+n);img.data[o+3]=255;}
+  actx.putImageData(img,tile*16,0);
+  gl.bindTexture(gl.TEXTURE_2D,tex);gl.texSubImage2D(gl.TEXTURE_2D,0,tile*16,0,gl.RGBA,gl.UNSIGNED_BYTE,img);
+}
+function updateWater(dt){
+  waveT-=dt;if(waveT>0)return;waveT=0.12;wavePh+=0.5;
+  waterTile(123,[38,120,205],[80,165,235],[210,238,255],wavePh);       // 海：あざやかな青に白い波
+  waterTile(131,[70,140,150],[100,170,175],[185,215,210],wavePh*0.8);  // 川：少しにごった色
+}
 let last=performance.now();
 function loop(now){
   let dt=Math.min(0.1,(now-last)/1000);last=now;
@@ -4086,6 +4150,7 @@ function loop(now){
   else if(net.connected&&net.role==='host'){updateEnemies(dt);updateWeapons(dt);if(bossRush&&!goalDone)bossRush.t+=dt;if(island&&!island.over&&!clearing){island.t-=dt;islandRegrow(dt);updateCpuSim(dt);if(island.t<=0)islandEnd();}if(!clearing)checkGoal();} // やられている間も相手は戦っている
   if(vs&&!clearing&&!(menuOpen&&!net.connected))updateVs(dt); // 作業台で工作している間も時間は進む
   if(cooking)cookUpdate(dt);
+  if(stage===ISLAND)updateWater(dt);
   if(!started&&!dead) yaw+=dt*0.08; // タイトル画面だけ回す
   cam[0]=P.x;cam[1]=P.y+EYE;cam[2]=P.z;
   const r=started&&!paused()?raycast(6):null;
