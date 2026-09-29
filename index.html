@@ -2228,7 +2228,7 @@ function updateFishing(dt){
   if(!fishing)return;
   if(Math.hypot(P.x-fishing.x,P.z-fishing.z)>1.2){fishing=null;toast('🎣 動いたので魚がにげた（えさもなくなった）');return;}
   if(fishing.bite>0){fishing.bite-=dt;if(fishing.bite<=0){fishing=null;toast('💨 にげられた…');}return;}
-  fishing.t-=dt;if(fishing.t<=0){fishing.bite=1.5;toast('❗ ひいてる！ いまだ、もう一回！');}
+  fishing.t-=dt;if(fishing.t<=0){fishing.bite=1.5;toast('❗ ひいてる！ いまだ、もう一回！');if(navigator.vibrate)try{navigator.vibrate([150,80,150,80,250]);}catch(e){}}
 }
 function takeFish(){const i=island;const k=i.fish.length-1;const f=i.fish[k];i.fish.splice(k,1);if(!i.fish.length&&weapon==='fish')selectWeapon('knife');else rebuildWbar();updateIslandHud();return f;}
 function eatSashimi(){const i=islandState();if(!i||!i.fish.length)return;const f=takeFish();
