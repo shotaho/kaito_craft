@@ -266,7 +266,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.17.0</p>
+    <p id="ver">ver 1.18.0</p>
   </div>
 </div>
 <div id="islandPick" class="overlay">
@@ -1528,6 +1528,7 @@ function damageEnemy(e,dmg,kb,src,how,localFx){
     e.dying=0.5;if(localFx)sfx('enemyDie',{type:e.type});
     if(e.boss)bossDown(localFx);
     if(e.type==='rival')vsResult(1,'down');
+    if(e.king&&net.role!=='guest'){if(localFx)kingDown(true);else{netSend({t:'vsKing'});kingDown(false);}}
     if(e.type==='cow'){
       if(byPlayer){if(localFx){pendingCook=0.7;toast('🥩 肉と 🥛 ミルクを手に入れた！');}}
       else {dropItems(e.x,e.y+0.6,e.z);if(localFx&&Math.hypot(e.x-P.x,e.z-P.z)<24)toast('ミミッカーが牛をおそった！ 肉とミルクが落ちたよ');}
@@ -1681,7 +1682,7 @@ function updateCow(e,dt){
   e.hurt-=dt;
 }
 function updateGhast(e,dt){
-  const tg=nearestPlayer(e);
+  const tg=e.king?kingTarget(e,dt):nearestPlayer(e);
   const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001;
   if(tg)e.yaw=Math.atan2(-dx,-dz);
   const dirx=dx/dist,dirz=dz/dist;
@@ -1697,8 +1698,9 @@ function updateGhast(e,dt){
   if(!hitsBox(e.x,e.y,nz,e.r,e.h))e.z=nz;
   if(!hitsBox(e.x,ny,e.z,e.r,e.h))e.y=ny;
   e.walk+=dt;e.hurt-=dt;e.cd-=dt;
-  if(tg&&e.cd<=0&&dist<(e.boss?28:22)){
-    if(e.boss){e.cd=1.8+Math.random()*0.8;for(const side of [-2.2,0,2.2])fireGhastball(e,tg,side);}
+  if(tg&&e.cd<=0&&dist<(e.boss||e.king?28:22)){
+    if(e.king){e.cd=2.4+Math.random()*1.2;for(const side of [-2.2,0,2.2])fireGhastball(e,tg,side);}
+    else if(e.boss){e.cd=1.8+Math.random()*0.8;for(const side of [-2.2,0,2.2])fireGhastball(e,tg,side);}
     else{e.cd=2.2+Math.random()*1.3;fireGhastball(e,tg,0);}}
 }
 function fireGhastball(e,tg,side){
@@ -1892,7 +1894,9 @@ function updateEnemies(dt){
   }
   refreshTargets();
   if(vs){ // 対戦モード：出てくるのはCPUの対戦相手だけ
-    for(const e of enemies){if(e.dying>0){e.dying-=dt;e.scale=Math.max(0.01,e.dying/0.5);continue;}if(e.type==='rival')updateRival(e,dt);else e.dying=0.01;}
+    for(const e of enemies){if(e.dying>0){e.dying-=dt;e.scale=Math.max(0.01,e.dying/0.5);continue;}if(e.type==='rival')updateRival(e,dt);
+      else if(e.king){updateGhast(e,dt);arenaClamp(e,14);e.life-=dt;if(e.life<=0){e.dying=0.5;toast('👑 キングガストは飛んでいった');}}
+      else e.dying=0.01;}
     enemies=enemies.filter(e=>!(e.dying<0||(e.hp<=0&&e.dying<=0)));return;}
   if(net.connected&&!mpMonsters&&!bossRush){if(enemies.length)enemies=[];if(items.length)items=[];return;}
   if(bossPhase===1&&stageStats.boss===0&&!enemies.some(e=>e.boss&&e.dying<=0)){bossCheckT-=dt;if(bossCheckT<=0){bossCheckT=1;spawnBoss();}}
@@ -2446,7 +2450,7 @@ function endVs(){
 }
 function vsPlace(side){P.x=24.5;P.z=side?34.5:13.5;P.y=standAt(P.x,P.z,5);P.vx=P.vy=P.vz=P.kx=P.kz=0;yaw=side?0:Math.PI;pitch=0;}
 function vsStartFight(){ // 部屋を作った人もゲストも：対戦ステージに立って3秒カウントダウン
-  vs.ph='fight';vs.t=VS_FIGHT;vs.cd=3.99;vs.placed=new Set();vs.last=4;
+  vs.ph='fight';vs.t=VS_FIGHT;vs.cd=3.99;vs.placed=new Set();vs.last=4;vs.kingT=25+Math.random()*25; // キングガストが来るまでの秒数
   if(crafting){craftEl.style.display='none';crafting=false;lockMouse();}
   if(dead){overEl.style.display='none';dead=false;started=true;}
   P.hp=MAXHP;P.inv=0;P.safe=0;fireHeld=false;vsPlace(net.role==='guest'?1:0);buildCrowd();updateHud();
@@ -2461,7 +2465,9 @@ function updateVs(dt){
   if(vs.ph==='prep'&&vs.t<=10.5&&!vs.warn){vs.warn=true;toast('⏰ あと10秒で対戦ステージへ！');}
   if(net.role==='guest')return; // 時間は部屋を作った人が進める
   if(vs.ph==='prep'){vs.t-=dt;if(vs.t<=0)vsFight();}
-  else if(vs.ph==='fight'&&vs.cd<=0){vs.t-=dt;if(vs.t<=0){const o=vsOpp(),me=P.hp,op=o?o.hp:0;vsResult(me>op+0.05?1:op>me+0.05?-1:0,'time');}}
+  else if(vs.ph==='fight'&&vs.cd<=0){vs.t-=dt;
+    if(!enemies.some(e=>e.king&&e.dying<=0)){vs.kingT-=dt;if(vs.kingT<=0){vs.kingT=35+Math.random()*25;spawnKing();}}
+    if(vs.t<=0){const o=vsOpp(),me=P.hp,op=o?o.hp:0;vsResult(me>op+0.05?1:op>me+0.05?-1:0,'time');}}
 }
 function vsOpp(){
   if(!vs)return null;
@@ -2510,8 +2516,28 @@ function spawnRival(){
   vs.gear=WNAME[gun]+(armor?'・'+ARMOR_NAME[armor]:'');
   setTimeout(()=>{if(vs&&vs.ph==='fight')toast('🤖 CPUは '+vs.gear+' を用意してきた！');},900);
 }
+// ---- キングガスト：対戦中にときどき空からあらわれて、どちらにも火の玉をうつ。たおした人は体力が回復 ----
+const KING_HEAL=6;
+function spawnKing(){
+  const a=Math.random()*Math.PI*2,e=spawnEnemy('ghast',[24+Math.cos(a)*11,5,24+Math.sin(a)*11],{base:1.8,hp:45});if(!e)return;
+  e.y=12;e.king=true;e.life=25;e.cd=2.5;e.tgT=0;
+  vsCheer=3;sfx('ghastFire',{});toast('👑 キングガストがあらわれた！ たおすと体力回復');
+}
+// ねらう相手：ふたり（CPUもふくむ）の中から、ときどき変える
+function kingTarget(e,dt){
+  const c=playerTargets.slice(),rv=enemies.find(x=>x.type==='rival'&&x.dying<=0);
+  if(rv)c.push({key:'C',x:rv.x,y:rv.y,z:rv.z,r:rv.r});
+  e.tgT-=dt;
+  if(e.tgT<=0||!c.some(t=>t.key===e.tgKey)){e.tgT=4+Math.random()*3;const t=c[Math.floor(Math.random()*c.length)];e.tgKey=t?t.key:null;}
+  return c.find(t=>t.key===e.tgKey)||null;
+}
+function kingDown(mine){ // たおした人だけ回復（ゲストがたおしたら部屋を作った人から知らせる）
+  vsCheer=3;
+  if(mine){P.hp=Math.min(MAXHP,P.hp+KING_HEAL);updateHud();toast('👑 キングガストをたおした！ ❤️+'+KING_HEAL);sfx('pickup',{kind:'milk'});}
+  else toast('👑 キングガストがたおされた！');
+}
 // 対戦ステージの外（かべの上・観客席）には出られない
-function arenaClamp(b){if(stage!==VS_ARENA)return;const dx=b.x-24,dz=b.z-24,d=Math.hypot(dx,dz);if(d>12.2){b.x=24+dx/d*12.2;b.z=24+dz/d*12.2;}}
+function arenaClamp(b,rr){if(stage!==VS_ARENA)return;rr=rr||12.2;const dx=b.x-24,dz=b.z-24,d=Math.hypot(dx,dz);if(d>rr){b.x=24+dx/d*rr;b.z=24+dz/d*rr;}}
 function losClear(x0,y0,z0,x1,y1,z1){
   const n=Math.ceil(Math.hypot(x1-x0,y1-y0,z1-z0)*3);
   for(let i=1;i<n;i++){const t=i/n;if(solidAt(Math.floor(x0+(x1-x0)*t),Math.floor(y0+(y1-y0)*t),Math.floor(z0+(z1-z0)*t)))return false;}
@@ -3016,13 +3042,15 @@ function explode(x,y,z,byEnemy,rid){
     if(Math.hypot(xx+0.5-x,yy+0.5-y,zz+0.5-z)<=R){world[idx(xx,yy,zz)]=0;changed=true;netBlock(xx,yy,zz,0);}
   }
   if(changed){buildMesh();queueSave();}
-  for(const e of enemies){if(e.dying>0||(byEnemy&&e.type==='rival'))continue;const dd=Math.hypot(e.x-x,e.y+e.h/2-y,e.z-z);
-    if(dd<4.5)damageEnemy(e,Math.round(16*(1-dd/4.5))+3,12,null,'boom');}
+  const kk=vs&&byEnemy===true?0.6:1; // 対戦中のキングガストの火の玉は少し弱い
+  // CPUのロケット・火の玉はキングガストに当たらない。CPUのロケットはCPU自身にも当たらない
+  for(const e of enemies){if(e.dying>0||(byEnemy&&e.king)||(byEnemy==='rival'&&e.type==='rival'))continue;const dd=Math.hypot(e.x-x,e.y+e.h/2-y,e.z-z);
+    if(dd<4.5)damageEnemy(e,(Math.round(16*(1-dd/4.5))+3)*kk,12,null,'boom');}
   if(!byEnemy&&vs&&remote&&!remote.dead){const td=Math.hypot(remote.x-x,remote.y+0.9-y,remote.z-z);if(td<4.5)vsHitRemote(Math.round(16*(1-td/4.5))+3,'boom',12);}
   const pd=Math.hypot(P.x-x,P.y+0.9-y,P.z-z);
   if(byEnemy){
     for(const t of playerTargets){const td=Math.hypot(t.x-x,t.y+0.9-y,t.z-z);
-      if(td<3.5)hurtTarget(t,Math.round(5*(1-td/3.5))+2,x,z,true);}
+      if(td<3.5)hurtTarget(t,(Math.round(5*(1-td/3.5))+2)*kk,x,z,true);}
   } else if(pd<3.5){
     const l=Math.hypot(P.x-x,P.z-z)||1;P.kx=(P.x-x)/l*9;P.kz=(P.z-z)/l*9;P.vy=Math.max(P.vy,7);
   }
@@ -3049,7 +3077,7 @@ function updateWeapons(dt){
     // 相手のロケットは見た目だけ。ばくはつは相手から届く boom で出す
     if(boom){r.dead=true;
       if(r.owner==='mud'){booms.push({x:r.x,y:r.y,z:r.z,t:0,mud:true});netBoom(r.x,r.y,r.z,0,'mud');if(hitT)hurtTarget(hitT,3,r.x,r.z,true,true);}
-      else if(r.owner!=='remote')explode(r.x,r.y,r.z,r.owner==='ghast'||r.owner==='rival',r.id);}
+      else if(r.owner!=='remote')explode(r.x,r.y,r.z,r.owner==='rival'?'rival':r.owner==='ghast',r.id);}
   }
   rockets=rockets.filter(r=>!r.dead);
   for(const b of booms)b.t+=dt;
@@ -3148,7 +3176,7 @@ function updateTags(){
     if(sx<-60||sx>innerWidth+60||sy<-30||sy>innerHeight)continue;
     let t=tagPool[n];
     if(!t){t=document.createElement('div');t.className='etag';t.innerHTML='<span></span><b><i></i></b>';tagBox.appendChild(t);tagPool.push(t);}
-    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=e.boss?'👑 '+(e.type===STAGES[stage].boss.type?bossName():ENEMY_NAME[e.type]):(e.type==='rival'?'🤖 CPU':ENEMY_NAME[e.type]||ENEMY_NAME.zero);
+    t.style.display='block';t.style.left=sx+'px';t.style.top=sy+'px';t.querySelector('i').style.width=Math.max(0,e.hp/e.maxhp*100)+'%';t.firstChild.textContent=e.king?'👑 キングガスト':e.boss?'👑 '+(e.type===STAGES[stage].boss.type?bossName():ENEMY_NAME[e.type]):(e.type==='rival'?'🤖 CPU':ENEMY_NAME[e.type]||ENEMY_NAME.zero);
     n++;
   }
   for(let i=n;i<tagPool.length;i++)tagPool[i].style.display='none';
@@ -3807,6 +3835,8 @@ function onNet(m){
     vsStartFight();
   } else if(m.t==='vsEnd'){
     if(vs)vsResult(m.r>0?1:m.r<0?-1:0,m.why==='time'?'time':'down',true);
+  } else if(m.t==='vsKing'){
+    if(net.role==='guest'&&vs)kingDown(true);
   } else if(m.t==='vsQuit'){
     if(net.role==='guest')endVs();
   } else if(m.t==='pvp'){
@@ -3851,9 +3881,10 @@ function onNet(m){
       const [id,type,x,y,z,eyaw,hp,maxhp,walk,atk,dying,hurt,scale,base,boss]=a;
       seen.add(id);
       let e=enemies.find(en=>en.id===id);
-      if(!e){const dims=enemyDims(type),b=base||1;e={id,type,x,y,z,yaw:eyaw,r:dims.r*b,h:dims.h*b,kx:0,kz:0,seed:(id*2.39)%6.28,moving:false};enemies.push(e);}
+      if(!e){const dims=enemyDims(type),b=base||1;e={id,type,x,y,z,yaw:eyaw,r:dims.r*b,h:dims.h*b,kx:0,kz:0,seed:(id*2.39)%6.28,moving:false};enemies.push(e);
+        if(boss===2&&vs){vsCheer=3;toast('👑 キングガストがあらわれた！ たおすと体力回復');}}
       if(type==='yoshio'&&e.netHp!==undefined&&hp<e.netHp)crumbleFx(e);
-      e.netHp=hp;e.base=base||1;e.boss=!!boss;e.type=type;e.tx=x;e.ty=y;e.tz=z;e.tyaw=eyaw;e.hp=hp;e.maxhp=maxhp;e.walk=walk;e.atk=atk;e.dying=dying;e.hurt=hurt;e.scale=scale;
+      e.netHp=hp;e.base=base||1;e.boss=boss===1;e.king=boss===2;e.type=type;e.tx=x;e.ty=y;e.tz=z;e.tyaw=eyaw;e.hp=hp;e.maxhp=maxhp;e.walk=walk;e.atk=atk;e.dying=dying;e.hurt=hurt;e.scale=scale;
       if(type==='yoshio')e.h=enemyDims(type).h*(base||1)*(1-crumbleK(e));
     }
     enemies=enemies.filter(en=>seen.has(en.id));
@@ -3879,10 +3910,10 @@ function netTick(dt){
   if(net.out.length){netSend({t:'blk',c:net.out});net.out=[];}
   if(net.role==='host'&&island&&cpus.length){net.cpuT=(net.cpuT||0)-dt;
     if(net.cpuT<=0){net.cpuT=0.5;netSend({t:'cpus',c:cpus.map(c=>+c.kg.toFixed(3))});}}
-  if(net.role==='host'&&(mpMonsters||bossRush)){
+  if(net.role==='host'&&(mpMonsters||bossRush||vs)){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
-      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:0]),
+      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:e.king?2:0]),
         f:rockets.filter(r=>r.owner==='ghast'||r.owner==='mud').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2),r.owner==='mud'?1:0])});
     }
   }
