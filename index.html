@@ -86,6 +86,9 @@ body.touch #ihDrink small{display:none}
  radial-gradient(circle at 40% 70%,rgba(104,70,38,.9) 0 7%,rgba(104,70,38,0) 8%),
  radial-gradient(circle at 12% 78%,rgba(92,62,34,.9) 0 9%,rgba(92,62,34,0) 10%),
  radial-gradient(circle at 88% 20%,rgba(100,68,36,.9) 0 6%,rgba(100,68,36,0) 7%)}
+#vsReady{display:none;position:fixed;left:50%;transform:translateX(-50%);top:calc(46px + env(safe-area-inset-top,0px));z-index:3;border:none;border-radius:14px;padding:8px 18px;font:800 15px inherit;font-family:inherit;color:#fff;background:#2e9d4a;box-shadow:0 3px 0 #1d6b31;cursor:pointer}
+#vsReady.wait{background:#8a8a8a;box-shadow:0 3px 0 #555}
+body.touch #vsReady{left:auto;right:calc(14px + env(safe-area-inset-right,0px));transform:none;top:calc(84px + env(safe-area-inset-top,0px));font-size:14px;padding:10px 16px} /* スマホ：まんなかのメッセージとかさならないように右上 */
 #bossbar{display:none;position:fixed;left:50%;transform:translateX(-50%);width:min(70vw,340px);height:12px;background:rgba(0,0,0,.55);border:2px solid rgba(255,255,255,.8);border-radius:7px;overflow:hidden;pointer-events:none;z-index:3}
 #bossbar i{display:block;height:100%;width:100%;background:linear-gradient(#ff6f61,#d32f2f);transition:width .15s}
 #btnMenu{display:none;position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,.5);align-items:center;justify-content:center;z-index:4;cursor:pointer}
@@ -266,7 +269,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.20.0</p>
+    <p id="ver">ver 1.20.1</p>
   </div>
 </div>
 <div id="islandPick" class="overlay">
@@ -321,6 +324,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
   </div>
 </div>
 <div id="goal"></div>
+<button id="vsReady">✅ 準備完了</button>
 <div id="islandHud"><div class="ihr"><span>⚡</span><b class="ihb"><i id="ihSta"></i></b><span id="ihPee">🚽</span><b id="ihBar"><i id="ihBladder"></i></b><span id="ihPoo">💩</span><b class="ihb"><i id="ihBelly"></i></b></div><div class="ihr"><span id="ihWater"></span><button id="ihDrink">🥤<small> のむ(R)</small></button></div></div>
 <div id="rain"></div>
 <div id="sleepFx"><b>💤 Zzz… つかれて寝ている</b></div>
@@ -2137,7 +2141,7 @@ function checkGoal(){
 function updateGoalHud(){
   const st=STAGES[stage],g=st.goal;let t;
   if(vs){const o=vsOpp();
-    t=vs.ph==='prep'?'⚔️ 準備タイム '+fmtTime(Math.max(0,Math.ceil(vs.t)))+'　作業台で武器と防具を作ろう'
+    t=vs.ph==='prep'?'⚔️ 準備タイム　作業台で武器と防具を作ろう'+(vs.cpu?'':'　'+(vs.ready?'✅':'⬜')+'あなた '+(vs.opReady?'✅':'⬜')+'相手')
       :vs.ph==='fight'?'⚔️ 対戦 ⏱ '+fmtTime(Math.max(0,Math.ceil(vs.t)))+'　❤️ あなた '+Math.ceil(P.hp)+' vs '+(o?o.name+' '+Math.ceil(o.hp):'')
       :'⚔️ 勝負あり！';}
   else if(island&&island.mode==='team'){const rk=remote&&remote.kg?remote.kg:30,ck=cpus.reduce((a,c)=>a+c.kg-30,0);
@@ -2150,6 +2154,9 @@ function updateGoalHud(){
   else if(g.type==='reach'){const f=Math.max(1,Math.min(6,Math.floor((P.y-3)/5)+1));
     t=st.icon+' '+g.text+'（今 '+(P.y>=g.n-0.1?'屋上':f+'階')+'）';}
   else t=st.icon+' '+g.text+' '+Math.min(goalProgress(),g.n)+'/'+g.n;
+  const rb=document.getElementById('vsReady'),show=!!vs&&vs.ph==='prep'&&started;
+  rb.style.display=show?'block':'none';
+  if(show){rb.textContent=(vs.ready?'⏳ 相手を待っています（取り消す）':'✅ 準備完了')+(isTouch?'':'（Enterキー）');rb.classList.toggle('wait',vs.ready);}
   if(t!==lastGoalTxt){lastGoalTxt=t;goalEl.textContent=t;goalEl.classList.toggle('done',goalDone);goalEl.classList.toggle('boss',(bossPhase===1&&!goalDone)||!!bossRush);}
 }
 function spawnPortal(){
@@ -2173,7 +2180,7 @@ function goStage(n){
   ensureTable();rescanDoors();buildMesh();newRun();renderStageSel();updateGoalHud();
   if(bossRush)toast('👑 ボス '+(n+1)+'/'+NSTAGE+'　'+bossName()+'があらわれた！');
   else if(n===ISLAND)toast('🏝️ 5分でいちばん太った人の勝ち！ 食べまくれ！');
-  else if(vs&&n===0)toast('⚔️ 準備タイム 1分！ 木と石を集めて、作業台で武器と防具を作ろう');
+  else if(vs&&n===0)toast('⚔️ 準備タイム！ 武器と防具ができたら「準備完了」をおそう');
   else if(n===VS_ARENA)toast('⚔️ 対戦ステージ！');
   else toast(STAGES[n].icon+' ステージ'+(n+1)+'　'+STAGES[n].name);
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
@@ -2504,9 +2511,10 @@ function rushClear(){
 function updateRushBest(){let b=null,k=0;try{b=parseFloat(localStorage.getItem(RUSH_KEY));k=parseFloat(localStorage.getItem(ISLAND_KEY))||0;}catch(e){}
   const el=document.getElementById('rushBest');if(el)el.textContent=b>0?'ベストタイム '+fmtTime(b):'';
   const el2=document.getElementById('islandBest');if(el2)el2.textContent=k>0?'自己ベスト '+k.toFixed(2)+'kg':'';}
-// ---- 対戦モード：1分の準備タイムに武器と防具を作り、対戦ステージで勝負。観客席からモンスターが見守る ----
+// ---- 対戦モード：準備タイムに武器と防具を作り、「準備完了」をおしたら対戦ステージで勝負。観客席からモンスターが見守る ----
+// 2人プレイは、ふたりとも「準備完了」をおしたら始まる（部屋を作った人が始める）
 // ひとりならCPUと、2人プレイなら友だちと対戦。対戦ステージのブロックはこわれない（自分たちで置いたブロックだけこわせる）
-const VS_PREP=60,VS_FIGHT=120,VS_KEY='kaitocraft_vs_record';
+const VS_FIGHT=120,VS_KEY='kaitocraft_vs_record';
 let vs=null,crowd=[],vsCheer=0; // vs：{ph:'prep'|'fight'|'end',t:のこり秒,cd:開始のカウントダウン,placed:置いたブロック,bak:元の持ち物}
 const ARMOR_K=[1,0.75,0.55],ARMOR_NAME=['','木のよろい','石のよろい'];
 const armorLv=()=>inv.own.armor2?2:inv.own.armor1?1:0;
@@ -2515,7 +2523,7 @@ const vsFighting=()=>!!vs&&vs.ph==='fight'&&vs.cd<=0;
 const VS_DMG={sword:2,pickaxe:1.5,pistol:1.5,mg:0.8,minigun:0.7,sniper:7};
 function vsDmg(d,how){if(how==='kick')return 1;if(how==='boom')return d*0.37;return VS_DMG[weapon]||d*0.4;}
 function vsRec(){try{const j=JSON.parse(localStorage.getItem(VS_KEY)||'null');if(j)return {w:j.w|0,l:j.l|0,d:j.d|0};}catch(e){}return {w:0,l:0,d:0};}
-function updateVsRec(){const r=vsRec(),el=document.getElementById('vsRec');if(el)el.textContent=r.w+r.l+r.d?'通算 '+r.w+'勝 '+r.l+'敗'+(r.d?' '+r.d+'分け':''):'1分で武器と防具を作って対戦！（ひとりならCPUと）';}
+function updateVsRec(){const r=vsRec(),el=document.getElementById('vsRec');if(el)el.textContent=r.w+r.l+r.d?'通算 '+r.w+'勝 '+r.l+'敗'+(r.d?' '+r.d+'分け':''):'武器と防具を作って対戦！（ひとりならCPUと）';}
 function startVs(){
   if(net.role==='guest'){netSend({t:'vsReq'});window.startGame();toast('⚔️ 対戦モードを始めるよ！');return;}
   if(stage===0&&!vs&&!island&&!bossRush){clearTimeout(saveTimer);save();} // 草原の世界をセーブしてから始める
@@ -2524,7 +2532,7 @@ function startVs(){
 // 持ち物を対戦用の空っぽにする（元の持ち物は終わったらもどす）
 function vsInvOn(){
   const bak=vs?vs.bak:JSON.parse(JSON.stringify(inv));
-  vs={ph:'prep',t:VS_PREP,cd:0,placed:new Set(),bak,cpu:!net.connected,seed:(Math.random()*1e9)|0};
+  vs={ph:'prep',t:VS_FIGHT,cd:0,placed:new Set(),bak,cpu:!net.connected,seed:(Math.random()*1e9)|0,ready:false,opReady:false};
   inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,remote:false,armor1:false,armor2:false},furn:{}};
   crowd=[];vsCheer=0;P.hp=MAXHP;P.inv=0;buildHotbar();selectWeapon('sword');updateHud();
   document.getElementById('clear').style.display='none';clearing=false;
@@ -2552,11 +2560,18 @@ function vsFight(){
   if(vs.cpu)spawnRival();
   if(net.connected)netSend({t:'vsFight'});
 }
+function vsToggleReady(){
+  if(!vs||vs.ph!=='prep'||paused())return;
+  vs.ready=!vs.ready;sfx('blockPlace');
+  if(net.connected)netSend({t:'vsReady',r:vs.ready?1:0});
+  if(vs.ready&&!vs.cpu&&!vs.opReady)toast('✅ 準備完了！ 相手を待っています');
+  else if(!vs.ready)toast('準備完了を取り消した');
+  updateGoalHud();
+}
 function updateVs(dt){
   if(vs.cd>0){vs.cd-=dt;const c=Math.ceil(vs.cd);if(c!==vs.last){vs.last=c;toast(c>0?'⚔️ '+c+'…':'⚔️ ファイト！');sfx(c>0?'blockPlace':'rocketFire');}}
-  if(vs.ph==='prep'&&vs.t<=10.5&&!vs.warn){vs.warn=true;toast('⏰ あと10秒で対戦ステージへ！');}
   if(net.role==='guest')return; // 時間は部屋を作った人が進める
-  if(vs.ph==='prep'){vs.t-=dt;if(vs.t<=0)vsFight();}
+  if(vs.ph==='prep'){if(vs.ready&&(vs.cpu||vs.opReady))vsFight();}
   else if(vs.ph==='fight'&&vs.cd<=0){vs.t-=dt;
     if(!enemies.some(e=>e.king&&e.dying<=0)){vs.kingT-=dt;if(vs.kingT<=0){vs.kingT=35+Math.random()*25;spawnKing();}}
     if(vs.t<=0){const o=vsOpp(),me=P.hp,op=o?o.hp:0;vsResult(me>op+0.05?1:op>me+0.05?-1:0,'time');}}
@@ -3957,7 +3972,9 @@ function onNet(m){
     if(net.role!=='guest')return;
     endIsland();bossRush=null;vsInvOn();vs.cpu=false;
     if(dead){overEl.style.display='none';respawnOnly();started=true;}
-    toast('⚔️ 準備タイム 1分！ 木と石を集めて、作業台で武器と防具を作ろう');
+    toast('⚔️ 準備タイム！ 武器と防具ができたら「準備完了」をおそう');
+  } else if(m.t==='vsReady'){ // 相手が準備完了をおした／取り消した
+    if(vs&&vs.ph==='prep'){vs.opReady=!!m.r;toast(m.r?'✅ 相手の準備ができた！':'相手が準備完了を取り消した');updateGoalHud();}
   } else if(m.t==='vsFight'){
     if(net.role!=='guest'||!vs)return;
     vsStartFight();
@@ -4178,6 +4195,8 @@ onTap(clearBtnEl,()=>{document.getElementById('clear').style.display='none';clea
 const vsAgainEl=document.getElementById('vsAgain');
 onTap(vsAgainEl,()=>{document.getElementById('clear').style.display='none';clearing=false;beginVs();lockMouse();});
 onTap(document.getElementById('vsBtn'),()=>startVs());
+onTap(document.getElementById('vsReady'),()=>{vsToggleReady();lockMouse();});
+addEventListener('keydown',e=>{if(e.code==='Enter'&&vs&&vs.ph==='prep'&&started&&!paused())vsToggleReady();});
 onTap(islandAgainEl,()=>{document.getElementById('clear').style.display='none';clearing=false;beginIsland();lockMouse();});
 // ボス戦モードのやり直し：keep=ボスの体力はそのまま / reset=ボスを全回復
 function again(e,how){if(e)e.preventDefault();initAudio();overEl.style.display='none';
