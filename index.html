@@ -266,7 +266,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.19.0</p>
+    <p id="ver">ver 1.20.0</p>
   </div>
 </div>
 <div id="islandPick" class="overlay">
@@ -441,9 +441,10 @@ const W=48, D=48, H=32;
 const SAVE_KEY='blockcraft-world-v1';
 let world=new Uint8Array(W*D*H);
 const idx=(x,y,z)=>(y*D+z)*W+x;
+let openCells=new Set(); // ドアノブのとびらで、いま開いているマス（ブロックはそのまま、通りぬけられる）
 function getB(x,y,z){ if(x<0||z<0||x>=W||z>=D||y<0||y>=H) return 0; return world[idx(x,y,z)]; }
 let voidBelow=false; // 空の島：世界の下は何もなく、落ちるとゲームオーバー
-function solidAt(x,y,z){ if(x<0||z<0||x>=W||z>=D) return true; if(y<0) return !voidBelow; if(y>=H) return false; const b=world[idx(x,y,z)]; return b!==0&&!NONSOLID[b]; }
+function solidAt(x,y,z){ if(x<0||z<0||x>=W||z>=D) return true; if(y<0) return !voidBelow; if(y>=H) return false; const i=idx(x,y,z),b=world[i]; return b!==0&&!NONSOLID[b]&&!(openCells.size&&openCells.has(i)); }
 
 const BLOCKS={
   1:{name:'草ブロック',t:[0,1,2]}, 2:{name:'土',t:[2,2,2]}, 3:{name:'石',t:[3,3,3]},
@@ -461,7 +462,7 @@ BLOCKS[97]={name:'ボタンとびら',t:[135,133,135]};BLOCKS[98]={name:'ボタ�
 const TRANS={5:true,8:true,13:true,28:true,85:true,94:true,96:true,98:true};
 const NONSOLID={13:true,14:true,23:true,28:true,85:true,94:true,96:true,98:true},HAZARD={14:true,23:true};
 const WATER={85:true,94:true}; // 海・川（水面を少し低くして、波を動かす）
-const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,95,67,20,17,18,15,11,16,22,21,29];
+const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,95,67,99,20,17,18,15,11,16,22,21,29];
 const HOTBAR=BASE_HOTBAR.slice();
 
 // ---------- 家具 ----------
@@ -507,6 +508,73 @@ const BTN_BASE=67;
   const box=[[[0,c,a],[t,e,b]],[[1-t,c,a],[1,e,b]],[[a,0,c],[b,t,e]],[[a,1-t,c],[b,1,e]],[[a,c,0],[b,e,t]],[[a,c,1-t],[b,e,1]]][f];
   BLOCKS[id]={name:'ボタン',t:[3,3,3]};TRANS[id]=true;NONSOLID[id]=true;SHAPE[id]=[[box[0],box[1],[3,3,3,3,3,3],false]];}}
 const isButton=id=>id>=BTN_BASE&&id<BTN_BASE+12;
+// ---------- ドアノブ ----------
+// id = 99 + くっつけたブロックの向き（0:-x 1:+x 2:下 3:上 4:-z 5:+z）。
+// ドアノブをつけたブロックと、同じ面にならんでつながっている同じ種類のブロック（とガラス）が、まとめて1つのとびらになる
+const KNOB_BASE=99,KNOB_MAX=12,isKnob=id=>id>=KNOB_BASE&&id<KNOB_BASE+6;
+for(let f=0;f<6;f++){const ax=f>>1,lo=f%2===0,T=[136,136,136,136,136,136],o=[0,1,2].filter(a=>a!==ax);
+  const mk=(d0,d1,a0,a1)=>{const mn=[0,0,0],mx=[0,0,0];mn[ax]=lo?d0:1-d1;mx[ax]=lo?d1:1-d0;for(const a of o){mn[a]=a0;mx[a]=a1;}return [mn,mx,T,true];};
+  BLOCKS[KNOB_BASE+f]={name:'ドアノブ',t:[136,136,136]};TRANS[KNOB_BASE+f]=true;NONSOLID[KNOB_BASE+f]=true;
+  SHAPE[KNOB_BASE+f]=[mk(0,0.05,0.36,0.64),mk(0.05,0.24,0.43,0.57)];} // 丸い台と、にぎるところ
+const NOT_DOOR={10:1,12:1,13:1,19:1,30:1,27:1,79:1,95:1,97:1};
+const doorable=id=>!!id&&!NONSOLID[id]&&!SHAPE[id]&&!NOT_DOOR[id];
+let knobDoors=[];const knobOpen=new Map();
+function knobDoor(kx,ky,kz,kid){
+  const f=kid-KNOB_BASE,ax=f>>1,dir=f%2===0?-1:1,B=[kx,ky,kz];B[ax]+=dir;
+  let bid=getB(B[0],B[1],B[2]);if(!doorable(bid))return {err:'bad'};
+  const o=[0,1,2].filter(a=>a!==ax),seen=new Set([idx(B[0],B[1],B[2])]),cells=[],q=[B];
+  if(bid===8)for(const a of o)for(const st of [-1,1]){const n=B.slice();n[a]+=st;const id=getB(n[0],n[1],n[2]);if(id!==8&&doorable(id)){bid=id;break;}} // ガラス（まど）につけたら、まわりのとびらといっしょ
+  while(q.length){const c=q.pop();cells.push({x:c[0],y:c[1],z:c[2],c,i:idx(c[0],c[1],c[2]),id:world[idx(c[0],c[1],c[2])]});if(cells.length>KNOB_MAX)return {err:'big'};
+    for(const a of o)for(const st of [-1,1]){const n=c.slice();n[a]+=st;if(n[0]<0||n[1]<0||n[2]<0||n[0]>=W||n[1]>=H||n[2]>=D)continue;
+      const i=idx(n[0],n[1],n[2]);if(seen.has(i))continue;const id=world[i];if(id===bid||(id===8&&bid!==8)){seen.add(i);q.push(n);}}}
+  // ちょうつがいは、ドアノブから遠いほうのはし。開くとドアノブのある側にくるっと回る
+  const h=ax===0?2:0,hs=cells.map(c=>c.c[h]),hmin=Math.min(...hs),hmax=Math.max(...hs),kh=B[h];
+  return {key:idx(kx,ky,kz),cells,ax,h,s:-dir,pn:B[ax],hmin,hmax,d:(kh-hmin)>=(hmax-kh)?1:-1,horiz:ax===1,open:false};
+}
+function refreshKnobDoors(){
+  knobDoors=[];openCells=new Set();
+  for(let i=0;i<world.length;i++){const id=world[i];if(id<KNOB_BASE||id>=KNOB_BASE+6)continue;
+    const x=i%W,z=((i/W)|0)%D,y=(i/(W*D))|0,dr=knobDoor(x,y,z,id);if(dr.err)continue;
+    dr.open=!!knobOpen.get(i);knobDoors.push(dr);if(dr.open)for(const c of dr.cells)openCells.add(c.i);}
+  for(const k of [...knobOpen.keys()])if(!knobDoors.some(d=>d.key===k))knobOpen.delete(k);
+}
+// 開いたとびらの見た目：ちょうつがいを軸に90度まわったうすい板
+function knobPanelVerts(out,dr){
+  const g=3-dr.ax-dr.h,e=dr.d>0?dr.hmin:dr.hmax+1,f0=dr.pn+(dr.s>0?1:0);
+  for(const c of dr.cells){const k=dr.d>0?c.c[dr.h]-dr.hmin:dr.hmax-c.c[dr.h],mn=[0,0,0],mx=[0,0,0];
+    mn[g]=c.c[g];mx[g]=c.c[g]+1;
+    if(dr.d>0){mn[dr.h]=e;mx[dr.h]=e+0.18;}else{mn[dr.h]=e-0.18;mx[dr.h]=e;}
+    if(dr.s>0){mn[dr.ax]=f0+k;mx[dr.ax]=f0+k+1;}else{mn[dr.ax]=f0-k-1;mx[dr.ax]=f0-k;}
+    const t=(BLOCKS[c.id]||BLOCKS[1]).t;furnBox(out,0,0,0,[mn,mx,[t[1],t[1],t[2],t[0],t[1],t[1]],true]);}
+}
+function setKnobDoor(dr,open,fromNet){
+  dr.open=open;knobOpen.set(dr.key,open);sfx('blockPlace');
+  if(net.connected&&!fromNet)netSend({t:'knob',k:dr.key,o:open?1:0});
+}
+// 立っているとびらは近づくと開く（ボタンでも開く）。ゆかのとびら（ハッチ）はドアノブをおして開け閉め
+function updateKnobDoors(){
+  let ch=false;const pl=[];
+  if(!dead)pl.push([P.x,P.y,P.z]);
+  if(remote&&!remote.dead&&remote.tx!==undefined)pl.push([remote.tx,remote.ty,remote.tz]);
+  for(const dr of knobDoors){if(dr.horiz)continue;
+    let near=1e9,inside=false;
+    for(const c of dr.cells)for(const p of pl){
+      const dy=p[1]-c.y;if(dy>-2&&dy<1.2)near=Math.min(near,Math.hypot(p[0]-(c.x+0.5),p[2]-(c.z+0.5)));
+      if(Math.abs(p[0]-(c.x+0.5))<0.5+PR&&Math.abs(p[2]-(c.z+0.5))<0.5+PR&&p[1]<c.y+1&&p[1]+PH>c.y)inside=true;}
+    const held=pressedButtons.some(b=>dr.cells.some(c=>Math.abs(b[0]-c.x)<=4&&Math.abs(b[1]-c.y)<=3&&Math.abs(b[2]-c.z)<=4));
+    const want=dr.open?(near<2.6||held||inside):(near<1.8||held);
+    if(want!==dr.open){dr.open=want;knobOpen.set(dr.key,want);ch=true;}
+  }
+  if(ch)buildMesh();
+}
+function knobClick(x,y,z){
+  const dr=knobDoors.find(d=>d.key===idx(x,y,z));
+  if(!dr){const e=knobDoor(x,y,z,getB(x,y,z));
+    toast(e.err==='big'?'🚪 とびらが大きすぎる（'+KNOB_MAX+'ブロックまで）。まわりとちがう種類のブロックでとびらを作ってね':'🚪 このブロックはとびらにできない');return;}
+  if(!dr.horiz){toast('🚪 このとびらは近づくと開くよ');return;}
+  if(dr.open&&dr.cells.some(c=>Math.abs(P.x-(c.x+0.5))<0.5+PR&&Math.abs(P.z-(c.z+0.5))<0.5+PR&&P.y<c.y+1&&P.y+PH>c.y))return;
+  setKnobDoor(dr,!dr.open);buildMesh();toast(dr.open?'🚪 ハッチを開けた':'🚪 ハッチを閉めた');
+}
 let pressedButtons=[];
 // ベッドの足側：id 81〜84（向き0〜3）。頭側は正面の反対どなりにある
 const BED_FOOT=81,FNORM=[[0,-1],[1,0],[0,1],[-1,0]];
@@ -969,6 +1037,7 @@ paint(133,(x,y)=>{
   return vary(RDOOR,12);});
 paint(134,(x,y)=>(x<=1||x>=14||y<=1||y>=14)?vary(RDOOR_DK,8):[0,0,0,0]); // あいている（赤いわく）
 paint(135,()=>vary(RDOOR_DK,10));
+paint(136,(x,y)=>{const d=Math.hypot(x-6,y-6);return d<3?[255,240,170,255]:vary([214,168,52],18);}); // ドアノブ（金色）
 
 // マガイヤス
 const MAGW=[236,235,231];
@@ -1148,19 +1217,22 @@ function furnBox(out,ox,oy,oz,b){const mn=b[0],mx=b[1],T=b[2],st=b[3];
       out.push(ox+x,oy+y,oz+z,(tile+0.002+u*0.996)/ATLAS_TILES,v,f.s);}}
 }
 function buildMesh(){
-  const out=[];pressedButtons=[];
+  const out=[];pressedButtons=[];refreshKnobDoors();const oc=openCells.size>0;
   for(let y=0;y<H;y++)for(let z=0;z<D;z++)for(let x=0;x<W;x++){
     const id=world[idx(x,y,z)]; if(!id) continue;
-    if(SHAPE[id]){for(const b of SHAPE[id])furnBox(out,x,y,z,b);if(isButton(id)&&(id-BTN_BASE)%2)pressedButtons.push([x,y,z]);continue;}
+    if(oc&&openCells.has(idx(x,y,z)))continue; // 開いているとびらは下で板としてかく
+    if(SHAPE[id]){if(isKnob(id)&&knobOpen.get(idx(x,y,z)))continue; // 開いている間はドアノブも板といっしょに回る（かかない）
+      for(const b of SHAPE[id])furnBox(out,x,y,z,b);if(isButton(id)&&(id-BTN_BASE)%2)pressedButtons.push([x,y,z]);continue;}
     const t=BLOCKS[id].t,wh=WATER[id]&&!WATER[getB(x,y+1,z)]?0.82:1; // 水面は少し低く
     for(const f of FACES){
       const n=getB(x+f.d[0],y+f.d[1],z+f.d[2]);
-      if(n && !(TRANS[n]&&n!==id)) continue;
+      if(n && !(TRANS[n]&&n!==id) && !(oc&&openCells.has(idx(x+f.d[0],y+f.d[1],z+f.d[2])))) continue;
       if(WATER[id]&&WATER[n]&&f.d[1]===0)continue; // 海と川のさかいめの面は出さない
       const tile=f.d[1]===1?t[0]:f.d[1]===-1?t[2]:t[1];
       for(const k of ORDER){const c=f.c[k];out.push(x+c[0],y+c[1]*wh,z+c[2],(tile+0.002+c[3]*0.996)/ATLAS_TILES,c[4],f.s);}
     }
   }
+  for(const dr of knobDoors)if(dr.open)knobPanelVerts(out,dr);
   gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
   vcount=out.length/6;
 }
@@ -1586,7 +1658,7 @@ function getPlayer(key){return playerTargets.find(t=>t.key===key)||null;}
 function nearestPlayer(e){let best=null,bd=1e9;for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z)+Math.abs(t.y-e.y)*0.5;if(d<bd){bd=d;best=t;}}return best;}
 // ---- 道さがし：プレイヤーから逆向きに歩ける場所を広げて「あと何歩」の地図を作り、敵はそれにそって進む ----
 const flows={};
-const airAt=(x,y,z)=>{if(x<0||z<0||x>=W||z>=D||y<0)return false;if(y>=H)return true;const b=world[idx(x,y,z)];return !b||(NONSOLID[b]&&!HAZARD[b]);};
+const airAt=(x,y,z)=>{if(x<0||z<0||x>=W||z>=D||y<0)return false;if(y>=H)return true;const i=idx(x,y,z),b=world[i];return !b||(NONSOLID[b]&&!HAZARD[b])||(openCells.size>0&&openCells.has(i));};
 // w×w マスの足場に、高さ hh の体が立てるか（ふつうの敵は 1×1・高さ2、大きいボスは 2×2 や 3×3）
 function standable(x,y,z,w,hh){
   w=w||1;hh=hh||2;
@@ -2698,7 +2770,7 @@ function step(dt){
   playTime+=dt;P.inv-=dt;
   if(island){updateFishing(dt);updateIsland(dt);updateStamina(dt,len>0.1,[85,94].includes(getB(Math.floor(P.x),Math.floor(P.y+0.1),Math.floor(P.z))));if(net.role!=='guest'&&!island.over){island.t-=dt;islandRegrow(dt);if(island.t<=0)islandEnd();}if(net.role!=='guest')updateCpuSim(dt);}
   if(bossRush&&net.role!=='guest'&&!goalDone)bossRush.t+=dt;
-  updateEnemies(dt);updateItems(dt);updateWeapons(dt);if(doors.length)updateDoors();
+  updateEnemies(dt);updateItems(dt);updateWeapons(dt);if(doors.length)updateDoors();if(knobDoors.length)updateKnobDoors();
   if(net.role!=='guest')checkGoal();else updateGoalHud();
   if(pendingCook>0){pendingCook-=dt;if(pendingCook<=0)startCooking();}
   if(pendingCookStew>0){pendingCookStew-=dt;if(pendingCookStew<=0){if(!cooking)startCooking('stew');else pendingCookStew=0.1;}}
@@ -2712,7 +2784,7 @@ function raycast(max,dir){
   let tx=d.x?((sx>0?x+1-o.x:o.x-x)*tdx):Infinity,ty=d.y?((sy>0?y+1-o.y:o.y-y)*tdy):Infinity,tz=d.z?((sz>0?z+1-o.z:o.z-z)*tdz):Infinity;
   let prev=null,t=0;
   while(t<=max){
-    if(getB(x,y,z)) return {hit:[x,y,z],prev,t};
+    if(getB(x,y,z)&&!(openCells.size&&openCells.has(idx(x,y,z)))) return {hit:[x,y,z],prev,t}; // 開いているとびらは通りぬける
     prev=[x,y,z];
     if(tx<ty&&tx<tz){x+=sx;t=tx;tx+=tdx;} else if(ty<tz){y+=sy;t=ty;ty+=tdy;} else {z+=sz;t=tz;tz+=tdz;}
   }
@@ -2831,6 +2903,7 @@ function placeBlock(){
   }
   if(furnKind(hitId)===0){sleepBed();return;}
   if(isButton(hitId)){pressButton(r.hit[0],r.hit[1],r.hit[2]);return;}
+  if(isKnob(hitId)){knobClick(r.hit[0],r.hit[1],r.hit[2]);return;}
   if(!r.prev) return;
   const [x,y,z]=r.prev; if(x<0||z<0||x>=W||z>=D||y<0||y>=H) return;
   if(stage===VS_ARENA&&(y>8||Math.hypot(x+0.5-24,z+0.5-24)>12)){toast('🛡️ ここにはブロックを置けない');return;} // かべをこえて外に出ないように
@@ -2839,6 +2912,11 @@ function placeBlock(){
     if((inv.furn[FURN[fk].key]|0)<=0){toast('🛠️ '+FURN[fk].name+'は作業台で作ろう');return;}
     // 正面をプレイヤーのほうへ向ける
     const d=fwd();pid=FURN_BASE+fk*4+(Math.abs(d[0])>Math.abs(d[2])?(d[0]>0?3:1):(d[2]>0?0:2));
+  }
+  if(world[idx(x,y,z)])return; // 開いているとびらのマスには置かない
+  if(pid===KNOB_BASE){ // ドアノブもクリックしたブロックの面にくっつける
+    const ox=r.hit[0]-x,oy=r.hit[1]-y,oz=r.hit[2]-z;
+    pid=KNOB_BASE+(ox<0?0:ox>0?1:oy<0?2:oy>0?3:oz<0?4:5);
   }
   if(pid===BTN_BASE){ // ボタンはクリックしたブロックの面にくっつける
     const ox=r.hit[0]-x,oy=r.hit[1]-y,oz=r.hit[2]-z;
@@ -2852,6 +2930,10 @@ function placeBlock(){
   if(ex&&(ex[0]<0||ex[2]<0||ex[0]>=W||ex[2]>=D||ex[1]>=H||world[idx(ex[0],ex[1],ex[2])]!==0)){
     toast(pid===27||pid===95?'🚪 とびらは上に1マスあけて置いてね':'🛏️ ベッドは奥に2マス分の場所がいるよ');return;}
   world[idx(x,y,z)]=pid;if(ex)world[idx(ex[0],ex[1],ex[2])]=ex[3];
+  if(isKnob(pid)){const dr=knobDoor(x,y,z,pid); // ドアノブ：とびらになったか教える
+    toast(dr.err==='big'?'🚪 とびらが大きすぎる（'+KNOB_MAX+'ブロックまで）。まわりとちがう種類のブロックでとびらを作ってね'
+      :dr.err?'🚪 このブロックはとびらにできない':dr.horiz?'🚪 '+dr.cells.length+'ブロックのハッチになった！ ドアノブをおすと開け閉めできる'
+      :'🚪 '+dr.cells.length+'ブロックのとびらになった！ 近づくと開くよ');}
   const undo=()=>{world[idx(x,y,z)]=0;if(ex)world[idx(ex[0],ex[1],ex[2])]=0;};
   if(enemies.some(e=>e.dying<=0&&hitsBox(e.x,e.y,e.z,e.r,e.h))){undo();return;}
   if(ex&&hits(P.x,P.y,P.z)){undo();return;}
@@ -3272,6 +3354,7 @@ function buildHotbar(){
   const d=document.createElement('div');d.className='slot';
   const c=document.createElement('canvas'),fk=furnKind(id);
   if(fk>=0){c.width=c.height=32;drawFurn(c.getContext('2d'),fk);}
+  else if(id===KNOB_BASE){c.width=c.height=16;const g=c.getContext('2d');g.fillStyle='#8a5a2b';g.fillRect(2,1,12,14);g.fillStyle='#a8743d';g.fillRect(3,2,10,5);g.fillRect(3,9,10,5);g.fillStyle='#b8860b';g.fillRect(9,6,4,4);g.fillStyle='#ffe082';g.fillRect(10,7,2,2);}
   else if(id===BTN_BASE){c.width=c.height=16;const g=c.getContext('2d');g.fillStyle='#8a8a8a';g.fillRect(4,5,8,6);g.fillStyle='#b4b4b4';g.fillRect(4,5,8,1);g.fillRect(4,5,1,6);g.fillStyle='#5a5a5a';g.fillRect(4,10,8,1);g.fillRect(11,5,1,6);}
   else{c.width=c.height=16;c.getContext('2d').drawImage(atlas,BLOCKS[id].t[1]*16,0,16,16,0,0,16,16);}
   d.appendChild(c);
@@ -3880,6 +3963,8 @@ function onNet(m){
     vsStartFight();
   } else if(m.t==='vsEnd'){
     if(vs)vsResult(m.r>0?1:m.r<0?-1:0,m.why==='time'?'time':'down',true);
+  } else if(m.t==='knob'){ // 相手がハッチを開け閉めした
+    const dr=knobDoors.find(d=>d.key===m.k);if(dr){setKnobDoor(dr,!!m.o,true);buildMesh();}else knobOpen.set(m.k|0,!!m.o);
   } else if(m.t==='rmt'){ // 相手がリモコンボタンを押した
     if(typeof m.x==='number'&&typeof m.y==='number'&&typeof m.z==='number')remotePresses.push({x:m.x|0,y:m.y|0,z:m.z|0,until:performance.now()+4000});
   } else if(m.t==='vsKing'){
