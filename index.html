@@ -269,7 +269,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.20.1</p>
+    <p id="ver">ver 1.21.0</p>
   </div>
 </div>
 <div id="islandPick" class="overlay">
@@ -424,6 +424,14 @@ SFX.playerHurt=(ctx,info)=>{
   o.connect(og);og.connect(ctx.destination);
   envGain(og,vol*0.8,t0,0.002,0.22);
   o.start(t0);o.stop(t0+0.23);
+};
+// ショットガン：ドン！という低い音と、はじける音
+SFX.shotgun=(ctx)=>{
+  const t0=ctx.currentTime,n=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();
+  n.buffer=noiseBuffer(ctx);f.type='lowpass';f.frequency.setValueAtTime(2600,t0);f.frequency.exponentialRampToValueAtTime(300,t0+0.25);
+  n.connect(f);f.connect(g);g.connect(ctx.destination);envGain(g,0.55,t0,0.003,0.28);n.start(t0);n.stop(t0+0.3);
+  const o=ctx.createOscillator(),og=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(120,t0);o.frequency.exponentialRampToValueAtTime(40,t0+0.2);
+  o.connect(og);og.connect(ctx.destination);envGain(og,0.5,t0,0.003,0.22);o.start(t0);o.stop(t0+0.24);
 };
 SFX.wombatFuse=(ctx)=>{
   const t0=ctx.currentTime,n=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();
@@ -2520,7 +2528,7 @@ const ARMOR_K=[1,0.75,0.55],ARMOR_NAME=['','木のよろい','石のよろい'];
 const armorLv=()=>inv.own.armor2?2:inv.own.armor1?1:0;
 const vsFighting=()=>!!vs&&vs.ph==='fight'&&vs.cd<=0;
 // 対戦のダメージ（体力20）：武器ごとに決める。ばくはつはきょりで弱くなる
-const VS_DMG={sword:2,pickaxe:1.5,pistol:1.5,mg:0.8,minigun:0.7,sniper:7};
+const VS_DMG={shotgun:0.75,sword:2,pickaxe:1.5,pistol:1.5,mg:0.8,minigun:0.7,sniper:7};
 function vsDmg(d,how){if(how==='kick')return 1;if(how==='boom')return d*0.37;return VS_DMG[weapon]||d*0.4;}
 function vsRec(){try{const j=JSON.parse(localStorage.getItem(VS_KEY)||'null');if(j)return {w:j.w|0,l:j.l|0,d:j.d|0};}catch(e){}return {w:0,l:0,d:0};}
 function updateVsRec(){const r=vsRec(),el=document.getElementById('vsRec');if(el)el.textContent=r.w+r.l+r.d?'通算 '+r.w+'勝 '+r.l+'敗'+(r.d?' '+r.d+'分け':''):'武器と防具を作って対戦！（ひとりならCPUと）';}
@@ -2533,7 +2541,7 @@ function startVs(){
 function vsInvOn(){
   const bak=vs?vs.bak:JSON.parse(JSON.stringify(inv));
   vs={ph:'prep',t:VS_FIGHT,cd:0,placed:new Set(),bak,cpu:!net.connected,seed:(Math.random()*1e9)|0,ready:false,opReady:false};
-  inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,remote:false,armor1:false,armor2:false},furn:{}};
+  inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,shotgun:false,remote:false,armor1:false,armor2:false},furn:{}};
   crowd=[];vsCheer=0;P.hp=MAXHP;P.inv=0;buildHotbar();selectWeapon('sword');updateHud();
   document.getElementById('clear').style.display='none';clearing=false;
 }
@@ -2612,9 +2620,9 @@ function vsHitRemote(dmg,how,kb){
   crossEl.classList.add('hit');clearTimeout(hitTimer);hitTimer=setTimeout(()=>crossEl.classList.remove('hit'),90);
 }
 // ---- CPUの対戦相手：準備タイムに作った（ことにした）武器と防具で戦う ----
-const RIVAL_GUNS=[['pistol',3],['mg',3],['sniper',2],['rocket',2],['minigun',1]];
+const RIVAL_GUNS=[['shotgun',2],['pistol',3],['mg',3],['sniper',2],['rocket',2],['minigun',1]];
 // 撃つ間かく・ダメージ・命中しやすさ・連射の数
-const RIVAL_FIRE={pistol:{cd:0.8,d:1.5,acc:0.65,n:1},mg:{cd:0.14,d:0.8,acc:0.4,n:10},minigun:{cd:0.08,d:0.7,acc:0.35,n:16},sniper:{cd:2.4,d:7,acc:0.5,n:1},rocket:{cd:3.4,d:0,acc:1,n:1}};
+const RIVAL_FIRE={shotgun:{cd:1.2,d:0.75,acc:0.7,n:1,pel:8},pistol:{cd:0.8,d:1.5,acc:0.65,n:1},mg:{cd:0.14,d:0.8,acc:0.4,n:10},minigun:{cd:0.08,d:0.7,acc:0.35,n:16},sniper:{cd:2.4,d:7,acc:0.5,n:1},rocket:{cd:3.4,d:0,acc:1,n:1}};
 function spawnRival(){
   let tot=0;for(const g of RIVAL_GUNS)tot+=g[1];let k=Math.random()*tot,gun='pistol';for(const g of RIVAL_GUNS){k-=g[1];if(k<0){gun=g[0];break;}}
   const armor=Math.random()<0.3?2:Math.random()<0.55?1:0;
@@ -2664,7 +2672,7 @@ function updateRival(e,dt){
     const dx=tg.x-e.x,dz=tg.z-e.z,dist=Math.hypot(dx,dz)||0.001;
     const see=losClear(e.x,e.y+1.5,e.z,tg.x,tg.y+1.3,tg.z);
     e.yaw=Math.atan2(-dx,-dz);e.pitch=Math.atan2(tg.y+1-(e.y+1.5),dist);
-    const want=e.gun==='sniper'?12:e.gun==='rocket'?8:e.gun==='pistol'?7:6; // このくらいはなれて撃つ
+    const want=e.gun==='shotgun'?3.5:e.gun==='sniper'?12:e.gun==='rocket'?8:e.gun==='pistol'?7:6; // このくらいはなれて撃つ
     e.weapon=dist<2.6?'sword':e.gun;
     if(dist<2.6){ // 近づかれたら剣でたたく
       mv=dist>1.3?1:0;my=e.yaw;
@@ -2692,8 +2700,15 @@ function rivalFire(e,tg,dist){
     const tx=tg.x+(Math.random()-0.5)*miss-gx,ty=tg.y+0.8-gy,tz=tg.z+(Math.random()-0.5)*miss-gz,l=Math.hypot(tx,ty,tz)||1;
     rockets.push({owner:'rival',id:1+Math.floor(Math.random()*1e9),x:gx,y:gy,z:gz,vx:tx/l*18,vy:ty/l*18,vz:tz/l*18,yaw:e.yaw,pitch:Math.atan2(ty,Math.hypot(tx,tz)),t:0});
     sfx('rocketFire');return;}
-  sfx('shoot',{weapon:e.gun});
+  sfx(e.gun==='shotgun'?'shotgun':'shoot',{weapon:e.gun});
   const moving=tg.key==='P'&&Math.hypot(P.vx,P.vz)>2; // 動き回っているとあたりにくい
+  if(f.pel){ // ショットガン：つぶごとに当たるか決める（はなれるほど当たらない）
+    let dmg=0;
+    for(let i=0;i<f.pel;i++){const hit=Math.random()<f.acc*Math.max(0,1-dist/14)*(moving?0.7:1);
+      tracers.push({a:[gx,gy,gz],b:[tg.x+(Math.random()-0.5)*(hit?0.5:3),tg.y+(hit?1:Math.random()*2),tg.z+(Math.random()-0.5)*(hit?0.5:3)],t:0,life:0.09,w:0.018});
+      if(hit)dmg+=f.d;}
+    if(dmg>0){hurtTarget(tg,dmg,e.x,e.z);vsCheer=Math.max(vsCheer,1);}
+    return;}
   const hit=Math.random()<f.acc*Math.max(0.35,1-dist/40)*(moving?0.6:1);
   const hx=tg.x+(hit?0:(Math.random()-0.5)*2.4),hy=tg.y+(hit?1:0.2+Math.random()*2),hz=tg.z+(hit?0:(Math.random()-0.5)*2.4);
   tracers.push({a:[gx,gy,gz],b:[hx,hy,hz],t:0,life:e.gun==='sniper'?0.3:0.09,w:e.gun==='sniper'?0.045:0.022});
@@ -2978,7 +2993,7 @@ function kick(){
 
 // ---------- 武器と作業台 ----------
 const INV_KEY='blockcraft-inv-v1';
-let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,remote:false,armor1:false,armor2:false},furn:{}};
+let inv={wood:0,stone:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,shotgun:false,remote:false,armor1:false,armor2:false},furn:{}};
 try{const j=JSON.parse(localStorage.getItem(INV_KEY)||'null');if(j&&j.own)inv={wood:j.wood|0,stone:j.stone|0,carrot:j.carrot|0,onion:j.onion|0,mushroom:j.mushroom|0,own:Object.assign(inv.own,j.own),furn:{}};if(j&&j.furn&&typeof j.furn==='object')for(const f of FURN)if(j.furn[f.key]!==undefined)inv.furn[f.key]=Math.max(0,j.furn[f.key]|0);}catch(e){}
 function saveInv(){if(vs)return;try{localStorage.setItem(INV_KEY,JSON.stringify(inv));}catch(e){}}
 const CROP_LABEL={24:'🥕 ニンジン',25:'🧅 たまねぎ',26:'🍄 キノコ'},CROP_KEY={24:'carrot',25:'onion',26:'mushroom'};
@@ -3061,6 +3076,7 @@ onTap(document.getElementById('dexClose'),()=>{dexEl.style.display='none';});
 const RECIPES=[
   {id:'pickaxe',name:'ピッケル',desc:'石とレンガを1回でこわせる',wood:3,stone:2},
   {id:'pistol',name:'ピストル',desc:'ボタンを押すたびに1発ずつねらいうち',wood:2,stone:3},
+  {id:'shotgun',name:'ショットガン',desc:'たくさんの弾が広がって飛ぶ。近いほど強い',wood:4,stone:6},
   {id:'mg',name:'マシンガン',desc:'⚔️おしっぱなしで連射',wood:4,stone:8},
   {id:'sniper',name:'スナイパーライフル',desc:'のぞきこんで遠くの敵をねらいうち。1発が強い',wood:5,stone:10},
   {id:'rocket',name:'ロケットランチャー',desc:'ばくはつで敵もブロックもふっとばす',wood:6,stone:12},
@@ -3069,7 +3085,7 @@ const RECIPES=[
 const ARMORS=[
   {id:'armor1',name:'木のよろい',desc:'受けるダメージを 25% へらす',wood:5,stone:0,armor:1},
   {id:'armor2',name:'石のよろい',desc:'受けるダメージを 45% へらす（かぶとつき）',wood:2,stone:7,armor:2}];
-const WNAME={remote:'リモコンボタン',knife:'ナイフ',rod:'つりざお',net:'虫取り網',bottle:'ペットボトル',fish:'魚',board:'まな板',sword:'剣',pistol:'ピストル',mg:'マシンガン',sniper:'スナイパーライフル',minigun:'ミニガン',rocket:'ロケットランチャー',pickaxe:'ピッケル'};
+const WNAME={shotgun:'ショットガン',remote:'リモコンボタン',knife:'ナイフ',rod:'つりざお',net:'虫取り網',bottle:'ペットボトル',fish:'魚',board:'まな板',sword:'剣',pistol:'ピストル',mg:'マシンガン',sniper:'スナイパーライフル',minigun:'ミニガン',rocket:'ロケットランチャー',pickaxe:'ピッケル'};
 function drawIcon(c,id){
   c.clearRect(0,0,16,16);
   const px=(x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h);};
@@ -3085,6 +3101,7 @@ function drawIcon(c,id){
   if(id==='sword'){for(let i=5;i<=14;i++){px(i,15-i,1,1,'#9fb6c1');px(i-1,15-i,1,1,'#5f7883');px(i,16-i,1,1,'#5f7883');}
     px(14,0,1,1,'#5f7883');for(let k=-2;k<=2;k++)px(4+k,11+k,1,1,'#4b6470');for(let i=1;i<=3;i++)px(i,15-i,1,1,'#7a5230');px(0,15,1,1,'#4b3520');}
   else if(id==='pickaxe'){px(2,2,12,2,'#8a8f94');px(1,4,2,2,'#6d7277');px(13,4,2,2,'#6d7277');px(3,1,10,1,'#aab0b5');for(let i=0;i<11;i++)px(7,4+i,2,1,i%3?'#7a5230':'#5c3d22');}
+  else if(id==='shotgun'){for(const x of [6,8])px(x,0,2,10,'#3a3a3a');px(6,0,4,1,'#666');px(5,5,6,2,'#7a5230');px(5,5,6,1,'#9a6a40');px(5,9,6,3,'#444');px(8,11,2,2,'#222');px(5,12,4,4,'#7a5230');px(5,12,4,1,'#9a6a40');}
   else if(id==='pistol'){px(8,2,2,6,'#333');px(7,4,4,1,'#555');px(6,7,6,4,'#4a4a4a');px(6,7,6,1,'#6a6a6a');px(6,10,3,5,'#7a5230');px(9,10,2,2,'#222');}
   else if(id==='mg'){px(7,0,2,8,'#2e2e2e');px(6,2,4,1,'#555');px(5,8,6,5,'#444');px(5,8,6,1,'#666');px(6,13,2,3,'#222');px(9,12,2,4,'#7a5230');}
   else if(id==='sniper'){px(7,0,2,11,'#2b2b2b');px(6,0,1,2,'#555');px(10,2,3,6,'#1c1c1c');px(11,1,1,1,'#4fc3f7');px(11,8,1,1,'#4fc3f7');px(9,4,1,2,'#444');px(6,10,5,2,'#444');px(6,12,3,4,'#7a5230');px(9,12,1,2,'#222');}
@@ -3093,7 +3110,7 @@ function drawIcon(c,id){
 }
 let weapon='sword',fireHeld=false,fireCd=0,spin=0;
 const wbar=document.getElementById('wbar'),flashEl=document.getElementById('flash');
-function ownedWeapons(){if(island)return islandItems();return ['sword',...['pickaxe','pistol','mg','sniper','minigun','rocket','remote'].filter(w=>inv.own[w])];}
+function ownedWeapons(){if(island)return islandItems();return ['sword',...['pickaxe','pistol','shotgun','mg','sniper','minigun','rocket','remote'].filter(w=>inv.own[w])];}
 function onTap(el,fn){let last=0;const h=e=>{e.preventDefault();e.stopPropagation();const n=Date.now();if(n-last<350)return;last=n;fn();};
   el.addEventListener('touchstart',h,{passive:false});el.addEventListener('click',h);}
 function rebuildWbar(){
@@ -3115,7 +3132,7 @@ function cycleWeapon(){const l=ownedWeapons();selectWeapon(l[(l.indexOf(weapon)+
 function attackDown(){
   if(dead||paused()) return;
   if(island&&ITEMS[weapon]){useItem();return;} // 無人島ではアイテムをつかう
-  if(weapon==='sword') primaryTouch(); else if(weapon==='pickaxe') pickAttack(); else if(weapon==='rocket') fireRocket(); else if(weapon==='pistol') firePistol(); else if(weapon==='sniper') fireSniper(); else if(weapon==='remote') useRemote(); else fireHeld=true;
+  if(weapon==='sword') primaryTouch(); else if(weapon==='pickaxe') pickAttack(); else if(weapon==='rocket') fireRocket(); else if(weapon==='pistol') firePistol(); else if(weapon==='shotgun') fireShotgun(); else if(weapon==='sniper') fireSniper(); else if(weapon==='remote') useRemote(); else fireHeld=true;
 }
 function attackUp(){fireHeld=false;}
 function primaryTouch(){swordAttack();}
@@ -3138,9 +3155,8 @@ function rayBox(o,d,mn,mx){
   return t0;
 }
 let hitTimer=null;
-function shoot(dmg,spread,range,kb){
-  sfx('shoot',{weapon});
-  if(!scoped)muzzle();
+function shoot(dmg,spread,range,kb,quiet){
+  if(!quiet){sfx('shoot',{weapon});if(!scoped)muzzle();}
   range=range||40;
   let d=fwd();
   if(spread){d=[d[0]+(Math.random()-0.5)*2*spread,d[1]+(Math.random()-0.5)*2*spread,d[2]+(Math.random()-0.5)*2*spread];const l=Math.hypot(d[0],d[1],d[2]);d=[d[0]/l,d[1]/l,d[2]/l];}
@@ -3158,6 +3174,14 @@ function fireRocket(){
   rockets.push(r);
   const r2=v=>Math.round(v*100)/100;
   netAct('rk',{id:r.id,x:r2(r.x),y:r2(r.y),z:r2(r.z),vx:r2(r.vx),vy:r2(r.vy),vz:r2(r.vz)});
+}
+// ショットガン：8つぶの弾がちらばって飛ぶ。近いほどたくさん当たる
+function fireShotgun(){
+  if(fireCd>0||dead||paused()) return; fireCd=0.9;
+  sfx('shotgun');muzzle();
+  for(let i=0;i<8;i++)shoot(2,0.13,15,i===0?4:1.2,true);
+  pitch=Math.min(1.55,pitch+0.06);
+  if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}
 }
 function firePistol(){
   if(fireCd>0||dead||paused()) return; fireCd=0.35; shoot(3);
@@ -4088,13 +4112,14 @@ function apTex(i){const a=APPEARANCES[i]||APPEARANCES[0];
 const HELD_MODEL={
   sword:[[[-0.035,-0.7,-0.2],[0.035,-0.62,0.08],T_WOOD],[[-0.04,-0.82,-0.26],[0.04,-0.5,-0.2],T_STEEL],[[-0.03,-0.71,-0.95],[0.03,-0.61,-0.26],T_STEEL]],
   pickaxe:[[[-0.03,-0.7,-0.75],[0.03,-0.62,0.1],T_WOOD],[[-0.04,-0.88,-0.82],[0.04,-0.44,-0.72],T_STEEL]],
+  shotgun:[[[-0.04,-1.3,-0.1],[0.04,-0.62,-0.02],T_GUN],[[-0.04,-1.3,-0.02],[0.04,-0.62,0.05],T_GUN],[[-0.05,-0.95,-0.13],[0.05,-0.8,0.07],T_WOOD],[[-0.05,-0.6,-0.06],[0.05,-0.3,0.06],T_WOOD]],
   pistol:[[[-0.05,-0.95,-0.1],[0.05,-0.62,0.02],T_GUN],[[-0.04,-0.74,0.02],[0.04,-0.62,0.15],T_GUN]],
   mg:[[[-0.06,-1.15,-0.1],[0.06,-0.55,0.03],T_GUN],[[-0.04,-0.82,0.03],[0.04,-0.72,0.2],T_GUN],[[-0.05,-0.58,-0.08],[0.05,-0.35,0.02],T_WOOD]],
   sniper:[[[-0.035,-1.45,-0.07],[0.035,-0.62,0],T_GUN],[[-0.06,-0.78,-0.1],[0.06,-0.45,0.04],T_GUN],[[-0.045,-0.88,-0.22],[0.045,-0.6,-0.12],T_GUN],[[-0.05,-0.47,-0.08],[0.05,-0.25,0.05],T_WOOD]],
   minigun:[[[-0.1,-1.25,-0.12],[0.1,-0.6,0.08],T_STEEL],[[-0.13,-0.72,-0.15],[0.13,-0.5,0.11],T_GUN]],
   rocket:[[[-0.1,-1.2,-0.3],[0.1,-0.3,-0.08],T_WOMGREEN],[[-0.1,-1.26,-0.3],[0.1,-1.2,-0.08],T_GUN]]
 };
-const GUNS={pistol:1,mg:1,sniper:1,minigun:1,rocket:1};
+const GUNS={shotgun:1,pistol:1,mg:1,sniper:1,minigun:1,rocket:1};
 // 無人島のアイテム（相手から見える手の中）
 HELD_MODEL.knife=[[[-0.03,-0.7,-0.15],[0.03,-0.62,0.08],T_WOOD],[[-0.015,-0.72,-0.5],[0.015,-0.6,-0.15],T_STEEL]];
 HELD_MODEL.rod=[[[-0.02,-0.68,-1.2],[0.02,-0.64,0.1],T_WOOD]];
