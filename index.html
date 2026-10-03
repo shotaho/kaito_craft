@@ -269,7 +269,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.23.0</p>
+    <p id="ver">ver 1.24.0</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -318,7 +318,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 <div id="clear" class="overlay">
   <div class="card">
     <h1 id="clearTitle">🎉 ぜんぶクリア！</h1>
-    <p id="clearMsg">佐渡島の金山のゴーレムをたおした！ すべてのステージをクリアしたよ。</p>
+    <p id="clearMsg">佐渡島のがしまくんをたおした！ すべてのステージをクリアしたよ。</p>
     <div><button id="islandAgain" class="big" style="display:none;background:#0e9f8e;box-shadow:0 4px 0 #09695e">🏝️ もう一回</button></div>
     <div><button id="vsAgain" class="big" style="display:none;background:#6d4c9f;box-shadow:0 4px 0 #45306a">⚔️ もう一回</button></div>
     <button id="clearBtn" class="big">草原にもどる</button>
@@ -671,7 +671,7 @@ const STAGES=[
   {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},boss:{type:'imo',hp:50},spawn:[20.5,5,12.5]},
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},boss:{type:'wombat',hp:30,base:1.25,at:[26.5,29,27.5]},spawn:[24.5,4,20.5]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},boss:{type:'yoshio',hp:60,base:1.6},spawn:[8.5,null,24.5]},
-  {name:'佐渡島',icon:'🛶',sky:[0.6,0.82,0.96],fog:[24,66],mobs:{zero:2,zombie:3,mimic:1,cow:2},goal:{type:'cross',n:1,text:'たらい舟で金山の島へわたる'},boss:{type:'golem',name:'金山の金ぴかゴーレム',hp:70,base:1.4},spawn:[24.5,null,6.5]},
+  {name:'佐渡島',icon:'🛶',sky:[0.6,0.82,0.96],fog:[24,66],mobs:{zero:2,zombie:3,mimic:1,cow:2},goal:{type:'cross',n:1,text:'たらい舟で金山の島へわたる'},boss:{type:'gashima',hp:70,base:1.4},spawn:[24.5,null,6.5]},
   // 無人島ふとりバトル専用（ステージえらびには出さない）。モンスターは出ない（牛はたまに出る食べ物）
   {name:'無人島',icon:'🏝️',extra:true,sky:[0.55,0.82,0.98],fog:[26,70],mobs:{zero:0,zombie:0,mimic:0,cow:1},goal:{type:'fat',n:1,text:''},boss:null,spawn:[24.5,null,24.5]},
   // 対戦モード専用。モンスターは観客席で見ているだけ
@@ -1188,16 +1188,21 @@ paint(145,(x,y)=>x===0||x===15||y===15?vary([52,82,128],8):(x===8&&y>6)?vary([96
 paint(147,()=>vary(KSKIN,8)); // きんに君のはだ
 paint(148,()=>vary([24,22,26],8)); // 黒いかみ・くつ
 // ---- 佐渡島 ----
-const GOLDC=[236,186,44];
-paint(149,(x,y)=>(x+y)%7===0?[255,236,140,255]:(x===0||y===15)?vary([176,128,24],8):vary(GOLDC,14)); // 金
-paint(150,(x,y)=>{ // ゴーレムの顔（赤く光る目）
-  if((y===6||y===7)&&((x>=3&&x<=5)||(x>=10&&x<=12)))return y===6&&(x===4||x===11)?[255,90,60,255]:[200,30,20,255];
-  if(y>=11&&y<=12&&x>=5&&x<=10)return vary([150,104,20],8);
-  return vary(GOLDC,12);});
+// がしまくん：たらいの頭・大きな目・ピンクのくちびる、青い体に黄色いおなか
+const GBLUE=[40,112,214];
+paint(149,()=>vary(GBLUE,12)); // 青い体
+paint(150,(x,y)=>{ // 顔（たらいの木目に大きな目とピンクのくちびる）
+  for(const cx of [4,11]){const d=Math.hypot(x-cx,y-6.5);if(d<3.1){if(d>=2.3)return [20,20,24,255];if(Math.hypot(x-cx-0.4,y-6.8)<1.1)return [40,40,48,255];return [250,250,250,255];}}
+  if(y>=11&&y<=12&&x>=5&&x<=10&&!(y===11&&(x===7||x===8)))return [240,140,180,255];
+  return (y===2||y===14)?vary([90,62,36],8):x%4===0?vary([120,80,44],8):vary([168,118,66],12);});
 paint(151,(x,y)=>(y===3||y===12)?vary([70,60,56],8):x%4===0?vary([120,80,44],8):vary([168,118,66],12)); // たらい（木のおけ）
 paint(152,(x,y)=>((x*7+y*3)%11<2&&(x+y)%3!==0)?vary([250,206,60],20):vary([120,120,120],18)); // 金鉱石
 paint(153,()=>vary([214,62,40],12)); // 朱色（鳥居）
-paint(154,(x,y)=>(Math.abs(x-y)===3||x+y===18)?vary([160,112,20],8):((x*5+y*3)%13===0?[255,240,170,255]:vary(GOLDC,12))); // ゴーレムの体（ひび）
+paint(154,(x,y)=>{ // おなか（黄色い板に黒いしま）
+  if(x>=4&&x<=11&&y>=2&&y<=13&&!((x===4||x===11)&&(y===2||y===13))){if(x>=6&&x<=9&&y>=4&&y<=11&&y%2===0)return [26,26,30,255];return vary([248,212,40],10);}
+  return vary(GBLUE,12);});
+paint(155,(x,y)=>(x+y)%5===0?vary([206,190,130],8):vary([240,228,176],8)); // 編み笠
+paint(156,(x,y)=>(x===y||x+y===15)?vary([46,120,40],8):vary([84,170,60],14)); // 葉っぱ
 // 家具
 paint(111,(x,y)=>y%8===7?vary([120,74,40],8):vary([190,128,74],14)); // 家具の木
 paint(112,(x,y)=>(x+y)%6<1?vary([250,210,215],8):vary([214,64,82],12)); // もうふ
@@ -1506,7 +1511,7 @@ function imoVerts(e,out){
     pushBox(out,s<0?[-1.45,0.45,-0.12]:[1.05,0.45,-0.12],s<0?[-1.05,0.8,0.12]:[1.45,0.8,0.12],T_IMO,bd);
     pushBox(out,s<0?[-1.7,0.2,-0.11]:[1.35,0.2,-0.11],s<0?[-1.35,0.5,0.11]:[1.7,0.5,0.11],T_IMO,bd);}
 }
-const T_GOLD=[149,149,149,149,149,149],T_GOLEMHEAD=[149,149,149,149,150,149],T_GOLEMBODY=[149,149,149,149,154,149],T_TUB=[151,151,151,151,151,151];
+const T_GBLUE=[149,149,149,149,149,149],T_GBODY=[149,149,149,149,154,149],T_GHEAD=[151,151,151,151,150,151],T_GHAT=[155,155,155,155,155,155],T_GLEAF=[156,156,156,156,156,156],T_VERM=[153,153,153,153,153,153],T_TUB=[151,151,151,151,151,151];
 const T_BALL=[137,137,137,137,137,137],T_OBLUE=[138,138,138,138,138,138],T_OWHITE=[140,140,140,140,140,140],T_OBODY=[140,140,140,140,141,140],T_OHEAD=[146,146,147,138,139,146],
   T_KSKIN=[147,147,147,147,147,147],T_KHEAD=[142,142,147,148,143,142],T_KTANK=[144,144,144,140,144,144],T_KSHORT=[145,145,145,145,145,145],T_BLACK=[148,148,148,148,148,148];
 const T_YSKIN=[110,110,110,110,110,110],T_YBODY=[110,110,110,110,105,110],T_YPANTS=[108,108,108,108,108,108],T_YHEAD=[109,109,110,107,106,109];
@@ -1572,21 +1577,31 @@ function kinVerts(e,out){
     pushBox(out,[-0.17,-0.38,-0.17],[0.17,-0.06,0.17],T_KSKIN,a);} // 力こぶ
   pushBox(out,[-0.25,0,-0.25],[0.25,0.5,0.25],T_KHEAD,part(e,[0,1.64,0],Math.sin(e.walk*0.5)*0.05));
 }
-// 金ぴかゴーレム：太い足、長いうで、赤く光る目。両うでをふり上げて地面をたたく
-const GOLEM_SLAM=1.0,GOLEM_THROW=0.6;
-function golemVerts(e,out){
-  const sw=Math.sin(e.walk)*0.45;let armA=sw*0.6,armB=-sw*0.6;
-  if(e.atk>0){const t=1-e.atk/GOLEM_SLAM;armA=armB=t<0.55?t/0.55*3.0:3.0-(t-0.55)/0.45*3.1;}
-  if(e.throwT>0){const t=1-e.throwT/GOLEM_THROW;armA=t<0.6?t/0.6*2.9:2.9-(t-0.6)/0.4*1.7;}
-  for(const s of [-1,1])pushBox(out,[-0.2,-0.9,-0.22],[0.2,0,0.22],T_GOLD,part(e,[s*0.26,0.9,0],s*sw));
-  pushBox(out,[-0.5,0.85,-0.3],[0.5,1.95,0.3],T_GOLEMBODY,part(e,[0,0,0],0));
-  for(const[sx,a]of [[0.68,armA],[-0.68,armB]]){const p=part(e,[sx,1.82,0],a);
-    pushBox(out,[-0.17,-1.25,-0.17],[0.17,0.1,0.17],T_GOLD,p);pushBox(out,[-0.22,-1.5,-0.22],[0.22,-1.18,0.22],T_GOLD,p);}
-  pushBox(out,[-0.27,0,-0.27],[0.27,0.5,0.27],T_GOLEMHEAD,part(e,[0,1.95,0],0));
+// がしまくん：たらいの頭に編み笠、頭に葉っぱ。くるくる回ってしっぽでたたき、佐渡島の形の手裏剣を投げる
+const GASHI_SPIN=0.8,GASHI_THROW=0.5;
+function gashimaVerts(e,out){
+  const sw=Math.sin(e.walk)*0.5,spin=e.atk>0?(1-e.atk/GASHI_SPIN)*Math.PI*4:0;
+  const o={x:e.x,y:e.y,z:e.z,yaw:e.yaw+spin,scale:e.scale};
+  let armR=sw*0.5,armL=-sw*0.5;
+  if(e.throwT>0){const t=1-e.throwT/GASHI_THROW;armR=t<0.6?t/0.6*2.6:2.6-(t-0.6)/0.4*1.8;}
+  for(const s of [-1,1])pushBox(out,[-0.12,-0.36,-0.13],[0.12,0,0.13],T_GBLUE,part(o,[s*0.15,0.36,0],s*sw));
+  pushBox(out,[-0.3,0.34,-0.22],[0.3,1.1,0.22],T_GBODY,part(o,[0,0,0],0));
+  for(const[sx,a]of [[0.38,armR],[-0.38,armL]])pushBox(out,[-0.09,-0.4,-0.09],[0.09,0.04,0.09],T_GBLUE,part(o,[sx,1.0,0],a));
+  pushBox(out,[-0.07,0.42,0.2],[0.07,0.54,0.62],T_GBLUE,part(o,[0,0,0],0));  // しっぽ
+  pushBox(out,[-0.1,0.46,0.58],[0.1,0.74,0.74],T_GLEAF,part(o,[0,0,0],0));  // しっぽの先の葉っぱ
+  pushBox(out,[-0.42,1.1,-0.4],[0.42,1.62,0.4],T_GHEAD,part(o,[0,0,0],0));  // たらいの頭
+  pushBox(out,[-0.06,1.55,-0.36],[0.06,1.86,-0.24],T_GLEAF,part(o,[0,0,0],0)); // 頭の葉っぱ
+  pushBox(out,[0,1.7,-0.36],[0.15,1.79,-0.27],T_GLEAF,part(o,[0,0,0],0));
+  for(const[w,y0]of [[0.64,1.62],[0.44,1.69],[0.24,1.76]])pushBox(out,[-w,y0,-0.42],[w,y0+0.08,0.42],T_GHAT,part(o,[0,0,0],0)); // 編み笠
+  for(const sx of [-1,1])pushBox(out,[sx>0?0.54:-0.7,1.58,-0.08],[sx>0?0.7:-0.54,1.8,0.08],T_VERM,part(o,[0,0,0],0)); // 笠の赤いかざり
 }
+// 佐渡島の形の手裏剣：上の大佐渡と下の小佐渡を、まん中の国中平野がつなぐ（ななめの「工」の字）
+const SADO_SHAPE=[[[-0.36,-0.05,-0.32],[0.2,0.05,-0.17]],[[-0.2,-0.05,0.17],[0.36,0.05,0.32]],[[-0.13,-0.05,-0.17],[0.13,0.05,0.17]]];
+// ななめにかたむけて回すので、横から見ても佐渡島の形がわかる
+function shurikenVerts(out,x,y,z,t){const o={x,y,z,yaw:t*14,scale:1.5};for(const b of SADO_SHAPE)pushBox(out,b[0],b[1],T_STEEL,part(o,[0,0,0],1.1));}
 function enemyVerts(e,out){
   if(e.type==='rival') return avatarVerts(e,out);
-  if(e.type==='golem') return golemVerts(e,out);
+  if(e.type==='gashima') return gashimaVerts(e,out);
   if(e.type==='ohtani') return ohtaniVerts(e,out);
   if(e.type==='kinnikun') return kinVerts(e,out);
   if(e.type==='yoshio') return yoshioVerts(e,out);
@@ -1652,15 +1667,17 @@ function render(){
     for(const r of rockets){const o={x:r.x,y:r.y,z:r.z,yaw:r.yaw,scale:1};
       if(r.owner==='ghast')pushBox(out,[-0.18,-0.18,-0.18],[0.18,0.18,0.18],T_BOOM,part(o,[0,0,0],r.t*6));
       else if(r.owner==='mud')pushBox(out,[-0.2,-0.2,-0.2],[0.2,0.2,0.2],T_MUD,part(o,[0,0,0],r.t*5));
-      else if(r.owner==='ball'){const k=r.gold?0.18:0.13;pushBox(out,[-k,-k,-k],[k,k,k],r.gold?T_GOLD:T_BALL,part(o,[0,0,0],r.t*14));}
+      else if(r.owner==='ball')pushBox(out,[-0.13,-0.13,-0.13],[0.13,0.13,0.13],T_BALL,part(o,[0,0,0],r.t*14));
+      else if(r.owner==='shuriken')shurikenVerts(out,r.x,r.y,r.z,r.t);
       else pushBox(out,[-0.08,-0.08,-0.32],[0.08,0.08,0.32],T_ROCKET,part(o,[0,0,0],r.pitch));}
-    for(const b of mirrorBalls){const o={x:b.x,y:b.y,z:b.z,yaw:0,scale:1},k=b.gold?0.18:b.ball?0.13:b.mud?0.2:0.18;pushBox(out,[-k,-k,-k],[k,k,k],b.gold?T_GOLD:b.ball?T_BALL:b.mud?T_MUD:T_BOOM,part(o,[0,0,0],performance.now()/160));}
+    for(const b of mirrorBalls){if(b.shur){shurikenVerts(out,b.x,b.y,b.z,performance.now()/1000);continue;}
+      const o={x:b.x,y:b.y,z:b.z,yaw:0,scale:1},k=b.ball?0.13:b.mud?0.2:0.18;pushBox(out,[-k,-k,-k],[k,k,k],b.ball?T_BALL:b.mud?T_MUD:T_BOOM,part(o,[0,0,0],performance.now()/160));}
     for(const t of tracers){
       const dx=t.b[0]-t.a[0],dy=t.b[1]-t.a[1],dz=t.b[2]-t.a[2],h=Math.hypot(dx,dz),len=Math.hypot(dx,dy,dz);if(len<0.8)continue;
       const o={x:t.a[0],y:t.a[1]-0.15,z:t.a[2],yaw:Math.atan2(-dx,-dz),scale:1},w=t.w;
       pushBox(out,[-w,-w,-len],[w,w,-0.6],T_TRACER,part(o,[0,0,0],Math.atan2(dy,h)));}
-    for(const d of debris){const o={x:d.x,y:d.y,z:d.z,yaw:d.t*5,scale:1};pushBox(out,[-d.s,-d.s,-d.s],[d.s,d.s,d.s],d.tile||T_YSKIN,part(o,[0,0,0],d.t*4));}
-    for(const b of booms){const sz=b.mud?0.25+b.t/0.4*1.1:0.4+b.t/0.4*2.6;const o={x:b.x,y:b.y,z:b.z,yaw:b.t*4,scale:1};pushBox(out,[-sz,-sz,-sz],[sz,sz,sz],b.gold?T_GOLD:b.mud?T_MUD:T_BOOM,part(o,[0,0,0],b.t*3));}
+    for(const d of debris){const o={x:d.x,y:d.y,z:d.z,yaw:d.t*5,scale:1};pushBox(out,[-d.s,-d.s,-d.s],[d.s,d.s,d.s],T_YSKIN,part(o,[0,0,0],d.t*4));}
+    for(const b of booms){const sz=b.mud?0.25+b.t/0.4*1.1:0.4+b.t/0.4*2.6;const o={x:b.x,y:b.y,z:b.z,yaw:b.t*4,scale:1};pushBox(out,[-sz,-sz,-sz],[sz,sz,sz],b.mud?T_MUD:T_BOOM,part(o,[0,0,0],b.t*3));}
     bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
     gl.uniform3f(LB.tint,1.1,1.1,1.1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);
   }
@@ -1719,7 +1736,7 @@ const ENEMY_STATS={
   rival:{r:0.3,h:1.8,hp:20,spd:3.4,dmg:2}, // 対戦モードのCPU
   ohtani:{r:0.32,h:2.1,hp:60,spd:2.8,dmg:5},  // よしおの第2形態
   kinnikun:{r:0.4,h:2.14,hp:80,spd:2.6,dmg:6}, // よしおの最終形態
-  golem:{r:0.55,h:2.45,hp:70,spd:1.7,dmg:6} // 佐渡島のボス
+  gashima:{r:0.42,h:1.86,hp:70,spd:2.4,dmg:5} // 佐渡島のボス
 };
 function enemyDims(type){return ENEMY_STATS[type]||ENEMY_STATS.zero;}
 let nextEnemyId=1;
@@ -1783,7 +1800,6 @@ function damageEnemy(e,dmg,kb,src,how,localFx){
   if(e.type==='cow'){e.flee=2.5;e.fleeX=sx;e.fleeZ=sz;}
   if(e.hp<=0){
     e.dying=0.5;if(localFx)sfx('enemyDie',{type:e.type});
-    if(e.type==='golem')goldBurst(e);
     if(e.boss){if(!BOSS_NEXT[e.type])bossDown(localFx);else if(net.role!=='guest')bossTransform(e);} // よしお・おおたには変身する
     if(e.type==='rival')vsResult(1,'down');
     if(e.king&&net.role!=='guest'){if(localFx)kingDown(true);else{netSend({t:'vsKing'});kingDown(false);}}
@@ -2219,38 +2235,29 @@ function updateKinnikun(e,dt){
   } else e.stuckT=0;
   e.walk+=dt*sp*2.6;e.hurt-=dt;e.cd-=dt;
 }
-function golemSlam(e){ // 両うでで地面をたたいて、まわりに衝撃波
-  const b=e.base||1,R=3.4*b;
-  for(const[ox,oz]of[[0,0],[1.4,0],[-1.4,0],[0,1.4],[0,-1.4],[1,1],[-1,-1],[1,-1],[-1,1]])booms.push({x:e.x+ox*b,y:e.y+0.2,z:e.z+oz*b,t:0,mud:true,gold:true});
-  netBoom(e.x,e.y+0.2,e.z,0,'gold');sfx('explode');
-  for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z);if(d<R&&Math.abs(t.y-e.y)<2*b)hurtTarget(t,Math.round(3+5*(1-d/R)),e.x,e.z,false);}
-  if(navigator.vibrate)try{navigator.vibrate(100);}catch(err){}
+function throwShuriken(e,tg){ // 佐渡島の手裏剣を3まい、扇のように投げる
+  const b=e.base||1,y0=e.y+1.0*b,sx=e.x-Math.sin(e.yaw)*0.5*b,sz=e.z-Math.cos(e.yaw)*0.5*b;
+  const base=Math.atan2(tg.x-sx,tg.z-sz),l=Math.hypot(tg.x-sx,tg.z-sz)||1,spd=13,vy=(tg.y+1-y0)/(l/spd);
+  for(const a of [-0.22,0,0.22])rockets.push({owner:'shuriken',dmg:3,x:sx,y:y0,z:sz,vx:Math.sin(base+a)*spd,vy,vz:Math.cos(base+a)*spd,t:0,yaw:0,pitch:0});
+  sfx('swing');
 }
-function throwNugget(e,tg){ // 金のかたまりを山なりに投げる
-  const b=e.base||1,y0=e.y+2.2*b,sx=e.x-Math.sin(e.yaw)*0.6*b,sz=e.z-Math.cos(e.yaw)*0.6*b,dx=tg.x-sx,dz=tg.z-sz,l=Math.hypot(dx,dz)||1,T=Math.max(0.45,l/14),g=12;
-  rockets.push({owner:'ball',gold:true,dmg:4,x:sx,y:y0,z:sz,vx:dx/T,vy:(tg.y+1-y0)/T+0.5*g*T,vz:dz/T,t:0,yaw:0,pitch:0});sfx('swing');
-}
-function goldBurst(e){ // たおすと金がざくざく
-  const b=e.base||1;
-  for(let i=0;i<26;i++)debris.push({x:e.x+(Math.random()-0.5)*b,y:e.y+1.2*b,z:e.z+(Math.random()-0.5)*b,vx:(Math.random()-0.5)*7,vy:4+Math.random()*5,vz:(Math.random()-0.5)*7,t:0,s:0.12+Math.random()*0.1,tile:T_GOLD});
-  setTimeout(()=>toast('💰 金がざくざく出てきた！'),1400);
-}
-function updateGolem(e,dt){
+function updateGashima(e,dt){
   const b=e.base||1,tg=nearestPlayer(e);
   const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
-  let sp=0;e.throwCd=(e.throwCd===undefined?3:e.throwCd)-dt;
-  if(e.atk>0){const prev=e.atk;e.atk-=dt;if(tg)e.dirYaw=Math.atan2(-dx,-dz);
-    if(prev>0.42&&e.atk<=0.42)golemSlam(e);
-    if(e.atk<=0){e.atk=0;e.cd=1.4;}}
-  else if(e.throwT>0){e.throwT-=dt;if(tg)e.dirYaw=Math.atan2(-dx,-dz);if(e.throwT<=0){e.throwT=0;if(tg)throwNugget(e,tg);e.throwCd=3+Math.random()*1.5;}}
+  let sp=0;e.throwCd=(e.throwCd===undefined?2.5:e.throwCd)-dt;
+  if(e.atk>0){ // くるくる回って、しっぽでまわりをたたく
+    const prev=e.atk;e.atk-=dt;
+    if(prev>0.4&&e.atk<=0.4){sfx('swing');for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z);if(d<2.9*b&&Math.abs(t.y-e.y)<2*b)hurtTarget(t,e.dmg,e.x,e.z);}}
+    if(e.atk<=0){e.atk=0;e.cd=1.2;}}
+  else if(e.throwT>0){e.throwT-=dt;if(tg)e.dirYaw=Math.atan2(-dx,-dz);if(e.throwT<=0){e.throwT=0;if(tg)throwShuriken(e,tg);e.throwCd=2+Math.random()*1.2;}}
   else if(tg&&(dist<30||e.boss)){
-    if(dist<3*b&&Math.abs(dyT)<2.5*b&&e.cd<=0)e.atk=GOLEM_SLAM;
-    else if(dist>5&&dist<22&&e.throwCd<=0&&losClear(e.x,e.y+2*b,e.z,tg.x,tg.y+1,tg.z))e.throwT=GOLEM_THROW;
-    else if(dist>1.8*b){sp=e.spd;e.dirYaw=pathYaw(e,tg);}else e.dirYaw=Math.atan2(-dx,-dz);}
-  steer(e,dt,sp,4);
+    if(dist<2.6*b&&Math.abs(dyT)<2*b&&e.cd<=0)e.atk=GASHI_SPIN;
+    else if(dist>4&&dist<24&&e.throwCd<=0&&losClear(e.x,e.y+1*b,e.z,tg.x,tg.y+1,tg.z))e.throwT=GASHI_THROW;
+    else if(dist>1.6*b){sp=e.spd;e.dirYaw=pathYaw(e,tg);}else e.dirYaw=Math.atan2(-dx,-dz);}
+  steer(e,dt,sp,6);
   const blocked=moveBody(e,dt,e.r,e.h);
-  if(blocked&&e.ground&&sp>0)e.vy=8.2;
-  e.walk+=dt*sp*2.2;e.hurt-=dt;e.cd-=dt;
+  if(e.ground&&sp>0&&(blocked||Math.random()<dt*1.2))e.vy=blocked?8.2:5.5; // ぴょんぴょんはねて歩く
+  e.walk+=dt*sp*3;e.hurt-=dt;e.cd-=dt;
 }
 function crumbleFx(e){ // 足元からくずれたかけらがこぼれる
   const b=e.base||1;
@@ -2278,7 +2285,7 @@ function updateEnemies(dt){
       if(e.type!=='cow'&&e.dying<=0){e.nearCd=(e.nearCd||0)-dt;const nd=Math.hypot(P.x-e.x,P.z-e.z);
         if(nd<10&&e.nearCd<=0){e.nearCd=2.5+Math.random();sfx('enemyNear',{type:e.type,dist:nd,volume:1-nd/10});}}
     }
-    for(const b of mirrorBalls){if(b.mud)b.vy-=18*dt;if(b.ball)b.vy-=(b.gold?12:6)*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;}
+    for(const b of mirrorBalls){if(b.mud)b.vy-=18*dt;if(b.ball)b.vy-=6*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;}
     return;
   }
   refreshTargets();
@@ -2321,7 +2328,7 @@ function updateEnemies(dt){
     if(e.type==='yoshio'){updateYoshio(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='ohtani'){updateOhtani(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='kinnikun'){updateKinnikun(e,dt);if(e.y<-20)e.dying=0.01;continue;}
-    if(e.type==='golem'){updateGolem(e,dt);if(e.y<-20)e.dying=0.01;continue;}
+    if(e.type==='gashima'){updateGashima(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     const tg=nearestPlayer(e);
     const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
     const b=e.base||1,chase=tg&&dist<30&&dist>1.2*b&&e.atk<=0?1:0;
@@ -3057,7 +3064,7 @@ function genArena(rnd){
 function gameClear(){
   clearBtnEl.textContent='草原にもどる';islandAgainEl.style.display='none';vsAgainEl.style.display='none';
   document.getElementById('clearTitle').textContent='🎉 ぜんぶクリア！';
-  document.getElementById('clearMsg').textContent='佐渡島の金山のゴーレムをたおした！ すべてのステージをクリアしたよ。';
+  document.getElementById('clearMsg').textContent='佐渡島のがしまくんをたおした！ すべてのステージをクリアしたよ。';
   clearing=true;fireHeld=false;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
   document.getElementById('clear').style.display='flex';
@@ -3364,7 +3371,7 @@ const DEX_ENEMIES=[
   {id:'imo',name:'いもじじい',desc:'大きな家のボス。泥を投げてきたり、ジャンプしてのしかかってくる。',face:101},
   {id:'ohtani',name:'おおたに',desc:'よしおの第2形態。燃えるバットをふり回し、はなれるとボールを投げてくる。',face:139},
   {id:'kinnikun',name:'なかやまきんに君',desc:'よしおの最終形態。パンチで攻撃してくる。行く手のブロックもなぐってこわす（上すぎるブロックはとどかない）。',face:143},
-  {id:'golem',name:'金ぴかゴーレム',desc:'佐渡島のボス。金山の金でできた大きなゴーレム。地面をたたいて衝撃波を出し、金のかたまりを投げてくる。たおすと金がざくざく出てくる。',face:150},
+  {id:'gashima',name:'がしまくん',desc:'佐渡島のボス。たらいの頭に編み笠をかぶっている。佐渡島の形をした手裏剣を投げてきて、近づくとくるくる回ってしっぽでたたく。',face:150},
   {id:'yoshio',name:'よしお',desc:'クジラのおなかのボス。おどりながら近づき、下に向かってパンチしてくる。攻撃されると足元からくずれて小さくなっていく。',face:106}
 ];
 const ENEMY_NAME=Object.fromEntries(DEX_ENEMIES.map(d=>[d.id,d.name]));
@@ -3573,11 +3580,11 @@ function updateWeapons(dt){
   for(const r of rockets){
     r.t+=dt;let boom=false,hitT=null;
     if(r.owner==='mud')r.vy-=18*dt;
-    if(r.owner==='ball')r.vy-=(r.gold?12:6)*dt;
+    if(r.owner==='ball')r.vy-=6*dt;
     for(let k=0;k<4&&!boom;k++){
       r.x+=r.vx*dt/4;r.y+=r.vy*dt/4;r.z+=r.vz*dt/4;
       if(solidAt(Math.floor(r.x),Math.floor(r.y),Math.floor(r.z))&&r.y<H)boom=true;
-      if(r.owner==='ghast'||r.owner==='mud'||r.owner==='rival'||r.owner==='ball'){
+      if(r.owner==='ghast'||r.owner==='mud'||r.owner==='rival'||r.owner==='ball'||r.owner==='shuriken'){
         for(const t of playerTargets)if(Math.abs(r.x-t.x)<PR+0.3&&Math.abs(r.z-t.z)<PR+0.3&&r.y>t.y-0.3&&r.y<t.y+PH+0.3){boom=true;hitT=t;break;}
       } else if(r.owner!=='remote'){
         for(const e of enemies){if(e.dying>0)continue;if(Math.abs(r.x-e.x)<e.r+0.25&&Math.abs(r.z-e.z)<e.r+0.25&&r.y>e.y&&r.y<e.y+e.h){boom=true;break;}}
@@ -3588,7 +3595,7 @@ function updateWeapons(dt){
     // 相手のロケットは見た目だけ。ばくはつは相手から届く boom で出す
     if(boom){r.dead=true;
       if(r.owner==='mud'){booms.push({x:r.x,y:r.y,z:r.z,t:0,mud:true});netBoom(r.x,r.y,r.z,0,'mud');if(hitT)hurtTarget(hitT,3,r.x,r.z,true,true);}
-      else if(r.owner==='ball'){if(hitT){hurtTarget(hitT,r.dmg||3,r.x,r.z,false);sfx('enemyHit',{type:'zero'});}} // ボールはばくはつしない
+      else if(r.owner==='ball'||r.owner==='shuriken'){if(hitT){hurtTarget(hitT,r.dmg||3,r.x,r.z,false);sfx('enemyHit',{type:'zero'});}} // ボールはばくはつしない
       else if(r.owner!=='remote')explode(r.x,r.y,r.z,r.owner==='rival'?'rival':r.owner==='ghast',r.id);}
   }
   rockets=rockets.filter(r=>!r.dead);
@@ -4328,7 +4335,7 @@ function onNet(m){
     else if(m.a==='rk'){remote.recoil=0.2;
       rockets.push({owner:'remote',id:m.id,x:m.x,y:m.y,z:m.z,vx:m.vx,vy:m.vy,vz:m.vz,yaw:Math.atan2(-m.vx,-m.vz),pitch:Math.atan2(m.vy,Math.hypot(m.vx,m.vz)),t:0});}
   } else if(m.t==='boom'){
-    booms.push({x:m.x,y:m.y,z:m.z,t:0,mud:m.k==='mud'||m.k==='gold',gold:m.k==='gold'});
+    booms.push({x:m.x,y:m.y,z:m.z,t:0,mud:m.k==='mud'});
     if(m.rid)for(const r of rockets)if(r.owner==='remote'&&r.id===m.rid)r.dead=true;
   } else if(m.t==='hurt'){
     if(net.role==='guest'){hurtPlayer(m.dmg,m.x,m.z,!!m.nk);if(m.mud)mudScreen();}
@@ -4413,7 +4420,7 @@ function onNet(m){
       if(type==='yoshio')e.h=enemyDims(type).h*(base||1)*(1-crumbleK(e));
     }
     enemies=enemies.filter(en=>seen.has(en.id));
-    mirrorBalls=Array.isArray(m.f)?m.f.map(a=>({x:a[0],y:a[1],z:a[2],vx:a[3],vy:a[4],vz:a[5],mud:a[6]===1,ball:a[6]>=2,gold:a[6]===3})):[];
+    mirrorBalls=Array.isArray(m.f)?m.f.map(a=>({x:a[0],y:a[1],z:a[2],vx:a[3],vy:a[4],vz:a[5],mud:a[6]===1,ball:a[6]===2,shur:a[6]===4})):[];
   } else if(m.t==='hit'){
     if(net.role!=='host')return;
     const e=enemies.find(en=>en.id===m.id);
@@ -4439,7 +4446,7 @@ function netTick(dt){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
       netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:e.king?2:0]),
-        f:rockets.filter(r=>r.owner==='ghast'||r.owner==='mud'||r.owner==='ball').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2),r.owner==='mud'?1:r.owner==='ball'?(r.gold?3:2):0])});
+        f:rockets.filter(r=>r.owner==='ghast'||r.owner==='mud'||r.owner==='ball'||r.owner==='shuriken').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2),r.owner==='mud'?1:r.owner==='ball'?2:r.owner==='shuriken'?4:0])});
     }
   }
   if(net.role==='host'){
