@@ -269,7 +269,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.22.1</p>
+    <p id="ver">ver 1.23.0</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -318,7 +318,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 <div id="clear" class="overlay">
   <div class="card">
     <h1 id="clearTitle">🎉 ぜんぶクリア！</h1>
-    <p id="clearMsg">クジラのおなかから脱出成功！ すべてのステージをクリアしたよ。</p>
+    <p id="clearMsg">佐渡島の金山のゴーレムをたおした！ すべてのステージをクリアしたよ。</p>
     <div><button id="islandAgain" class="big" style="display:none;background:#0e9f8e;box-shadow:0 4px 0 #09695e">🏝️ もう一回</button></div>
     <div><button id="vsAgain" class="big" style="display:none;background:#6d4c9f;box-shadow:0 4px 0 #45306a">⚔️ もう一回</button></div>
     <button id="clearBtn" class="big">草原にもどる</button>
@@ -475,7 +475,10 @@ BLOCKS[97]={name:'ボタンとびら',t:[135,133,135]};BLOCKS[98]={name:'ボタ�
 const TRANS={5:true,8:true,13:true,28:true,85:true,94:true,96:true,98:true};
 const NONSOLID={13:true,14:true,23:true,28:true,85:true,94:true,96:true,98:true},HAZARD={14:true,23:true};
 const WATER={85:true,94:true}; // 海・川（水面を少し低くして、波を動かす）
-const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,95,67,99,20,17,18,15,11,16,22,21,29];
+// 佐渡島：たらい舟（105・海にうかんでいる。乗ってこげる）、金鉱石（106）、朱色のブロック（107・鳥居）
+BLOCKS[105]={name:'たらい舟',t:[151,151,151]};BLOCKS[106]={name:'金鉱石',t:[152,152,152]};BLOCKS[107]={name:'朱色のブロック',t:[153,153,153]};
+const TUB_BOXES=[[[0.08,0,0.08],[0.92,0.1,0.92]],[[0.04,0.05,0.04],[0.96,0.55,0.14]],[[0.04,0.05,0.86],[0.96,0.55,0.96]],[[0.04,0.05,0.14],[0.14,0.55,0.86]],[[0.86,0.05,0.14],[0.96,0.55,0.86]]];
+const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,95,67,99,20,17,18,15,11,16,22,21,29,107];
 const HOTBAR=BASE_HOTBAR.slice();
 
 // ---------- 家具 ----------
@@ -521,6 +524,7 @@ const BTN_BASE=67;
   const box=[[[0,c,a],[t,e,b]],[[1-t,c,a],[1,e,b]],[[a,0,c],[b,t,e]],[[a,1-t,c],[b,1,e]],[[a,c,0],[b,e,t]],[[a,c,1-t],[b,e,1]]][f];
   BLOCKS[id]={name:'ボタン',t:[3,3,3]};TRANS[id]=true;NONSOLID[id]=true;SHAPE[id]=[[box[0],box[1],[3,3,3,3,3,3],false]];}}
 const isButton=id=>id>=BTN_BASE&&id<BTN_BASE+12;
+SHAPE[105]=TUB_BOXES.map(b=>[b[0],b[1],[151,151,151,151,151,151],false]);TRANS[105]=true;
 // ---------- ドアノブ ----------
 // id = 99 + くっつけたブロックの向き（0:-x 1:+x 2:下 3:上 4:-z 5:+z）。
 // ドアノブをつけたブロックと、同じ面にならんでつながっている同じ種類のブロック（とガラス）が、まとめて1つのとびらになる
@@ -667,13 +671,14 @@ const STAGES=[
   {name:'大きな家',icon:'🏠',sky:[0.62,0.8,0.95],fog:[22,62],mobs:{zero:1,zombie:5,mimic:1,cow:2},goal:{type:'chests',n:3,text:'📦 宝箱を見つける'},boss:{type:'imo',hp:50},spawn:[20.5,5,12.5]},
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},boss:{type:'wombat',hp:30,base:1.25,at:[26.5,29,27.5]},spawn:[24.5,4,20.5]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},boss:{type:'yoshio',hp:60,base:1.6},spawn:[8.5,null,24.5]},
+  {name:'佐渡島',icon:'🛶',sky:[0.6,0.82,0.96],fog:[24,66],mobs:{zero:2,zombie:3,mimic:1,cow:2},goal:{type:'cross',n:1,text:'たらい舟で金山の島へわたる'},boss:{type:'golem',name:'金山の金ぴかゴーレム',hp:70,base:1.4},spawn:[24.5,null,6.5]},
   // 無人島ふとりバトル専用（ステージえらびには出さない）。モンスターは出ない（牛はたまに出る食べ物）
   {name:'無人島',icon:'🏝️',extra:true,sky:[0.55,0.82,0.98],fog:[26,70],mobs:{zero:0,zombie:0,mimic:0,cow:1},goal:{type:'fat',n:1,text:''},boss:null,spawn:[24.5,null,24.5]},
   // 対戦モード専用。モンスターは観客席で見ているだけ
   {name:'対戦ステージ',icon:'⚔️',extra:true,sky:[0.98,0.74,0.52],fog:[30,80],mobs:{zero:0,zombie:0,mimic:0,cow:0},goal:{type:'vs',n:1,text:''},boss:null,spawn:[24.5,null,13.5]}
 ];
-const NSTAGE=6,ISLAND=6,VS_ARENA=7; // ふつうのステージの数、無人島・対戦ステージのステージ番号
-// ボス戦モード：null か {t:経過秒}（6体のボスと順番に戦う）
+const NSTAGE=7,SADO=6,ISLAND=7,VS_ARENA=8; // ふつうのステージの数、佐渡島・無人島・対戦ステージのステージ番号
+// ボス戦モード：null か {t:経過秒}（ステージのボスと順番に戦う）
 let bossRush=null,rushPick=false,island=null; // island：無人島ふとりバトル {t:のこり秒,kg:体重}
 let stage=0,goalDone=false,stageStats={kills:0,gems:0,chests:0,boss:0},skyCol=STAGES[0].sky,fogR=STAGES[0].fog;
 const PROG_KEY='blockcraft-progress-v1';
@@ -692,7 +697,7 @@ function genStage(n,seed){
   seed=seed||((Math.random()*1e9)|0);
   if(n===0) generate(seed);
   else{world=new Uint8Array(W*D*H);const rnd=mulberry32(seed);
-    [null,genMagma,genSky,genHouse,genMansion,genWhale,genIsland,genArena][n](rnd,seed);}
+    [null,genMagma,genSky,genHouse,genMansion,genWhale,genSado,genIsland,genArena][n](rnd,seed);}
   addBedrock(n);
 }
 function addBedrock(n){if(!STAGES[n].void)fill(0,0,0,W-1,0,D-1,30);}
@@ -836,6 +841,38 @@ function genWhale(rnd,seed){
   let dbr=0;for(let t=0;t<300&&dbr<10;t++){const x=2+Math.floor(rnd()*(W-4)),z=2+Math.floor(rnd()*(D-4));
     let y=1;while(y<H-1&&world[idx(x,y,z)]!==0)y++;if(y>=H-1)continue;
     if(world[idx(x,y-1,z)]!==0&&world[idx(x,y-1,z)]!==23&&Math.hypot(x-8,z-24)>5){setB(x,y,z,dbr%2===0?4:3);dbr++;}}
+}
+// 佐渡島：南の島（港・スタート）と北の島（金山）のあいだに深い海。たらい舟でわたる
+const SADO_BZ=26.5; // ここより北が金山の島（北の桟橋から）
+function genSado(rnd,seed){
+  fill(0,1,0,W-1,3,D-1,6);fill(0,4,0,W-1,6,D-1,85); // 海の底の砂と、深い海
+  const land=(cx,cz,rx,rz,base,hill,sd)=>{for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+    const d=Math.hypot((x+0.5-cx)/rx,(z+0.5-cz)/rz)+(vnoise(x,z,5,sd)-0.5)*0.22;if(d>1)continue;
+    const h=base+Math.floor(vnoise(x,z,8,sd+1)*hill*Math.min(1,(1-d)*3)),beach=d>0.84;
+    for(let y=4;y<=h;y++)setB(x,y,z,y===h?(beach?6:1):(y>=h-2?(beach?6:2):3));}};
+  land(24,6.5,21,7.5,7,2,seed);    // 南の島（港）
+  land(24,39.5,22,8.5,7,3,seed+9); // 北の島（金山）
+  // 金山：北の島の東に山。南から坑道（トンネル）が入っていて、かべに金鉱石、天井にあかり
+  for(let z=31;z<D-1;z++)for(let x=28;x<W-2;x++){const d=Math.hypot((x-37)/8.5,(z-41)/7.5);if(d>1)continue;
+    const top=8+Math.floor((1-d)*10);for(let y=7;y<=top;y++)setB(x,y,z,y===top?1:3);}
+  for(let z=31;z<=45;z++)for(let x=36;x<=38;x++)for(let y=8;y<=10;y++)setB(x,y,z,0);
+  for(let z=33;z<=45;z++){for(const x of [35,39])for(let y=8;y<=10;y++)if(getB(x,y,z)&&rnd()<0.4)setB(x,y,z,106);if(z%3===0)setB(37,11,z,15);}
+  for(let x=36;x<=38;x++)for(let y=8;y<=10;y++)setB(x,y,46,106);
+  // 木（島の草の上）
+  for(let k=0;k<70;k++){const x=3+Math.floor(rnd()*(W-6)),z=2+Math.floor(rnd()*(D-4));if(Math.abs(x-24)<5)continue;
+    const y=topY(x,z);if(getB(x,y,z)===1&&y<12&&rnd()<0.5)tree(x,y,z,rnd);}
+  // 港：南の島の桟橋と、たらい舟
+  const gA=topY(24,8);
+  for(let z=10;z<=17;z++)for(let x=23;x<=25;x++){if(getB(x,7,z)===85||!getB(x,7,z))setB(x,7,z,7);for(let y=8;y<12;y++)if(getB(x,y,z)!==0&&z>11)setB(x,y,z,0);}
+  for(const[x,z]of [[21,16],[27,16],[24,18],[21,18],[27,18]])setB(x,6,z,105);
+  // 北の島の桟橋（降りる場所）
+  for(let z=27;z<=31;z++)for(let x=23;x<=25;x++){if(getB(x,7,z)===85||!getB(x,7,z))setB(x,7,z,7);for(let y=8;y<12;y++)if(getB(x,y,z)===5)setB(x,y,z,0);}
+  // 鳥居（スタートと桟橋のあいだ）
+  for(const x of [21,27])for(let y=gA+1;y<=gA+5;y++)setB(x,y,10,107);
+  for(let x=20;x<=28;x++)setB(x,gA+6,10,107);for(let x=21;x<=27;x++)setB(x,gA+5,10,107);
+  for(let x=22;x<=26;x++)for(let y=gA+1;y<=gA+4;y++)setB(x,y,10,0);
+  // 海の岩（たらい舟でよけて進む）
+  for(const[x,z]of [[15,21],[31,20],[29,25],[18,25],[9,23],[39,23]])for(let y=4;y<=8;y++)setB(x,y,z,3);
 }
 function isHaz(x,y,z){return !!HAZARD[getB(x,y,z)];}
 function standAt(x,z,yHint){
@@ -1150,6 +1187,17 @@ paint(144,(x,y)=>{ // タンクトップ（かたと首もとは、はだ）
 paint(145,(x,y)=>x===0||x===15||y===15?vary([52,82,128],8):(x===8&&y>6)?vary([96,132,180],8):vary([72,108,158],12)); // デニムの短パン
 paint(147,()=>vary(KSKIN,8)); // きんに君のはだ
 paint(148,()=>vary([24,22,26],8)); // 黒いかみ・くつ
+// ---- 佐渡島 ----
+const GOLDC=[236,186,44];
+paint(149,(x,y)=>(x+y)%7===0?[255,236,140,255]:(x===0||y===15)?vary([176,128,24],8):vary(GOLDC,14)); // 金
+paint(150,(x,y)=>{ // ゴーレムの顔（赤く光る目）
+  if((y===6||y===7)&&((x>=3&&x<=5)||(x>=10&&x<=12)))return y===6&&(x===4||x===11)?[255,90,60,255]:[200,30,20,255];
+  if(y>=11&&y<=12&&x>=5&&x<=10)return vary([150,104,20],8);
+  return vary(GOLDC,12);});
+paint(151,(x,y)=>(y===3||y===12)?vary([70,60,56],8):x%4===0?vary([120,80,44],8):vary([168,118,66],12)); // たらい（木のおけ）
+paint(152,(x,y)=>((x*7+y*3)%11<2&&(x+y)%3!==0)?vary([250,206,60],20):vary([120,120,120],18)); // 金鉱石
+paint(153,()=>vary([214,62,40],12)); // 朱色（鳥居）
+paint(154,(x,y)=>(Math.abs(x-y)===3||x+y===18)?vary([160,112,20],8):((x*5+y*3)%13===0?[255,240,170,255]:vary(GOLDC,12))); // ゴーレムの体（ひび）
 // 家具
 paint(111,(x,y)=>y%8===7?vary([120,74,40],8):vary([190,128,74],14)); // 家具の木
 paint(112,(x,y)=>(x+y)%6<1?vary([250,210,215],8):vary([214,64,82],12)); // もうふ
@@ -1458,6 +1506,7 @@ function imoVerts(e,out){
     pushBox(out,s<0?[-1.45,0.45,-0.12]:[1.05,0.45,-0.12],s<0?[-1.05,0.8,0.12]:[1.45,0.8,0.12],T_IMO,bd);
     pushBox(out,s<0?[-1.7,0.2,-0.11]:[1.35,0.2,-0.11],s<0?[-1.35,0.5,0.11]:[1.7,0.5,0.11],T_IMO,bd);}
 }
+const T_GOLD=[149,149,149,149,149,149],T_GOLEMHEAD=[149,149,149,149,150,149],T_GOLEMBODY=[149,149,149,149,154,149],T_TUB=[151,151,151,151,151,151];
 const T_BALL=[137,137,137,137,137,137],T_OBLUE=[138,138,138,138,138,138],T_OWHITE=[140,140,140,140,140,140],T_OBODY=[140,140,140,140,141,140],T_OHEAD=[146,146,147,138,139,146],
   T_KSKIN=[147,147,147,147,147,147],T_KHEAD=[142,142,147,148,143,142],T_KTANK=[144,144,144,140,144,144],T_KSHORT=[145,145,145,145,145,145],T_BLACK=[148,148,148,148,148,148];
 const T_YSKIN=[110,110,110,110,110,110],T_YBODY=[110,110,110,110,105,110],T_YPANTS=[108,108,108,108,108,108],T_YHEAD=[109,109,110,107,106,109];
@@ -1523,8 +1572,21 @@ function kinVerts(e,out){
     pushBox(out,[-0.17,-0.38,-0.17],[0.17,-0.06,0.17],T_KSKIN,a);} // 力こぶ
   pushBox(out,[-0.25,0,-0.25],[0.25,0.5,0.25],T_KHEAD,part(e,[0,1.64,0],Math.sin(e.walk*0.5)*0.05));
 }
+// 金ぴかゴーレム：太い足、長いうで、赤く光る目。両うでをふり上げて地面をたたく
+const GOLEM_SLAM=1.0,GOLEM_THROW=0.6;
+function golemVerts(e,out){
+  const sw=Math.sin(e.walk)*0.45;let armA=sw*0.6,armB=-sw*0.6;
+  if(e.atk>0){const t=1-e.atk/GOLEM_SLAM;armA=armB=t<0.55?t/0.55*3.0:3.0-(t-0.55)/0.45*3.1;}
+  if(e.throwT>0){const t=1-e.throwT/GOLEM_THROW;armA=t<0.6?t/0.6*2.9:2.9-(t-0.6)/0.4*1.7;}
+  for(const s of [-1,1])pushBox(out,[-0.2,-0.9,-0.22],[0.2,0,0.22],T_GOLD,part(e,[s*0.26,0.9,0],s*sw));
+  pushBox(out,[-0.5,0.85,-0.3],[0.5,1.95,0.3],T_GOLEMBODY,part(e,[0,0,0],0));
+  for(const[sx,a]of [[0.68,armA],[-0.68,armB]]){const p=part(e,[sx,1.82,0],a);
+    pushBox(out,[-0.17,-1.25,-0.17],[0.17,0.1,0.17],T_GOLD,p);pushBox(out,[-0.22,-1.5,-0.22],[0.22,-1.18,0.22],T_GOLD,p);}
+  pushBox(out,[-0.27,0,-0.27],[0.27,0.5,0.27],T_GOLEMHEAD,part(e,[0,1.95,0],0));
+}
 function enemyVerts(e,out){
   if(e.type==='rival') return avatarVerts(e,out);
+  if(e.type==='golem') return golemVerts(e,out);
   if(e.type==='ohtani') return ohtaniVerts(e,out);
   if(e.type==='kinnikun') return kinVerts(e,out);
   if(e.type==='yoshio') return yoshioVerts(e,out);
@@ -1566,6 +1628,10 @@ function render(){
   gl.drawArrays(gl.TRIANGLES,0,vcount);
   if(cpus.some(c=>c.x!==undefined)){const out=[];for(const c of cpus)if(c.x!==undefined)avatarVerts(c,out);bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
   if(remote&&!remote.dead){const out=[];avatarVerts(remote,out);bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);if(remote.hurt>0)gl.uniform3f(LB.tint,1.7,0.45,0.45);else gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
+  if(boat||(remote&&remote.bt&&!remote.dead)){const out=[]; // こいでいるたらい舟
+    const tub=(x,y,z)=>{const o={x,y,z,yaw:0,scale:1};for(const b of TUB_BOXES)pushBox(out,[b[0][0]-0.5,b[0][1],b[0][2]-0.5],[b[1][0]-0.5,b[1][1],b[1][2]-0.5],T_TUB,part(o,[0,0,0],0));};
+    if(boat)tub(boat.x,P.y-0.32,boat.z);if(remote&&remote.bt&&!remote.dead)tub(remote.x,remote.y-0.32,remote.z);
+    bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
   if(crowd.length){const out=[];for(const c of crowd)enemyVerts(c,out);bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
   if(enemies.length){
     const out=[],ranges=[];
@@ -1586,15 +1652,15 @@ function render(){
     for(const r of rockets){const o={x:r.x,y:r.y,z:r.z,yaw:r.yaw,scale:1};
       if(r.owner==='ghast')pushBox(out,[-0.18,-0.18,-0.18],[0.18,0.18,0.18],T_BOOM,part(o,[0,0,0],r.t*6));
       else if(r.owner==='mud')pushBox(out,[-0.2,-0.2,-0.2],[0.2,0.2,0.2],T_MUD,part(o,[0,0,0],r.t*5));
-      else if(r.owner==='ball')pushBox(out,[-0.13,-0.13,-0.13],[0.13,0.13,0.13],T_BALL,part(o,[0,0,0],r.t*14));
+      else if(r.owner==='ball'){const k=r.gold?0.18:0.13;pushBox(out,[-k,-k,-k],[k,k,k],r.gold?T_GOLD:T_BALL,part(o,[0,0,0],r.t*14));}
       else pushBox(out,[-0.08,-0.08,-0.32],[0.08,0.08,0.32],T_ROCKET,part(o,[0,0,0],r.pitch));}
-    for(const b of mirrorBalls){const o={x:b.x,y:b.y,z:b.z,yaw:0,scale:1},k=b.ball?0.13:b.mud?0.2:0.18;pushBox(out,[-k,-k,-k],[k,k,k],b.ball?T_BALL:b.mud?T_MUD:T_BOOM,part(o,[0,0,0],performance.now()/160));}
+    for(const b of mirrorBalls){const o={x:b.x,y:b.y,z:b.z,yaw:0,scale:1},k=b.gold?0.18:b.ball?0.13:b.mud?0.2:0.18;pushBox(out,[-k,-k,-k],[k,k,k],b.gold?T_GOLD:b.ball?T_BALL:b.mud?T_MUD:T_BOOM,part(o,[0,0,0],performance.now()/160));}
     for(const t of tracers){
       const dx=t.b[0]-t.a[0],dy=t.b[1]-t.a[1],dz=t.b[2]-t.a[2],h=Math.hypot(dx,dz),len=Math.hypot(dx,dy,dz);if(len<0.8)continue;
       const o={x:t.a[0],y:t.a[1]-0.15,z:t.a[2],yaw:Math.atan2(-dx,-dz),scale:1},w=t.w;
       pushBox(out,[-w,-w,-len],[w,w,-0.6],T_TRACER,part(o,[0,0,0],Math.atan2(dy,h)));}
-    for(const d of debris){const o={x:d.x,y:d.y,z:d.z,yaw:d.t*5,scale:1};pushBox(out,[-d.s,-d.s,-d.s],[d.s,d.s,d.s],T_YSKIN,part(o,[0,0,0],d.t*4));}
-    for(const b of booms){const sz=b.mud?0.25+b.t/0.4*1.1:0.4+b.t/0.4*2.6;const o={x:b.x,y:b.y,z:b.z,yaw:b.t*4,scale:1};pushBox(out,[-sz,-sz,-sz],[sz,sz,sz],b.mud?T_MUD:T_BOOM,part(o,[0,0,0],b.t*3));}
+    for(const d of debris){const o={x:d.x,y:d.y,z:d.z,yaw:d.t*5,scale:1};pushBox(out,[-d.s,-d.s,-d.s],[d.s,d.s,d.s],d.tile||T_YSKIN,part(o,[0,0,0],d.t*4));}
+    for(const b of booms){const sz=b.mud?0.25+b.t/0.4*1.1:0.4+b.t/0.4*2.6;const o={x:b.x,y:b.y,z:b.z,yaw:b.t*4,scale:1};pushBox(out,[-sz,-sz,-sz],[sz,sz,sz],b.gold?T_GOLD:b.mud?T_MUD:T_BOOM,part(o,[0,0,0],b.t*3));}
     bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
     gl.uniform3f(LB.tint,1.1,1.1,1.1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);
   }
@@ -1616,8 +1682,9 @@ function hitsBox(px,py,pz,r,h){
 // moves body b {x,y,z,vx,vy,vz,ground}; returns true if horizontally blocked
 function moveBody(b,dt,r,h){
   let blocked=false;
-  const nx=b.x+b.vx*dt; if(!hitsBox(nx,b.y,b.z,r,h))b.x=nx; else blocked=true;
-  const nz=b.z+b.vz*dt; if(!hitsBox(b.x,b.y,nz,r,h))b.z=nz; else blocked=true;
+  const wet=(x,z)=>b.noWater&&WATER[getB(Math.floor(x),Math.floor(b.y+0.1),Math.floor(z))]; // 佐渡島の敵は海に入らない
+  const nx=b.x+b.vx*dt; if(!hitsBox(nx,b.y,b.z,r,h)&&!wet(nx,b.z))b.x=nx; else blocked=true;
+  const nz=b.z+b.vz*dt; if(!hitsBox(b.x,b.y,nz,r,h)&&!wet(b.x,nz))b.z=nz; else blocked=true;
   const ny=b.y+b.vy*dt; b.ground=false;
   if(!hitsBox(b.x,ny,b.z,r,h)) b.y=ny;
   else { if(b.vy<0){b.ground=true;b.y=Math.floor(ny)+1;} b.vy=0; }
@@ -1628,8 +1695,9 @@ function surfaceY(x,z){let y=H-1;while(y>0&&!solidAt(Math.floor(x),y,Math.floor(
 // ---------- player ----------
 const MAXHP=20;
 const P={x:W/2+0.5,y:0,z:D/2+0.5,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,hp:MAXHP,safe:0,inv:0};
+let boat=null,sadoSeaT=0,sadoCrossed=false; // たらい舟に乗っている間 {x,z,y,vx,vz,t}、佐渡島で海にいる時間、金山の島に着いたか
 const PR=0.3,PH=1.7,EYE=1.6;
-function spawn(){const sp=STAGES[stage].spawn;P.x=sp[0];P.z=sp[2];P.y=standAt(P.x,P.z,sp[1]);P.vx=P.vy=P.vz=P.kx=P.kz=0;}
+function spawn(){boat=null;const sp=STAGES[stage].spawn;P.x=sp[0];P.z=sp[2];P.y=standAt(P.x,P.z,sp[1]);P.vx=P.vy=P.vz=P.kx=P.kz=0;}
 const hits=(x,y,z)=>hitsBox(x,y,z,PR,PH);
 
 // ---------- enemies & cows ----------
@@ -1650,7 +1718,8 @@ const ENEMY_STATS={
   yoshio:{r:0.35,h:2.1,hp:60,spd:2.6,dmg:5},
   rival:{r:0.3,h:1.8,hp:20,spd:3.4,dmg:2}, // 対戦モードのCPU
   ohtani:{r:0.32,h:2.1,hp:60,spd:2.8,dmg:5},  // よしおの第2形態
-  kinnikun:{r:0.4,h:2.14,hp:80,spd:2.6,dmg:6} // よしおの最終形態
+  kinnikun:{r:0.4,h:2.14,hp:80,spd:2.6,dmg:6}, // よしおの最終形態
+  golem:{r:0.55,h:2.45,hp:70,spd:1.7,dmg:6} // 佐渡島のボス
 };
 function enemyDims(type){return ENEMY_STATS[type]||ENEMY_STATS.zero;}
 let nextEnemyId=1;
@@ -1660,6 +1729,7 @@ function spawnEnemy(type,at,opt){
   const place=(x,y,z)=>{
     const e={id:nextEnemyId++,type,r,h,x,y,z,vx:0,vy:0,vz:0,kx:0,kz:0,ground:false,yaw:Math.random()*6.28,hp,maxhp:hp,spd,dmg,target:null,fleeX:0,fleeZ:0,walk:0,atk:0,cd:1,hurt:0,dying:0,scale:base,base,boss:!!opt.boss,struck:false,
       think:0,moving:false,dirYaw:0,flee:0,seed:Math.random()*6};
+    if(stage===SADO)e.noWater=true;
     enemies.push(e);seeEnemy(type);return e;
   };
   if(at)return place(at[0],standAt(at[0],at[2],at[1]),at[2]);
@@ -1667,6 +1737,7 @@ function spawnEnemy(type,at,opt){
     const x=2.5+Math.floor(Math.random()*(W-4)),z=2.5+Math.floor(Math.random()*(D-4));
     if(Math.hypot(x-P.x,z-P.z)<(type==='cow'?7:tries<40?14:6)) continue;
     const y=randomStandY(x,z,h,opt.low);if(y==null) continue;
+    if(WATER[getB(Math.floor(x),y,Math.floor(z))]) continue; // 海や川の中には出さない
     if(y>=H-2||hitsBox(x,y,z,r,h)) continue;
     // 空の島のボスは、まわりにも床がある場所（島のまんなか寄り）に出す
     if(opt.boss&&voidBelow&&[[2.5,0],[-2.5,0],[0,2.5],[0,-2.5]].some(o=>!solidAt(Math.floor(x+o[0]),y-1,Math.floor(z+o[1])))) continue;
@@ -1712,6 +1783,7 @@ function damageEnemy(e,dmg,kb,src,how,localFx){
   if(e.type==='cow'){e.flee=2.5;e.fleeX=sx;e.fleeZ=sz;}
   if(e.hp<=0){
     e.dying=0.5;if(localFx)sfx('enemyDie',{type:e.type});
+    if(e.type==='golem')goldBurst(e);
     if(e.boss){if(!BOSS_NEXT[e.type])bossDown(localFx);else if(net.role!=='guest')bossTransform(e);} // よしお・おおたには変身する
     if(e.type==='rival')vsResult(1,'down');
     if(e.king&&net.role!=='guest'){if(localFx)kingDown(true);else{netSend({t:'vsKing'});kingDown(false);}}
@@ -2147,6 +2219,39 @@ function updateKinnikun(e,dt){
   } else e.stuckT=0;
   e.walk+=dt*sp*2.6;e.hurt-=dt;e.cd-=dt;
 }
+function golemSlam(e){ // 両うでで地面をたたいて、まわりに衝撃波
+  const b=e.base||1,R=3.4*b;
+  for(const[ox,oz]of[[0,0],[1.4,0],[-1.4,0],[0,1.4],[0,-1.4],[1,1],[-1,-1],[1,-1],[-1,1]])booms.push({x:e.x+ox*b,y:e.y+0.2,z:e.z+oz*b,t:0,mud:true,gold:true});
+  netBoom(e.x,e.y+0.2,e.z,0,'gold');sfx('explode');
+  for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z);if(d<R&&Math.abs(t.y-e.y)<2*b)hurtTarget(t,Math.round(3+5*(1-d/R)),e.x,e.z,false);}
+  if(navigator.vibrate)try{navigator.vibrate(100);}catch(err){}
+}
+function throwNugget(e,tg){ // 金のかたまりを山なりに投げる
+  const b=e.base||1,y0=e.y+2.2*b,sx=e.x-Math.sin(e.yaw)*0.6*b,sz=e.z-Math.cos(e.yaw)*0.6*b,dx=tg.x-sx,dz=tg.z-sz,l=Math.hypot(dx,dz)||1,T=Math.max(0.45,l/14),g=12;
+  rockets.push({owner:'ball',gold:true,dmg:4,x:sx,y:y0,z:sz,vx:dx/T,vy:(tg.y+1-y0)/T+0.5*g*T,vz:dz/T,t:0,yaw:0,pitch:0});sfx('swing');
+}
+function goldBurst(e){ // たおすと金がざくざく
+  const b=e.base||1;
+  for(let i=0;i<26;i++)debris.push({x:e.x+(Math.random()-0.5)*b,y:e.y+1.2*b,z:e.z+(Math.random()-0.5)*b,vx:(Math.random()-0.5)*7,vy:4+Math.random()*5,vz:(Math.random()-0.5)*7,t:0,s:0.12+Math.random()*0.1,tile:T_GOLD});
+  setTimeout(()=>toast('💰 金がざくざく出てきた！'),1400);
+}
+function updateGolem(e,dt){
+  const b=e.base||1,tg=nearestPlayer(e);
+  const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
+  let sp=0;e.throwCd=(e.throwCd===undefined?3:e.throwCd)-dt;
+  if(e.atk>0){const prev=e.atk;e.atk-=dt;if(tg)e.dirYaw=Math.atan2(-dx,-dz);
+    if(prev>0.42&&e.atk<=0.42)golemSlam(e);
+    if(e.atk<=0){e.atk=0;e.cd=1.4;}}
+  else if(e.throwT>0){e.throwT-=dt;if(tg)e.dirYaw=Math.atan2(-dx,-dz);if(e.throwT<=0){e.throwT=0;if(tg)throwNugget(e,tg);e.throwCd=3+Math.random()*1.5;}}
+  else if(tg&&(dist<30||e.boss)){
+    if(dist<3*b&&Math.abs(dyT)<2.5*b&&e.cd<=0)e.atk=GOLEM_SLAM;
+    else if(dist>5&&dist<22&&e.throwCd<=0&&losClear(e.x,e.y+2*b,e.z,tg.x,tg.y+1,tg.z))e.throwT=GOLEM_THROW;
+    else if(dist>1.8*b){sp=e.spd;e.dirYaw=pathYaw(e,tg);}else e.dirYaw=Math.atan2(-dx,-dz);}
+  steer(e,dt,sp,4);
+  const blocked=moveBody(e,dt,e.r,e.h);
+  if(blocked&&e.ground&&sp>0)e.vy=8.2;
+  e.walk+=dt*sp*2.2;e.hurt-=dt;e.cd-=dt;
+}
 function crumbleFx(e){ // 足元からくずれたかけらがこぼれる
   const b=e.base||1;
   for(let i=0;i<6;i++)debris.push({x:e.x+(Math.random()-0.5)*0.7*b,y:e.y+0.2+Math.random()*0.3,z:e.z+(Math.random()-0.5)*0.7*b,
@@ -2173,7 +2278,7 @@ function updateEnemies(dt){
       if(e.type!=='cow'&&e.dying<=0){e.nearCd=(e.nearCd||0)-dt;const nd=Math.hypot(P.x-e.x,P.z-e.z);
         if(nd<10&&e.nearCd<=0){e.nearCd=2.5+Math.random();sfx('enemyNear',{type:e.type,dist:nd,volume:1-nd/10});}}
     }
-    for(const b of mirrorBalls){if(b.mud)b.vy-=18*dt;if(b.ball)b.vy-=6*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;}
+    for(const b of mirrorBalls){if(b.mud)b.vy-=18*dt;if(b.ball)b.vy-=(b.gold?12:6)*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;}
     return;
   }
   refreshTargets();
@@ -2216,6 +2321,7 @@ function updateEnemies(dt){
     if(e.type==='yoshio'){updateYoshio(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='ohtani'){updateOhtani(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='kinnikun'){updateKinnikun(e,dt);if(e.y<-20)e.dying=0.01;continue;}
+    if(e.type==='golem'){updateGolem(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     const tg=nearestPlayer(e);
     const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
     const b=e.base||1,chase=tg&&dist<30&&dist>1.2*b&&e.atk<=0?1:0;
@@ -2271,6 +2377,7 @@ function checkCells(dt){
 }
 function goalTarget(){const g=STAGES[stage].goal;return g.type==='reach'?1:g.n;}
 function goalProgress(){const g=STAGES[stage].goal;
+  if(g.type==='cross')return sadoCrossed?1:0;
   if(g.type==='kills')return stageStats.kills;if(g.type==='gems')return stageStats.gems;if(g.type==='chests')return stageStats.chests;
   return (P.y>=g.n-0.1&&P.ground)?1:0;}
 // ---- ボス戦：ステージのゴールを達成すると、ほかの敵が消えてボスがあらわれる。ボスをたおすとクリア ----
@@ -2341,6 +2448,7 @@ function updateGoalHud(){
   else if(bossRush)t='👑 ボス戦モード '+(stage+1)+'/'+NSTAGE+'　'+(goalDone?'たおした！':bossName()+'をたおせ')+'　⏱ '+fmtTime(bossRush.t);
   else if(goalDone)t=st.icon+' クリア！ 🌀ポータルに入ろう';
   else if(bossPhase===1)t='👑 ボス戦！ '+bossName()+'をたおせ';
+  else if(g.type==='cross')t=st.icon+' '+g.text;
   else if(g.type==='reach'){const f=Math.max(1,Math.min(6,Math.floor((P.y-3)/5)+1));
     t=st.icon+' '+g.text+'（今 '+(P.y>=g.n-0.1?'屋上':f+'階')+'）';}
   else t=st.icon+' '+g.text+' '+Math.min(goalProgress(),g.n)+'/'+g.n;
@@ -2362,7 +2470,7 @@ function enterPortal(){
 }
 function goStage(n){
   n=Math.max(0,Math.min(STAGES.length-1,n));
-  stage=n;selStage=n;goalDone=false;bossPhase=bossRush?1:0;pendingBossHp=0;bossForm=null;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
+  stage=n;selStage=n;goalDone=false;bossPhase=bossRush?1:0;pendingBossHp=0;bossForm=null;boat=null;sadoCrossed=false;sadoSeaT=0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
   if(!bossRush&&n<NSTAGE){progress.unlocked=Math.max(progress.unlocked,n);saveProgress();}
   applyStageLook(n);
   // ボス戦モードの草原は、セーブした世界をこわさないように新しく作る
@@ -2372,6 +2480,7 @@ function goStage(n){
   else if(n===ISLAND)toast('🏝️ 5分でいちばん太った人の勝ち！ 食べまくれ！');
   else if(vs&&n===0)toast('⚔️ 準備タイム！ 武器と防具ができたら「準備完了」をおそう');
   else if(n===VS_ARENA)toast('⚔️ 対戦ステージ！');
+  else if(n===SADO)toast('🛶 ステージ7　佐渡島　浜のたらい舟に乗って（'+(isTouch?'🧱ボタン':'右クリック')+'）、金山の島へわたろう');
   else toast(STAGES[n].icon+' ステージ'+(n+1)+'　'+STAGES[n].name);
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
 }
@@ -2698,7 +2807,7 @@ function rushClear(){
   if(rec)try{localStorage.setItem(RUSH_KEY,String(t));}catch(e){}
   gameClear();
   document.getElementById('clearTitle').textContent='👑 ボス戦モード クリア！';
-  document.getElementById('clearMsg').textContent='6体のボスをぜんぶたおした！ タイム '+fmtTime(t)+(rec?'　🏆 新記録！':'　（ベスト '+fmtTime(best)+'）');
+  document.getElementById('clearMsg').textContent=NSTAGE+'体のボスをぜんぶたおした！ タイム '+fmtTime(t)+(rec?'　🏆 新記録！':'　（ベスト '+fmtTime(best)+'）');
   updateRushBest();
 }
 function updateRushBest(){let b=null,k=0;try{b=parseFloat(localStorage.getItem(RUSH_KEY));k=parseFloat(localStorage.getItem(ISLAND_KEY))||0;}catch(e){}
@@ -2948,7 +3057,7 @@ function genArena(rnd){
 function gameClear(){
   clearBtnEl.textContent='草原にもどる';islandAgainEl.style.display='none';vsAgainEl.style.display='none';
   document.getElementById('clearTitle').textContent='🎉 ぜんぶクリア！';
-  document.getElementById('clearMsg').textContent='クジラのおなかから脱出成功！ すべてのステージをクリアしたよ。';
+  document.getElementById('clearMsg').textContent='佐渡島の金山のゴーレムをたおした！ すべてのステージをクリアしたよ。';
   clearing=true;fireHeld=false;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
   document.getElementById('clear').style.display='flex';
@@ -2957,6 +3066,40 @@ const joy={id:null,ox:0,oy:0,dx:0,dy:0};
 const look={id:null,x:0,y:0};
 let sel=0,swordCd=0,kickCd=0;
 
+// ---- たらい舟：乗るとこいで海をわたれる。陸の近くでジャンプすると降りる ----
+function boardTub(x,y,z){
+  if(boat)return;
+  world[idx(x,y,z)]=85;netBlock(x,y,z,85);buildMesh();
+  boat={x:x+0.5,z:z+0.5,y,vx:0,vz:0,t:0,jumpLock:true};P.x=boat.x;P.z=boat.z;P.y=y+0.3;P.vx=P.vy=P.vz=0;
+  sfx('blockPlace');toast('🛶 たらい舟に乗った！ うごくとこげるよ（陸の近くでジャンプすると降りる）');
+}
+function boatStep(dt,f,s,sy,cy){
+  boat.t+=dt;if(!(keys.Space||jumpHeld))boat.jumpLock=false;
+  const sp=2.6,tvx=(-sy*f+cy*s)*sp,tvz=(-cy*f-sy*s)*sp,k=Math.min(1,dt*2.5);
+  boat.vx+=(tvx-boat.vx)*k;boat.vz+=(tvz-boat.vz)*k; // 水の上なので、ゆっくり動き出してゆっくり止まる
+  // 水の上で、頭の上（桟橋の下など）があいているところだけ進める
+  const ok=(x,z)=>[[-0.38,-0.38],[0.38,-0.38],[-0.38,0.38],[0.38,0.38]].every(([a,c])=>{const cx=Math.floor(x+a),cz=Math.floor(z+c);return WATER[getB(cx,boat.y,cz)]&&!solidAt(cx,boat.y+1,cz)&&!solidAt(cx,boat.y+2,cz);});
+  const nx=boat.x+boat.vx*dt,nz=boat.z+boat.vz*dt;
+  if(ok(nx,boat.z))boat.x=nx;else boat.vx*=-0.3;
+  if(ok(boat.x,nz))boat.z=nz;else boat.vz*=-0.3;
+  P.x=boat.x;P.z=boat.z;P.y=boat.y+0.3+Math.sin(boat.t*2.2)*0.04;P.vx=P.vy=P.vz=P.kx=P.kz=0;P.ground=true;
+  if((keys.Space||jumpHeld)&&!boat.jumpLock)leaveBoat();
+}
+function leaveBoat(){
+  let best=null,bd=9;
+  for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){const cx=Math.floor(boat.x)+dx,cz=Math.floor(boat.z)+dz;
+    for(let y=boat.y+1;y<=boat.y+3;y++){const fl=getB(cx,y-1,cz);
+      if(solidAt(cx,y-1,cz)&&fl!==105&&!solidAt(cx,y,cz)&&!solidAt(cx,y+1,cz)){const d=Math.hypot(cx+0.5-boat.x,cz+0.5-boat.z);if(d<bd&&d<=2.2){bd=d;best=[cx+0.5,y,cz+0.5];}break;}}}
+  if(!best){toast('🛶 陸の近くで降りよう');boat.jumpLock=true;return;}
+  const bx=Math.floor(boat.x),bz=Math.floor(boat.z);
+  if(WATER[getB(bx,boat.y,bz)]){world[idx(bx,boat.y,bz)]=105;netBlock(bx,boat.y,bz,105);buildMesh();} // 舟はその場にうかべておく
+  boat=null;P.x=best[0];P.y=best[1];P.z=best[2];P.vy=3;jumpHeld=false;
+  toast('🛶 たらい舟から降りた');
+}
+function sadoRescue(){ // 海に落ちたら、近いほうの桟橋にもどる
+  const north=P.z>24,x=24.5,z=north?30.5:12.5;P.x=x;P.z=z;P.y=standAt(x,z,7);P.vx=P.vy=P.vz=P.kx=P.kz=0;
+  toast('🌊 佐渡の海は深くて泳げない！ たらい舟に乗ってわたろう');
+}
 function step(dt){
   let f=0,s=0;
   if(keys.KeyW||keys.ArrowUp)f+=1; if(keys.KeyS||keys.ArrowDown)f-=1;
@@ -2964,6 +3107,7 @@ function step(dt){
   if(joy.id!==null){f+=-joy.dy/50;s+=joy.dx/50;}
   const len=Math.hypot(f,s); if(len>1){f/=len;s/=len;}
   const sp=4.6*(island?fatSpeed(island.kg)*(island.pee>0||island.poo>0||island.sleep>0?0:1):1)*(vs&&vs.cd>0?0:1)*(WATER[getB(Math.floor(P.x),Math.floor(P.y+0.1),Math.floor(P.z))]?0.7:1), sy=Math.sin(yaw), cy=Math.cos(yaw); // 水の中はゆっくり
+  if(boat)boatStep(dt,f,s,sy,cy);else{ // たらい舟に乗っている間は、舟をこぐ
   P.vx=(-sy*f+cy*s)*sp+P.kx; P.vz=(-cy*f-sy*s)*sp+P.kz;
   const damp=Math.min(1,6*dt);P.kx-=P.kx*damp;P.kz-=P.kz*damp;
   P.vy-=26*dt; if(P.vy<-30)P.vy=-30;
@@ -2977,6 +3121,13 @@ function step(dt){
     const ax=P.x+(-sy*f+cy*s)*0.5, az=P.z+(-cy*f-sy*s)*0.5;
     if(!hits(ax,P.y+1.05,az)) P.vy=8.2;
   }
+  if(stage===SADO){ // 佐渡島の海は深くて泳げない。たらい舟で
+    sadoSeaT=WATER[getB(Math.floor(P.x),Math.floor(P.y+0.1),Math.floor(P.z))]?sadoSeaT+dt:0;
+    if(sadoSeaT>0.6){sadoSeaT=0;sadoRescue();}}
+  }
+  if(stage===SADO&&!sadoCrossed&&net.role!=='guest'){ // 金山の島に着いたらゴール
+    const onB=(x,y,z)=>z>=SADO_BZ&&y>=7&&!WATER[getB(Math.floor(x),Math.floor(y+0.1),Math.floor(z))];
+    if((!boat&&P.ground&&onB(P.x,P.y,P.z))||(remote&&remote.tx!==undefined&&!remote.bt&&!remote.dead&&onB(remote.tx,remote.ty,remote.tz))){sadoCrossed=true;toast('🎉 金山の島に着いた！');}}
   if(voidBelow&&P.y<-6){P.hp=0;updateHud();gameOver('空から落ちてしまった！');return;}
   if(P.y<-20){spawn();hurtPlayer(4,P.x,P.z);}
   swordCd-=dt;kickCd-=dt;
@@ -3057,6 +3208,7 @@ function breakBlock(){
   const [x,y,z]=r.hit,id=world[idx(x,y,z)];
   if(id===13){toast('🌀 ポータルは中に入ると次のステージへ進むよ');return;}
   if(id===30){toast('岩盤はこわせないよ');return;}
+  if(id===105){toast(isTouch?'🛶 たらい舟は🧱ボタンで乗れるよ':'🛶 たらい舟は右クリックで乗れるよ');return;}
   const pkey=x+','+y+','+z;
   if(stage===VS_ARENA&&!(vs&&vs.placed.has(pkey))){toast('🛡️ 対戦ステージのブロックはこわせない（置いたブロックはOK）');return;}
   if(island&&islandBusy())return;
@@ -3066,7 +3218,7 @@ function breakBlock(){
   if(id===91||id===93){toast('🍲 鍋は支給品。雨がふると水がたまるよ');return;}
   if(id===92){pickBottle(x,y,z);return;}
   if(id===89||id===90){toast(id===89?'🔥 たき火は支給品。右クリックで生水を煮沸できるよ':'🧪 ろ過器は支給品。右クリックで生水をろ過できるよ');return;}
-  if((id===3||id===9)&&!inv.own.pickaxe){
+  if((id===3||id===9||id===106)&&!inv.own.pickaxe){
     const key=x+','+y+','+z; if(mineKey!==key){mineKey=key;mineN=0;}
     mineN++; if(weapon==='sword'||weapon==='pickaxe')replay(heldEl,'swing');netAct('swing');
     if(mineN<3){if(mineN===1)toast('かたい！ 3回たたこう（ピッケルなら1回）');return;}
@@ -3080,7 +3232,8 @@ function breakBlock(){
   {const fk=furnKind(id);if(fk>=0){const key=FURN[fk].key;const first=inv.furn[key]===undefined;inv.furn[key]=(inv.furn[key]|0)+1;saveInv();if(first)buildHotbar();else updateFurnCounts();toast('📦 '+FURN[fk].name+'をしまった');}}
   if(island&&(id===4||id===7)){islandState().wood++;toast('🪵 木材 '+island.wood+'（作業台でまな板を作れるよ）');updateIslandHud();}
   else if(id===4||id===7)inv.wood+=vs?2:1; // 対戦の準備タイムは2倍集まる
-  if(id===3||id===9||id===11||id===16||id===20)inv.stone+=vs?2:1;
+  if(id===3||id===9||id===11||id===16||id===20||id===106)inv.stone+=vs?2:1;
+  if(id===106){inv.stone+=2;toast('✨ 金だ！ 🪨+3');}
   if(id===12){stageStats.gems++;seeItem('gem');toast('💎 宝石を見つけた！');}
   if(id===19){stageStats.chests++;inv.wood+=3;inv.stone+=3;saveInv();updateHud();seeItem('chest');toast('📦 宝箱！ 🪵+3 🪨+3');}
   if(id===24||id===25||id===26)harvestCrop(id);
@@ -3120,6 +3273,7 @@ function placeBlock(){
   if(furnKind(hitId)===0){sleepBed();return;}
   if(isButton(hitId)){pressButton(r.hit[0],r.hit[1],r.hit[2]);return;}
   if(isKnob(hitId)){knobClick(r.hit[0],r.hit[1],r.hit[2]);return;}
+  if(hitId===105){boardTub(r.hit[0],r.hit[1],r.hit[2]);return;} // たらい舟に乗る
   if(!r.prev) return;
   const [x,y,z]=r.prev; if(x<0||z<0||x>=W||z>=D||y<0||y>=H) return;
   if(stage===VS_ARENA&&(y>8||Math.hypot(x+0.5-24,z+0.5-24)>12)){toast('🛡️ ここにはブロックを置けない');return;} // かべをこえて外に出ないように
@@ -3210,6 +3364,7 @@ const DEX_ENEMIES=[
   {id:'imo',name:'いもじじい',desc:'大きな家のボス。泥を投げてきたり、ジャンプしてのしかかってくる。',face:101},
   {id:'ohtani',name:'おおたに',desc:'よしおの第2形態。燃えるバットをふり回し、はなれるとボールを投げてくる。',face:139},
   {id:'kinnikun',name:'なかやまきんに君',desc:'よしおの最終形態。パンチで攻撃してくる。行く手のブロックもなぐってこわす（上すぎるブロックはとどかない）。',face:143},
+  {id:'golem',name:'金ぴかゴーレム',desc:'佐渡島のボス。金山の金でできた大きなゴーレム。地面をたたいて衝撃波を出し、金のかたまりを投げてくる。たおすと金がざくざく出てくる。',face:150},
   {id:'yoshio',name:'よしお',desc:'クジラのおなかのボス。おどりながら近づき、下に向かってパンチしてくる。攻撃されると足元からくずれて小さくなっていく。',face:106}
 ];
 const ENEMY_NAME=Object.fromEntries(DEX_ENEMIES.map(d=>[d.id,d.name]));
@@ -3393,7 +3548,7 @@ function explode(x,y,z,byEnemy,rid){
   const R=stage===VS_ARENA?0:2.3;let changed=false; // 対戦ステージではブロックはこわれない
   if(R)for(let yy=Math.floor(y-R);yy<=Math.floor(y+R);yy++)for(let zz=Math.floor(z-R);zz<=Math.floor(z+R);zz++)for(let xx=Math.floor(x-R);xx<=Math.floor(x+R);xx++){
     if(yy<1||yy>=H||xx<0||zz<0||xx>=W||zz>=D)continue;
-    const id=world[idx(xx,yy,zz)];if(!id||id===10||id===12||id===13||id===19||id===30)continue;
+    const id=world[idx(xx,yy,zz)];if(!id||id===10||id===12||id===13||id===19||id===30||id===105)continue;
     if(Math.hypot(xx+0.5-x,yy+0.5-y,zz+0.5-z)<=R){world[idx(xx,yy,zz)]=0;changed=true;netBlock(xx,yy,zz,0);}
   }
   if(changed){buildMesh();queueSave();}
@@ -3418,7 +3573,7 @@ function updateWeapons(dt){
   for(const r of rockets){
     r.t+=dt;let boom=false,hitT=null;
     if(r.owner==='mud')r.vy-=18*dt;
-    if(r.owner==='ball')r.vy-=6*dt;
+    if(r.owner==='ball')r.vy-=(r.gold?12:6)*dt;
     for(let k=0;k<4&&!boom;k++){
       r.x+=r.vx*dt/4;r.y+=r.vy*dt/4;r.z+=r.vz*dt/4;
       if(solidAt(Math.floor(r.x),Math.floor(r.y),Math.floor(r.z))&&r.y<H)boom=true;
@@ -3433,7 +3588,7 @@ function updateWeapons(dt){
     // 相手のロケットは見た目だけ。ばくはつは相手から届く boom で出す
     if(boom){r.dead=true;
       if(r.owner==='mud'){booms.push({x:r.x,y:r.y,z:r.z,t:0,mud:true});netBoom(r.x,r.y,r.z,0,'mud');if(hitT)hurtTarget(hitT,3,r.x,r.z,true,true);}
-      else if(r.owner==='ball'){if(hitT){hurtTarget(hitT,3,r.x,r.z,false);sfx('enemyHit',{type:'zero'});}} // ボールはばくはつしない
+      else if(r.owner==='ball'){if(hitT){hurtTarget(hitT,r.dmg||3,r.x,r.z,false);sfx('enemyHit',{type:'zero'});}} // ボールはばくはつしない
       else if(r.owner!=='remote')explode(r.x,r.y,r.z,r.owner==='rival'?'rival':r.owner==='ghast',r.id);}
   }
   rockets=rockets.filter(r=>!r.dead);
@@ -4156,7 +4311,7 @@ function onNet(m){
     if(!remote)remote={x:m.x,y:m.y,z:m.z,yaw:m.yaw,pitch:m.pitch,walk:0,swing:0,scale:1,appearance:0};
     remote.tx=m.x;remote.ty=m.y;remote.tz=m.z;remote.tyaw=m.yaw;remote.pitch=m.pitch;remote.appearance=m.ap|0;
     remote.weapon=typeof m.w==='string'?m.w:'sword';remote.dead=!!m.dd;remote.kg=+m.kg||0;remote.fat=remote.kg?fatK(remote.kg):1;
-    remote.hp=typeof m.hp==='number'?m.hp:MAXHP;remote.armor=(m.ar|0)>0&&(m.ar|0)<=2?m.ar|0:0;
+    remote.hp=typeof m.hp==='number'?m.hp:MAXHP;remote.bt=!!m.bt;remote.armor=(m.ar|0)>0&&(m.ar|0)<=2?m.ar|0:0;
   } else if(m.t==='blk'){
     for(const c of m.c){const[x,y,z,id]=c;if(x>=0&&z>=0&&y>=0&&x<W&&z<D&&y<H){const old=world[idx(x,y,z)];
       if(net.role==='host'&&id===0){if(old===12)stageStats.gems++;if(old===19)stageStats.chests++;}world[idx(x,y,z)]=id;
@@ -4173,7 +4328,7 @@ function onNet(m){
     else if(m.a==='rk'){remote.recoil=0.2;
       rockets.push({owner:'remote',id:m.id,x:m.x,y:m.y,z:m.z,vx:m.vx,vy:m.vy,vz:m.vz,yaw:Math.atan2(-m.vx,-m.vz),pitch:Math.atan2(m.vy,Math.hypot(m.vx,m.vz)),t:0});}
   } else if(m.t==='boom'){
-    booms.push({x:m.x,y:m.y,z:m.z,t:0,mud:m.k==='mud'});
+    booms.push({x:m.x,y:m.y,z:m.z,t:0,mud:m.k==='mud'||m.k==='gold',gold:m.k==='gold'});
     if(m.rid)for(const r of rockets)if(r.owner==='remote'&&r.id===m.rid)r.dead=true;
   } else if(m.t==='hurt'){
     if(net.role==='guest'){hurtPlayer(m.dmg,m.x,m.z,!!m.nk);if(m.mud)mudScreen();}
@@ -4258,7 +4413,7 @@ function onNet(m){
       if(type==='yoshio')e.h=enemyDims(type).h*(base||1)*(1-crumbleK(e));
     }
     enemies=enemies.filter(en=>seen.has(en.id));
-    mirrorBalls=Array.isArray(m.f)?m.f.map(a=>({x:a[0],y:a[1],z:a[2],vx:a[3],vy:a[4],vz:a[5],mud:a[6]===1,ball:a[6]===2})):[];
+    mirrorBalls=Array.isArray(m.f)?m.f.map(a=>({x:a[0],y:a[1],z:a[2],vx:a[3],vy:a[4],vz:a[5],mud:a[6]===1,ball:a[6]>=2,gold:a[6]===3})):[];
   } else if(m.t==='hit'){
     if(net.role!=='host')return;
     const e=enemies.find(en=>en.id===m.id);
@@ -4276,7 +4431,7 @@ function netTick(dt){
   if(tracers.length){for(const t of tracers)t.t+=dt;tracers=tracers.filter(t=>t.t<t.life);}
   if(!net.connected){net.out.length=0;return;}
   net.sendT-=dt;
-  if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3),ap:myAppearance,w:weapon,dd:dead?1:0,kg:island?+island.kg.toFixed(2):0,hp:+P.hp.toFixed(1),ar:armorLv()});}
+  if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3),ap:myAppearance,w:weapon,dd:dead?1:0,kg:island?+island.kg.toFixed(2):0,hp:+P.hp.toFixed(1),ar:armorLv(),bt:boat?1:0});}
   if(net.out.length){netSend({t:'blk',c:net.out});net.out=[];}
   if(net.role==='host'&&island&&cpus.length){net.cpuT=(net.cpuT||0)-dt;
     if(net.cpuT<=0){net.cpuT=0.5;netSend({t:'cpus',c:cpus.map(c=>+c.kg.toFixed(3))});}}
@@ -4284,7 +4439,7 @@ function netTick(dt){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
       netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:e.king?2:0]),
-        f:rockets.filter(r=>r.owner==='ghast'||r.owner==='mud'||r.owner==='ball').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2),r.owner==='mud'?1:r.owner==='ball'?2:0])});
+        f:rockets.filter(r=>r.owner==='ghast'||r.owner==='mud'||r.owner==='ball').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2),r.owner==='mud'?1:r.owner==='ball'?(r.gold?3:2):0])});
     }
   }
   if(net.role==='host'){
