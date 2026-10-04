@@ -91,6 +91,7 @@ body.touch #ihDrink small{display:none}
 body.touch #vsReady{left:auto;right:calc(14px + env(safe-area-inset-right,0px));transform:none;top:calc(84px + env(safe-area-inset-top,0px));font-size:14px;padding:10px 16px} /* スマホ：まんなかのメッセージとかさならないように右上 */
 #bossbar{display:none;position:fixed;left:50%;transform:translateX(-50%);width:min(70vw,340px);height:12px;background:rgba(0,0,0,.55);border:2px solid rgba(255,255,255,.8);border-radius:7px;overflow:hidden;pointer-events:none;z-index:3}
 #bossbar i{display:block;height:100%;width:100%;background:linear-gradient(#ff6f61,#d32f2f);transition:width .15s}
+#bossbar b{position:absolute;left:0;top:0;height:100%;width:0;background:linear-gradient(#90caf9,#1e63c4);transition:width .15s}
 #btnMenu{display:none;position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));background:rgba(0,0,0,.45);color:#fff;font-size:18px;width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,.5);align-items:center;justify-content:center;z-index:4;cursor:pointer}
 body.touch #btnMenu{display:flex}
 #btnMenu:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
@@ -269,7 +270,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.25.0</p>
+    <p id="ver">ver 1.26.0</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -331,7 +332,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 <div id="rain"></div>
 <div id="sleepFx"><b>💤 Zzz… つかれて寝ている</b></div>
 <div id="cpuFeed"></div>
-<div id="bossbar"><i></i></div>
+<div id="bossbar"><i></i><b></b></div>
 <div id="btnMenu" aria-label="メニューを開く" role="button">☰</div>
 <div id="over" class="overlay">
   <div class="card">
@@ -1601,6 +1602,13 @@ function gashimaVerts(e,out){
 const SADO_SHAPE=[[[-0.36,-0.05,-0.32],[0.2,0.05,-0.17]],[[-0.2,-0.05,0.17],[0.36,0.05,0.32]],[[-0.13,-0.05,-0.17],[0.13,0.05,0.17]]];
 // ななめにかたむけて回すので、横から見ても佐渡島の形がわかる
 function shurikenVerts(out,x,y,z,t){const o={x,y,z,yaw:t*14,scale:1.5};for(const b of SADO_SHAPE)pushBox(out,b[0],b[1],T_STEEL,part(o,[0,0,0],1.1));}
+// ボスが前にかまえる盾（体の大きさに合わせる）
+function shieldVerts(e,out){
+  const s=e.scale||1,r=e.r/s,h=e.h/s,w=Math.max(0.4,r*1.05),hh=Math.max(0.45,h*0.3),f=part(e,[0,h*0.45,-(r+0.14)],0);
+  pushBox(out,[-w,-hh,-0.05],[w,hh,0.05],T_STEEL,f);
+  pushBox(out,[-w-0.05,-hh-0.05,-0.07],[w+0.05,-hh+0.06,0.07],T_GOLDA,f);pushBox(out,[-w-0.05,hh-0.06,-0.07],[w+0.05,hh+0.05,0.07],T_GOLDA,f);
+  pushBox(out,[-w*0.3,-hh*0.3,-0.11],[w*0.3,hh*0.3,-0.04],T_VERM,f);
+}
 function enemyVerts(e,out){
   if(e.type==='rival') return avatarVerts(e,out);
   if(e.type==='gashima') return gashimaVerts(e,out);
@@ -1652,7 +1660,7 @@ function render(){
   if(crowd.length){const out=[];for(const c of crowd)enemyVerts(c,out);bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);gl.uniform3f(LB.tint,1,1,1);gl.drawArrays(gl.TRIANGLES,0,out.length/6);}
   if(enemies.length){
     const out=[],ranges=[];
-    for(const e of enemies){const s=out.length/6;enemyVerts(e,out);ranges.push([e,s,out.length/6-s]);}
+    for(const e of enemies){const s=out.length/6;enemyVerts(e,out);if(e.shield>0&&e.dying<=0)shieldVerts(e,out);ranges.push([e,s,out.length/6-s]);}
     bindB(ebo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(out),gl.DYNAMIC_DRAW);
     for(const [e,s,n] of ranges){
       if(e.hurt>0||e.dying>0)gl.uniform3f(LB.tint,1.7,0.45,0.45);
@@ -1794,6 +1802,13 @@ function damageEnemy(e,dmg,kb,src,how,localFx){
   if(e.type==='rival'){if(!vsFighting())return;dmg=vsDmg(dmg,how)*ARMOR_K[e.armor||0];vsCheer=Math.max(vsCheer,1);}
   const byPlayer=!src,sx=src?src.x:P.x,sz=src?src.z:P.z;
   if(byPlayer&&net.role==='guest')netSend({t:'hit',id:e.id,dmg,kb,how});
+  if(e.shield>0){ // 盾があるうちは、盾がダメージを受ける
+    if(localFx){sfx('noEffect',{type:e.type});const n=performance.now();if(n-shieldMsgT>3000){shieldMsgT=n;toast('🛡️ 盾にふせがれた！ 先に盾をこわそう');}}
+    if(net.role==='guest')return; // 盾の残りは部屋を作った人がきめる
+    e.shield-=dmg;e.hurt=0.12;
+    if(e.shield<=0){e.shield=0;shieldBreak(e);}
+    return;
+  }
   if(localFx)sfx('enemyHit',{type:e.type});
   e.hp-=dmg;e.hurt=0.25;if(e.type==='yoshio')crumbleFx(e);
   const dx=e.x-sx,dz=e.z-sz,l=Math.hypot(dx,dz)||1;
@@ -1906,7 +1921,12 @@ function pathYaw(e,tg){
   e.pdx=bx;e.pdz=bz;
   return Math.atan2(-bx,-bz);
 }
+function shieldBreak(e){
+  sfx('explode');booms.push({x:e.x,y:e.y+e.h*0.5,z:e.z,t:0});
+  toast('🛡️ '+bossName()+'の盾をこわした！ 今だ、こうげき！');
+}
 function hurtTarget(t,dmg,fx,fz,noKnock,mud){
+  if(rushLap()>1)dmg*=1+0.4*(rushLap()-1); // 2周目のボスはこうげきも強い
   if(t.key==='P'){hurtPlayer(dmg,fx,fz,noKnock);if(mud)mudScreen();}
   else netSend({t:'hurt',dmg,x:+fx.toFixed(2),z:+fz.toFixed(2),nk:noKnock?1:0,mud:mud?1:0});
 }
@@ -2148,7 +2168,7 @@ function bossTransform(e){
   for(const[ox,oz]of[[0,0],[0.8,0],[-0.8,0],[0,0.8],[0,-0.8]])booms.push({x:e.x+ox,y:e.y+1,z:e.z+oz,t:0});
   sfx('explode');netBoom(e.x,e.y+1,e.z);
   const n=spawnEnemy(next,[e.x,e.y,e.z],{boss:true,base:e.base,hp:ff.hp,dmg:ff.dmg});
-  if(n){n.yaw=e.yaw;n.cd=1.5;n.throwCd=2.5;fitBoss(n);}
+  if(n){n.yaw=e.yaw;n.cd=1.5;n.throwCd=2.5;fitBoss(n);bossLapUp(n);}
   toast(ff.msg);
 }
 // 大きい体がかべや天井にはまらない場所をさがして、そこに立たせる（見えない所にはまってしまわないように）
@@ -2392,7 +2412,14 @@ function goalProgress(){const g=STAGES[stage].goal;
 // ---- ボス戦：ステージのゴールを達成すると、ほかの敵が消えてボスがあらわれる。ボスをたおすとクリア ----
 let bossPhase=0,bossCheckT=0; // 0:ふつう 1:ボス戦中 2:ボスをたおした
 const bossName=()=>{const bd=STAGES[stage].boss;if(!bd)return '';if(bossForm&&BOSS_NEXT[bd.type]&&ENEMY_NAME[bossForm])return ENEMY_NAME[bossForm];return bd.name||ENEMY_NAME[bd.type];}; // 変身はよしおのステージだけ
-let pendingBossHp=0;
+let pendingBossHp=0,pendingShield=-1,shieldMsgT=0;
+// ボス戦モード2周目から：ボスが強くなって盾を持つ。盾をこわすまでボスにはダメージが入らない
+const rushLap=()=>bossRush&&bossRush.lap>1?bossRush.lap:1;
+function bossLapUp(e){
+  const L=rushLap();if(!e||L<2)return;
+  e.hp=e.maxhp=Math.round(e.maxhp*(1+0.6*(L-1)));e.spd*=1+0.15*(L-1);
+  e.shield=e.shieldMax=Math.round(e.maxhp*0.4);
+}
 // ボスが歩いてプレイヤーのところまで来られる場所をえらぶ（せまいドアの向こうに出ないように）
 function bossSpot(bd){
   if(voidBelow)return null;
@@ -2409,7 +2436,9 @@ function bossSpot(bd){
 function spawnBoss(){
   const bd=STAGES[stage].boss,type=bossForm||bd.type,ff=BOSS_FORMS[type]; // 変身したあとなら、その形態で出てくる
   const e=spawnEnemy(type,(bossRush||!bd.at)?bossSpot(bd):bd.at,{boss:true,base:bd.base,hp:ff?ff.hp:bd.hp,dmg:ff?ff.dmg:bd.dmg,low:true});
-  if(e&&pendingBossHp>0){if(pendingBossHp<(ff?ff.hp:bd.hp))e.hp=pendingBossHp;pendingBossHp=0;}
+  bossLapUp(e);
+  if(e&&pendingBossHp>0){if(pendingBossHp<e.maxhp)e.hp=pendingBossHp;pendingBossHp=0;}
+  if(e&&pendingShield>=0&&e.shieldMax){e.shield=Math.min(e.shield,pendingShield);pendingShield=-1;}
   return e;
 }
 function startBoss(){
@@ -2454,7 +2483,8 @@ function updateGoalHud(){
     t='🏝️ ⏱ '+fmtTime(Math.max(0,Math.ceil(island.t)))+'　🍔 あなた '+fmtKg(island.kg)+'kg　👫 '+sgnKg(island.kg+rk-60)+'kg vs 🤖 '+sgnKg(ck)+'kg';}
   else if(island){let o='';if(cpus.length)o='　🤖 CPU '+fmtKg(cpus[0].kg)+'kg';else if(remote&&remote.kg)o='　🧑 '+fmtKg(remote.kg)+'kg';
     t='🏝️ ⏱ '+fmtTime(Math.max(0,Math.ceil(island.t)))+'　🍔 あなた '+fmtKg(island.kg)+'kg'+o;}
-  else if(bossRush)t='👑 ボス戦モード '+(stage+1)+'/'+NSTAGE+'　'+(goalDone?'たおした！':bossName()+'をたおせ')+'　⏱ '+fmtTime(bossRush.t);
+  else if(bossRush){const sb=enemies.find(e=>e.boss&&e.dying<=0&&e.shield>0);
+    t='👑 ボス戦モード '+(rushLap()>1?rushLap()+'周目 ':'')+(stage+1)+'/'+NSTAGE+'　'+(goalDone?'たおした！':sb?'🛡️ '+bossName()+'の盾をこわせ':bossName()+'をたおせ')+'　⏱ '+fmtTime(bossRush.t);}
   else if(goalDone)t=st.icon+' クリア！ 🌀ポータルに入ろう';
   else if(bossPhase===1)t='👑 ボス戦！ '+bossName()+'をたおせ';
   else if(g.type==='cross')t=st.icon+' '+g.text;
@@ -2479,13 +2509,13 @@ function enterPortal(){
 }
 function goStage(n){
   n=Math.max(0,Math.min(STAGES.length-1,n));
-  stage=n;selStage=n;goalDone=false;bossPhase=bossRush?1:0;pendingBossHp=0;bossForm=null;boat=null;sadoCrossed=false;sadoSeaT=0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
+  stage=n;selStage=n;goalDone=false;bossPhase=bossRush?1:0;pendingBossHp=0;pendingShield=-1;bossForm=null;boat=null;sadoCrossed=false;sadoSeaT=0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
   if(!bossRush&&n<NSTAGE){progress.unlocked=Math.max(progress.unlocked,n);saveProgress();}
   applyStageLook(n);
   // ボス戦モードの草原は、セーブした世界をこわさないように新しく作る
   if(n===0){if(vs)generate(vs.seed);else if(bossRush||!load())generate(20260922);addBedrock(0);}else genStage(n);
   ensureTable();rescanDoors();buildMesh();newRun();renderStageSel();updateGoalHud();
-  if(bossRush)toast('👑 ボス '+(n+1)+'/'+NSTAGE+'　'+bossName()+'があらわれた！');
+  if(bossRush)toast('👑 ボス '+(n+1)+'/'+NSTAGE+'　'+bossName()+'があらわれた！'+(rushLap()>1?'　🛡️ 盾を持っている！':''));
   else if(n===ISLAND)toast('🏝️ 5分でいちばん太った人の勝ち！ 食べまくれ！');
   else if(vs&&n===0)toast('⚔️ 準備タイム！ 武器と防具ができたら「準備完了」をおそう');
   else if(n===VS_ARENA)toast('⚔️ 対戦ステージ！');
@@ -2799,25 +2829,25 @@ function islandEnd(){
 const RUSH_KEY='kaitocraft_bossrush_best';
 const fmtTime=t=>{t=Math.floor(t);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');};
 function closeClear(){document.getElementById('clear').style.display='none';clearing=false;}
-function startBossRush(){
-  rushPick=false;closeClear(); // メニューでステージをさわっていても、ふつうのステージにならないように
+function startBossRush(lap){
+  lap=lap|0||1;rushPick=false;closeClear(); // メニューでステージをさわっていても、ふつうのステージにならないように
   if(net.role==='guest'){ // ゲストが押したら、部屋を作った人の世界でボス戦モードを始めてもらう
-    netSend({t:'rushReq'});window.startGame();toast('👑 ボス戦モードを始めるよ！');return;}
+    netSend({t:'rushReq',lp:lap});window.startGame();toast('👑 ボス戦モードを始めるよ！');return;}
   if(stage===0&&!vs&&!bossRush){clearTimeout(saveTimer);save();} // 草原の世界をセーブしてから始める
-  endIsland();endVs();bossRush={t:0};bossForm=null;goStage(0);window.startGame();
-  if(net.connected)netSend({t:'rushGo'});
+  endIsland();endVs();bossRush={t:0,lap};bossForm=null;goStage(0);window.startGame();
+  if(net.connected)netSend({t:'rushGo',lp:lap});
 }
 function endBossRush(){bossRush=null;}
 function rushClear(){
   const t=bossRush.t;let best=null;
   if(net.connected&&net.role==='host')netSend({t:'rushClear',time:t});
   try{best=parseFloat(localStorage.getItem(RUSH_KEY));}catch(e){}
-  const rec=!(best>0)||t<best;
+  const L=rushLap(),rec=L===1&&(!(best>0)||t<best); // ベストタイムは1周目だけ
   if(rec)try{localStorage.setItem(RUSH_KEY,String(t));}catch(e){}
   gameClear();
-  document.getElementById('clearTitle').textContent='👑 ボス戦モード クリア！';
-  rushAgainEl.style.display='';clearBtnEl.textContent='ボス戦モードをやめて草原にもどる';
-  document.getElementById('clearMsg').textContent=NSTAGE+'体のボスをぜんぶたおした！ タイム '+fmtTime(t)+(rec?'　🏆 新記録！':'　（ベスト '+fmtTime(best)+'）');
+  document.getElementById('clearTitle').textContent='👑 ボス戦モード '+(L>1?L+'周目 ':'')+'クリア！';
+  rushAgainEl.style.display='';rushAgainEl.textContent='👑 '+(L+1)+'周目へ'+(L===1?'（ボスが強くなって盾を持つ）':'（ボスがもっと強くなる）');clearBtnEl.textContent='ボス戦モードをやめて草原にもどる';
+  document.getElementById('clearMsg').textContent=NSTAGE+'体のボスをぜんぶたおした！ タイム '+fmtTime(t)+(L>1?'':rec?'　🏆 新記録！':'　（ベスト '+fmtTime(best)+'）');
   updateRushBest();
 }
 function updateRushBest(){let b=null,k=0;try{b=parseFloat(localStorage.getItem(RUSH_KEY));k=parseFloat(localStorage.getItem(ISLAND_KEY))||0;}catch(e){}
@@ -3696,11 +3726,11 @@ onTap(document.getElementById('craftClose'),()=>{craftEl.style.display='none';cr
 const hpFill=document.getElementById('hpfill'),killsEl=document.getElementById('kills');
 function updateHud(){hpFill.style.width=(P.hp/MAXHP*100)+'%';hpFill.classList.toggle('low',P.hp<=6);killsEl.textContent='⚔️ '+kills;document.getElementById('cscore').textContent='🍳 '+cookTotal;document.getElementById('mat').textContent='🪵'+inv.wood+' 🪨'+inv.stone+(inv.gold?' 🟡'+inv.gold:'')+(armorLv()?' 🛡️'+['','木','石','金'][armorLv()]:'');}
 const tagBox=document.getElementById('tags'),tagPool=[];
-const bossBarEl=document.getElementById('bossbar'),bossFillEl=bossBarEl.firstChild;
+const bossBarEl=document.getElementById('bossbar'),bossFillEl=bossBarEl.firstChild,bossShieldEl=bossBarEl.lastChild;
 function updateTags(){
   const bo=started&&bossPhase===1?enemies.find(e=>e.boss&&e.dying<=0):null;
   const vo=started&&vs&&vs.ph!=='prep'?vsOpp():null; // 対戦：相手の体力
-  if(bo||vo){bossBarEl.style.display='block';bossBarEl.style.top=(goalEl.getBoundingClientRect().bottom+5)+'px';bossFillEl.style.width=Math.max(0,bo?bo.hp/bo.maxhp*100:vo.hp/MAXHP*100)+'%';}
+  if(bo||vo){bossBarEl.style.display='block';bossBarEl.style.top=(goalEl.getBoundingClientRect().bottom+5)+'px';bossFillEl.style.width=Math.max(0,bo?bo.hp/bo.maxhp*100:vo.hp/MAXHP*100)+'%';bossShieldEl.style.width=(bo&&bo.shieldMax?Math.max(0,bo.shield/bo.shieldMax*100):0)+'%';}
   else bossBarEl.style.display='none';
   let n=0;
   if(lastM&&started) for(const e of enemies){
@@ -4359,7 +4389,7 @@ function onNet(m){
     if(net.role==='guest'){hurtPlayer(m.dmg,m.x,m.z,!!m.nk);if(m.mud)mudScreen();}
   } else if(m.t==='goal'){
     if(net.role!=='guest')return;
-    stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;bossPhase=m.p|0;net.hostMonsters=!!m.mm;bossRush=(typeof m.r==='number'&&m.r>=0)?{t:m.r}:null;
+    stageStats=Object.assign({kills:0,gems:0,chests:0,boss:0},m.s);goalDone=!!m.d;bossPhase=m.p|0;net.hostMonsters=!!m.mm;bossRush=(typeof m.r==='number'&&m.r>=0)?{t:m.r,lap:Math.max(1,m.lp|0)}:null;
     if(typeof m.il==='number'){if(m.il>=0){if(!island){island={t:m.il,kg:30,mode:m.im==='team'?'team':'pvp'};islandState();islandItemsOn();}else island.t=m.il;if(island.bottles!==undefined){island.rain=m.rn?Math.max(island.rain,1):0;if(typeof m.pt==='number')island.pot=m.pt;}}else if(island&&!island.over)endIsland();}
     if(vs&&typeof m.vt==='number'&&m.vt>=0)vs.t=m.vt;
     updateGoalHud();
@@ -4411,30 +4441,32 @@ function onNet(m){
   } else if(m.t==='rushReq'){
     if(net.role!=='host')return;
     if(stage===0&&!bossRush){clearTimeout(saveTimer);save();}
-    endIsland();endVs();closeClear();bossRush={t:0};goStage(0);toast('👑 相手がボス戦モードを始めた！');
+    const lp=Math.max(1,Math.min(9,m.lp|0||1));
+    endIsland();endVs();closeClear();bossRush={t:0,lap:lp};bossForm=null;goStage(0);toast('👑 相手がボス戦モード'+(lp>1?'の'+lp+'周目':'')+'を始めた！');
     if(dead){dead=false;overEl.style.display='none';P.hp=MAXHP;}
-    netSend({t:'rushGo'});
+    netSend({t:'rushGo',lp});
   } else if(m.t==='rushGo'){
     if(net.role!=='guest')return;
-    endVs();closeClear();bossRush={t:0};bossForm=null;if(dead){overEl.style.display='none';respawnOnly();started=true;}
+    endVs();closeClear();bossRush={t:0,lap:Math.max(1,m.lp|0)};bossForm=null;if(dead){overEl.style.display='none';respawnOnly();started=true;}
     toast('👑 ボス戦モード スタート！');
   } else if(m.t==='rushClear'){
     if(net.role!=='guest')return;
-    bossRush={t:m.time};rushClear();
+    bossRush={t:m.time,lap:rushLap()};rushClear();
   } else if(m.t==='portal'){
     if(net.role==='host'&&goalDone)goStage(stage+1);
   } else if(m.t==='mobs'){
     if(net.role!=='guest'||!Array.isArray(m.e))return;
     const seen=new Set();
     for(const a of m.e){
-      const [id,type,x,y,z,eyaw,hp,maxhp,walk,atk,dying,hurt,scale,base,boss]=a;
+      const [id,type,x,y,z,eyaw,hp,maxhp,walk,atk,dying,hurt,scale,base,boss,sh,shm]=a;
       seen.add(id);
       let e=enemies.find(en=>en.id===id);
       if(!e){const dims=enemyDims(type),b=base||1;e={id,type,x,y,z,yaw:eyaw,r:dims.r*b,h:dims.h*b,kx:0,kz:0,seed:(id*2.39)%6.28,moving:false};enemies.push(e);
         if(boss===2&&vs){vsCheer=3;toast('👑 キングガストがあらわれた！ たおすと体力回復');}
         if(boss===1&&BOSS_FORMS[type]){bossForm=type;toast(BOSS_FORMS[type].msg);}}
       if(type==='yoshio'&&e.netHp!==undefined&&hp<e.netHp)crumbleFx(e);
-      e.netHp=hp;e.base=base||1;e.boss=boss===1;e.king=boss===2;e.type=type;e.tx=x;e.ty=y;e.tz=z;e.tyaw=eyaw;e.hp=hp;e.maxhp=maxhp;e.walk=walk;e.atk=atk;e.dying=dying;e.hurt=hurt;e.scale=scale;
+      if(e.shield>0&&!(sh>0)&&e.boss)shieldBreak(e);
+      e.shield=sh|0;e.shieldMax=shm|0;e.netHp=hp;e.base=base||1;e.boss=boss===1;e.king=boss===2;e.type=type;e.tx=x;e.ty=y;e.tz=z;e.tyaw=eyaw;e.hp=hp;e.maxhp=maxhp;e.walk=walk;e.atk=atk;e.dying=dying;e.hurt=hurt;e.scale=scale;
       if(type==='yoshio')e.h=enemyDims(type).h*(base||1)*(1-crumbleK(e));
     }
     enemies=enemies.filter(en=>seen.has(en.id));
@@ -4463,14 +4495,14 @@ function netTick(dt){
   if(net.role==='host'&&(mpMonsters||bossRush||vs)){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
-      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:e.king?2:0]),
+      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:e.king?2:0,Math.ceil(e.shield||0),e.shieldMax||0]),
         f:rockets.filter(r=>r.owner==='ghast'||r.owner==='mud'||r.owner==='ball'||r.owner==='shuriken').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2),r.owner==='mud'?1:r.owner==='ball'?2:r.owner==='shuriken'?4:0])});
     }
   }
   if(net.role==='host'){
     net.goalT-=dt;
-    if(net.goalT<=0){net.goalT=0.5;const rt=bossRush?Math.floor(bossRush.t):-1,il=island?Math.ceil(Math.max(0,island.t)):-1,g=JSON.stringify([stageStats,goalDone,mpMonsters,bossPhase,rt,il,island&&island.rain>0,island&&island.pot,vs?vs.ph+Math.ceil(vs.t):'']);
-      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',s:stageStats,d:goalDone?1:0,p:bossPhase,mm:(mpMonsters||bossRush)?1:0,r:rt,il,im:island?island.mode:'',rn:island&&island.rain>0?1:0,pt:island?island.pot|0:0,vt:vs?Math.max(0,Math.ceil(vs.t)):-1});}}
+    if(net.goalT<=0){net.goalT=0.5;const rt=bossRush?Math.floor(bossRush.t):-1,il=island?Math.ceil(Math.max(0,island.t)):-1,g=JSON.stringify([rushLap(),stageStats,goalDone,mpMonsters,bossPhase,rt,il,island&&island.rain>0,island&&island.pot,vs?vs.ph+Math.ceil(vs.t):'']);
+      if(g!==net.lastGoal){net.lastGoal=g;netSend({t:'goal',lp:rushLap(),s:stageStats,d:goalDone?1:0,p:bossPhase,mm:(mpMonsters||bossRush)?1:0,r:rt,il,im:island?island.mode:'',rn:island&&island.rain>0?1:0,pt:island?island.pot|0:0,vt:vs?Math.max(0,Math.ceil(vs.t)):-1});}}
   }
 }
 const APPEARANCES=[
@@ -4596,7 +4628,7 @@ onTap(clearBtnEl,()=>{document.getElementById('clear').style.display='none';clea
   if(vs){endVs();if(net.connected&&net.role==='host')netSend({t:'vsQuit'});}
   if(net.role!=='guest')goStage(0);lockMouse();});
 const vsAgainEl=document.getElementById('vsAgain'),rushAgainEl=document.getElementById('rushAgain');
-onTap(rushAgainEl,()=>{startBossRush();lockMouse();}); // ボス戦モードをクリアしたら、そのままもう一周
+onTap(rushAgainEl,()=>{startBossRush(rushLap()+1);lockMouse();}); // ボス戦モードをクリアしたら、そのままもう一周
 onTap(vsAgainEl,()=>{document.getElementById('clear').style.display='none';clearing=false;beginVs();lockMouse();});
 onPick(document.getElementById('vsBtn'),()=>startVs());
 onTap(document.getElementById('vsReady'),()=>{vsToggleReady();lockMouse();});
@@ -4607,9 +4639,9 @@ function again(e,how){if(e)e.preventDefault();initAudio();overEl.style.display='
   if(!bossRush)newRun();
   else if(net.role==='guest')respawnOnly(); // ゲストはその場で復活（ボスは部屋を作った人の世界にいる）
   else if(goalDone)goStage(stage+1); // たおしたあとなら次のボスへ
-  else if(how==='reset'){pendingBossHp=0;bossForm=null;newRun();if(net.connected)toast('👑 ボスが全回復した！');}
+  else if(how==='reset'){pendingBossHp=0;pendingShield=-1;bossForm=null;newRun();if(net.connected)toast('👑 ボスが全回復した！');}
   else if(net.connected)respawnOnly(); // 2人プレイ：相手が戦っているのでボスはそのまま
-  else{const b=enemies.find(x=>x.boss&&x.dying<=0);pendingBossHp=b?Math.max(1,Math.ceil(b.hp)):0;newRun();}
+  else{const b=enemies.find(x=>x.boss&&x.dying<=0);pendingBossHp=b?Math.max(1,Math.ceil(b.hp)):0;pendingShield=b&&b.shieldMax?Math.ceil(b.shield):-1;newRun();}
   started=true;lockMouse();}
 function respawnOnly(){P.hp=MAXHP;P.safe=0;P.inv=3;dead=false;fireHeld=false;spawn();updateHud();}
 const againBtn=document.getElementById('again'),againResetBtn=document.getElementById('againReset');
