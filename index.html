@@ -269,7 +269,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.24.0</p>
+    <p id="ver">ver 1.24.1</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -2801,7 +2801,7 @@ function startBossRush(){
   rushPick=false;closeClear(); // メニューでステージをさわっていても、ふつうのステージにならないように
   if(net.role==='guest'){ // ゲストが押したら、部屋を作った人の世界でボス戦モードを始めてもらう
     netSend({t:'rushReq'});window.startGame();toast('👑 ボス戦モードを始めるよ！');return;}
-  if(stage===0&&!vs){clearTimeout(saveTimer);save();} // 草原の世界をセーブしてから始める
+  if(stage===0&&!vs&&!bossRush){clearTimeout(saveTimer);save();} // 草原の世界をセーブしてから始める
   endIsland();endVs();bossRush={t:0};bossForm=null;goStage(0);window.startGame();
   if(net.connected)netSend({t:'rushGo'});
 }
@@ -3411,9 +3411,9 @@ function renderDex(){
   dexTabItemEl.classList.toggle('on',dexTab==='item');
 }
 function openDex(){dexTab='enemy';renderDex();dexEl.style.display='flex';}
-onTap(document.getElementById('openDex'),openDex);
-onTap(document.getElementById('bossRushBtn'),()=>startBossRush());
-onTap(document.getElementById('islandBtn'),()=>startIsland());
+onPick(document.getElementById('openDex'),openDex);
+onPick(document.getElementById('bossRushBtn'),()=>startBossRush());
+onPick(document.getElementById('islandBtn'),()=>startIsland());
 const islandHudEl=document.getElementById('islandHud'),rainEl=document.getElementById('rain'),sleepEl=document.getElementById('sleepFx'),cpuFeedEl=document.getElementById('cpuFeed');
 onTap(document.getElementById('ihDrink'),()=>{if(started&&!paused())drinkWater();});
 const islandPickEl=document.getElementById('islandPick');
@@ -3465,6 +3465,12 @@ const wbar=document.getElementById('wbar'),flashEl=document.getElementById('flas
 function ownedWeapons(){if(island)return islandItems();return ['sword',...['pickaxe','pistol','shotgun','mg','sniper','minigun','rocket','remote'].filter(w=>inv.own[w])];}
 function onTap(el,fn){let last=0;const h=e=>{e.preventDefault();e.stopPropagation();const n=Date.now();if(n-last<350)return;last=n;fn();};
   el.addEventListener('touchstart',h,{passive:false});el.addEventListener('click',h);}
+// メニューのようにスクロールする場所のボタン：指をすべらせた（スクロールした）ときは押したことにしない
+function onPick(el,fn){let sx=0,sy=0,moved=false,last=0;
+  el.addEventListener('touchstart',e=>{const t=e.touches[0];sx=t.clientX;sy=t.clientY;moved=false;},{passive:true});
+  el.addEventListener('touchmove',e=>{const t=e.touches[0];if(Math.hypot(t.clientX-sx,t.clientY-sy)>10)moved=true;},{passive:true});
+  el.addEventListener('touchend',e=>{if(moved)return;e.preventDefault();last=Date.now();fn();},{passive:false});
+  el.addEventListener('click',e=>{e.preventDefault();if(Date.now()-last<500)return;fn();});}
 function rebuildWbar(){
   wbar.innerHTML='';const list=ownedWeapons();
   wbar.style.display=list.length>1?'flex':'none';
@@ -4542,7 +4548,7 @@ function renderStageSel(){
   stageSelEl.innerHTML='';
   STAGES.slice(0,NSTAGE).forEach((st,i)=>{const b=document.createElement('button');b.className='stg'+(i===selStage?' on':'');
     const lock=!TEST_ALL_STAGES&&i>progress.unlocked;b.disabled=lock;b.innerHTML='<span>'+(lock?'🔒':st.icon)+'</span>'+(i+1)+'. '+st.name;
-    if(!lock)onTap(b,()=>{selStage=i;rushPick=true;renderStageSel();});stageSelEl.appendChild(b);});
+    if(!lock)onPick(b,()=>{selStage=i;rushPick=true;renderStageSel();});stageSelEl.appendChild(b);});
 }
 renderStageSel();updateRushBest();updateVsRec();
 const appearSelEl=document.getElementById('appearsel');
@@ -4552,7 +4558,7 @@ function renderAppearSel(){
     const c=document.createElement('canvas');c.width=c.height=16;
     c.getContext('2d').drawImage(atlas,a.face*16,0,16,16,0,0,16,16);
     b.appendChild(c);b.appendChild(document.createTextNode(a.name));
-    onTap(b,()=>{setAppearance(i);renderAppearSel();});appearSelEl.appendChild(b);});
+    onPick(b,()=>{setAppearance(i);renderAppearSel();});appearSelEl.appendChild(b);});
 }
 renderAppearSel();
 const mpMonstersEl=document.getElementById('mpMonsters');
@@ -4578,7 +4584,7 @@ onTap(clearBtnEl,()=>{document.getElementById('clear').style.display='none';clea
   if(net.role!=='guest')goStage(0);lockMouse();});
 const vsAgainEl=document.getElementById('vsAgain');
 onTap(vsAgainEl,()=>{document.getElementById('clear').style.display='none';clearing=false;beginVs();lockMouse();});
-onTap(document.getElementById('vsBtn'),()=>startVs());
+onPick(document.getElementById('vsBtn'),()=>startVs());
 onTap(document.getElementById('vsReady'),()=>{vsToggleReady();lockMouse();});
 addEventListener('keydown',e=>{if(e.code==='Enter'&&vs&&vs.ph==='prep'&&started&&!paused())vsToggleReady();});
 onTap(islandAgainEl,()=>{document.getElementById('clear').style.display='none';clearing=false;beginIsland();lockMouse();});
