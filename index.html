@@ -319,6 +319,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
   <div class="card">
     <h1 id="clearTitle">🎉 ぜんぶクリア！</h1>
     <p id="clearMsg">佐渡島のがしまくんをたおした！ すべてのステージをクリアしたよ。</p>
+    <div><button id="rushAgain" class="big" style="display:none;background:#c0392b;box-shadow:0 4px 0 #7d2419">👑 もう一周</button></div>
     <div><button id="islandAgain" class="big" style="display:none;background:#0e9f8e;box-shadow:0 4px 0 #09695e">🏝️ もう一回</button></div>
     <div><button id="vsAgain" class="big" style="display:none;background:#6d4c9f;box-shadow:0 4px 0 #45306a">⚔️ もう一回</button></div>
     <button id="clearBtn" class="big">草原にもどる</button>
@@ -2814,6 +2815,7 @@ function rushClear(){
   if(rec)try{localStorage.setItem(RUSH_KEY,String(t));}catch(e){}
   gameClear();
   document.getElementById('clearTitle').textContent='👑 ボス戦モード クリア！';
+  rushAgainEl.style.display='';clearBtnEl.textContent='ボス戦モードをやめて草原にもどる';
   document.getElementById('clearMsg').textContent=NSTAGE+'体のボスをぜんぶたおした！ タイム '+fmtTime(t)+(rec?'　🏆 新記録！':'　（ベスト '+fmtTime(best)+'）');
   updateRushBest();
 }
@@ -3062,7 +3064,7 @@ function genArena(rnd){
   fill(14,5,23,15,6,24,20);fill(32,5,23,33,6,24,20);
 }
 function gameClear(){
-  clearBtnEl.textContent='草原にもどる';islandAgainEl.style.display='none';vsAgainEl.style.display='none';
+  clearBtnEl.textContent='草原にもどる';islandAgainEl.style.display='none';vsAgainEl.style.display='none';rushAgainEl.style.display='none';
   document.getElementById('clearTitle').textContent='🎉 ぜんぶクリア！';
   document.getElementById('clearMsg').textContent='佐渡島のがしまくんをたおした！ すべてのステージをクリアしたよ。';
   clearing=true;fireHeld=false;resetTouch();for(const k in keys)keys[k]=false;
@@ -4582,7 +4584,8 @@ const clearBtnEl=document.getElementById('clearBtn'),islandAgainEl=document.getE
 onTap(clearBtnEl,()=>{document.getElementById('clear').style.display='none';clearing=false;endBossRush();endIsland();
   if(vs){endVs();if(net.connected&&net.role==='host')netSend({t:'vsQuit'});}
   if(net.role!=='guest')goStage(0);lockMouse();});
-const vsAgainEl=document.getElementById('vsAgain');
+const vsAgainEl=document.getElementById('vsAgain'),rushAgainEl=document.getElementById('rushAgain');
+onTap(rushAgainEl,()=>{startBossRush();lockMouse();}); // ボス戦モードをクリアしたら、そのままもう一周
 onTap(vsAgainEl,()=>{document.getElementById('clear').style.display='none';clearing=false;beginVs();lockMouse();});
 onPick(document.getElementById('vsBtn'),()=>startVs());
 onTap(document.getElementById('vsReady'),()=>{vsToggleReady();lockMouse();});
