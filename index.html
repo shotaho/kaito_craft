@@ -270,7 +270,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.27.0</p>
+    <p id="ver">ver 1.28.0</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -319,7 +319,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
 <div id="clear" class="overlay">
   <div class="card">
     <h1 id="clearTitle">🎉 ぜんぶクリア！</h1>
-    <p id="clearMsg">佐渡島のがしまくんをたおした！ すべてのステージをクリアしたよ。</p>
+    <p id="clearMsg">マックのハンバーガーマンをたおした！ すべてのステージをクリアしたよ。</p>
     <div><button id="rushAgain" class="big" style="display:none;background:#c0392b;box-shadow:0 4px 0 #7d2419">👑 もう一周</button></div>
     <div><button id="islandAgain" class="big" style="display:none;background:#0e9f8e;box-shadow:0 4px 0 #09695e">🏝️ もう一回</button></div>
     <div><button id="vsAgain" class="big" style="display:none;background:#6d4c9f;box-shadow:0 4px 0 #45306a">⚔️ もう一回</button></div>
@@ -480,8 +480,11 @@ const NONSOLID={13:true,14:true,23:true,28:true,85:true,94:true,96:true,98:true}
 const WATER={85:true,94:true}; // 海・川（水面を少し低くして、波を動かす）
 // 佐渡島：たらい舟（105・海にうかんでいる。乗ってこげる）、金鉱石（106）、朱色のブロック（107・鳥居）
 BLOCKS[105]={name:'たらい舟',t:[151,151,151]};BLOCKS[106]={name:'金鉱石',t:[152,152,152]};BLOCKS[107]={name:'朱色のブロック',t:[153,153,153]};
+// マック：赤いかべ・黄色・アスファルト・白線・お店の床・メニューボード・Mの看板
+BLOCKS[108]={name:'赤いかべ',t:[158,158,158]};BLOCKS[109]={name:'黄色ブロック',t:[159,159,159]};BLOCKS[110]={name:'アスファルト',t:[160,160,160]};
+BLOCKS[111]={name:'白線',t:[161,160,160]};BLOCKS[112]={name:'お店の床',t:[162,162,162]};BLOCKS[113]={name:'メニューボード',t:[160,163,160]};BLOCKS[114]={name:'Mの看板',t:[159,176,159]};
 const TUB_BOXES=[[[0.08,0,0.08],[0.92,0.1,0.92]],[[0.04,0.05,0.04],[0.96,0.55,0.14]],[[0.04,0.05,0.86],[0.96,0.55,0.96]],[[0.04,0.05,0.14],[0.14,0.55,0.86]],[[0.86,0.05,0.14],[0.96,0.55,0.86]]];
-const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,95,67,99,20,17,18,15,11,16,22,21,29,107];
+const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,95,67,99,20,17,18,15,11,16,22,21,29,107,108,114];
 const HOTBAR=BASE_HOTBAR.slice();
 
 // ---------- 家具 ----------
@@ -675,12 +678,13 @@ const STAGES=[
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},boss:{type:'wombat',hp:30,base:1.25,at:[26.5+GO,29,27.5+GO]},spawn:[24.5+GO,4,20.5+GO]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},boss:{type:'yoshio',hp:60,base:1.6},spawn:[8.5,null,D/2+0.5]},
   {name:'佐渡島',icon:'🛶',sky:[0.6,0.82,0.96],fog:[24,66],mobs:{zero:2,zombie:3,mimic:1,cow:2},goal:{type:'cross',n:1,text:'たらい舟で金山の島へわたる'},boss:{type:'gashima',hp:70,base:1.4},spawn:[W/2+0.5,null,8.5]},
+  {name:'マック',icon:'🍔',sky:[0.62,0.82,0.96],fog:[24,66],mobs:{zero:0,zombie:0,mimic:0,cow:1,food:5},goal:{type:'kills',n:10,text:'具材の敵をたおす'},boss:{type:'burger',name:'ハンバーガーマン',hp:80,base:1.4},spawn:[W/2+0.5,null,22.5]},
   // 無人島ふとりバトル専用（ステージえらびには出さない）。モンスターは出ない（牛はたまに出る食べ物）
   {name:'無人島',icon:'🏝️',extra:true,sky:[0.55,0.82,0.98],fog:[26,70],mobs:{zero:0,zombie:0,mimic:0,cow:1},goal:{type:'fat',n:1,text:''},boss:null,spawn:[W/2+0.5,null,D/2+0.5]},
   // 対戦モード専用。モンスターは観客席で見ているだけ
   {name:'対戦ステージ',icon:'⚔️',extra:true,sky:[0.98,0.74,0.52],fog:[30,80],mobs:{zero:0,zombie:0,mimic:0,cow:0},goal:{type:'vs',n:1,text:''},boss:null,spawn:[24.5,null,13.5]}
 ];
-const NSTAGE=7,SADO=6,ISLAND=7,VS_ARENA=8; // ふつうのステージの数、佐渡島・無人島・対戦ステージのステージ番号
+const NSTAGE=8,SADO=6,MAC=7,ISLAND=8,VS_ARENA=9; // ふつうのステージの数、佐渡島・マック・無人島・対戦ステージのステージ番号
 // ボス戦モード：null か {t:経過秒}（ステージのボスと順番に戦う）
 let bossRush=null,rushPick=false,island=null; // island：無人島ふとりバトル {t:のこり秒,kg:体重}
 let stage=0,goalDone=false,stageStats={kills:0,gems:0,chests:0,boss:0},skyCol=STAGES[0].sky,fogR=STAGES[0].fog;
@@ -700,7 +704,7 @@ function genStage(n,seed){
   seed=seed||((Math.random()*1e9)|0);
   if(n===0) generate(seed);
   else{world=new Uint8Array(W*D*H);const rnd=mulberry32(seed);
-    [null,genMagma,genSky,genHouse,genMansion,genWhale,genSado,genIsland,genArena][n](rnd,seed);}
+    [null,genMagma,genSky,genHouse,genMansion,genWhale,genSado,genMac,genIsland,genArena][n](rnd,seed);}
   addBedrock(n);
 }
 function addBedrock(n){if(!STAGES[n].void)fill(0,0,0,W-1,0,D-1,30);}
@@ -863,6 +867,44 @@ function genWhale(rnd,seed){
     let y=1;while(y<H-1&&world[idx(x,y,z)]!==0)y++;if(y>=H-1)continue;
     if(world[idx(x,y-1,z)]!==0&&world[idx(x,y-1,z)]!==23&&Math.hypot(x-8,z-C)>5){setB(x,y,z,dbr%2===0?4:3);dbr++;}}
 }
+// マック：駐車場と、赤いかべのお店（テーブル・カウンター・キッチン）と、お店のまわりをぐるっと回るドライブスルー
+function genMac(rnd){
+  const C=W>>1;
+  fill(0,1,0,W-1,2,D-1,2);fill(0,3,0,W-1,3,D-1,1);
+  const x0=C-14,x1=C+14,z0=C-8,z1=C+14; // お店
+  // 道路（いちばん手前）と駐車場
+  fill(0,3,6,W-1,3,11,110);for(let x=0;x<W;x+=4)fill(x,3,8,x+1,3,9,111);
+  fill(x0-10,3,12,x1+10,3,z0-3,110);
+  for(let x=x0-8;x<=x1+8;x+=3){fill(x,3,14,x,3,18,111);fill(x,3,z0-8,x,3,z0-4,111);}
+  // ドライブスルーの道：お店のまわりをぐるっと（東から入って、北をまわって、西から出る）
+  const L0=x0-6,L1=x1+6,LZ=z1+5;
+  fill(x1+3,3,z0-3,L1,3,LZ,110);fill(L0,3,z1+3,L1,3,LZ,110);fill(L0,3,z0-3,x0-3,3,LZ,110);
+  for(let z=z0;z<=LZ-3;z+=3){setB(L1-1,3,z,111);setB(L0+1,3,z,111);}for(let x=L0+3;x<=L1-3;x+=3)setB(x,3,LZ-1,111);
+  // お店：床・赤いかべ・黄色いふち・屋根
+  fill(x0,3,z0,x1,3,z1,112);
+  ring(x0,4,z0,x1,9,z1,108);ring(x0,10,z0,x1,10,z1,109);fill(x0+1,10,z0+1,x1-1,10,z1-1,20);
+  for(let x=x0+2;x<=x1-2;x++)if(Math.abs(x-C)>2)fill(x,5,z0,x,7,z0,8); // 前の大きな窓
+  fill(C-1,4,z0,C,6,z0,0);                                             // 入り口
+  for(const z of [z0+3,z0+4,z0+9,z0+10])fill(x0,5,z,x0,7,z,8);           // 横の窓
+  // 中：テーブルといす、カウンター、メニューボード、キッチン
+  const TB=FURN_BASE+FURN.findIndex(f=>f.key==='table')*4,CH=FURN_BASE+FURN.findIndex(f=>f.key==='chair')*4;
+  for(let tx=x0+3;tx<=x1-3;tx+=5)for(const tz of [z0+3,z0+8]){if(Math.abs(tx-C)<3)continue;setB(tx,4,tz,TB);setB(tx,4,tz-1,CH);setB(tx,4,tz+1,CH+2);}
+  const cz=z0+12;fill(x0+3,4,cz,x1-3,4,cz,109);fill(x0+3,5,cz,x1-3,5,cz,20);fill(C-1,4,cz,C,5,cz,0);setB(C+3,6,cz,20); // カウンター（まん中は通れる）
+  for(let x=x0+4;x<=x1-4;x+=3)fill(x,7,z1,x+1,8,z1,113);                                // メニューボード（おくのかべ）
+  for(let x=x0+3;x<=x1-3;x+=4){fill(x,4,z1-3,x+1,4,z1-2,3);setB(x,5,z1-3,15);setB(x+1,5,z1-2,15);} // キッチンのグリル
+  setB(x1-2,4,cz+2,10); // 作業台
+  // ドライブスルーの受け取り窓口（東のかべ）と、注文のメニューボード
+  fill(x1,5,C+4,x1,6,C+6,8);fill(x1+1,10,C+3,L1,10,C+7,109);for(const z of [C+3,C+7])fill(L1,4,z,L1,9,z,20); // 窓口の屋根
+  fill(L1+1,4,LZ-2,L1+1,6,LZ-2,20);fill(L1+1,7,LZ-4,L1+1,9,LZ,113);                       // 注文するメニューボード
+  setB(L1,5,LZ-6,20);                                                                     // スピーカー
+  // 入り口の「ドライブスルー」看板と、大きなMの看板
+  fill(L1+2,4,z0-4,L1+2,7,z0-4,20);fill(L1+2,8,z0-5,L1+2,9,z0-3,114);
+  const PX=x0-6,PZ=14;fill(PX,4,PZ,PX,17,PZ,20);fill(PX-2,18,PZ,PX+2,21,PZ,114);
+  fill(C-2,11,z0,C+2,13,z0,114); // 屋根の上のM
+  // まわりの木
+  for(let i=0;i<70;i++){const x=2+Math.floor(rnd()*(W-4)),z=2+Math.floor(rnd()*(D-4));
+    if(getB(x,3,z)!==1||getB(x,4,z)!==0)continue;if(x>=L0-3&&x<=L1+4&&z>=4&&z<=LZ+3)continue;tree(x,3,z,rnd);}
+}
 // 佐渡島：南の島（港・スタート）と北の島（金山）のあいだに深い海。たらい舟でわたる
 const SADO_BZ=31.5,SADO_SP=22,SADO_NP=34; // SADO_BZより北が金山の島（北の桟橋から）。SADO_SP：南の桟橋の先、SADO_NP：北の桟橋
 function genSado(rnd,seed){
@@ -935,7 +977,7 @@ let saveTimer=null;
 function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,800);}
 
 // ---------- textures ----------
-const atlas=document.createElement('canvas');atlas.width=2560;atlas.height=16;
+const atlas=document.createElement('canvas');atlas.width=3200;atlas.height=16;
 const ATLAS_TILES=atlas.width/16;
 const actx=atlas.getContext('2d');
 const TR=mulberry32(7);
@@ -1290,6 +1332,42 @@ paint(52,(x,y)=>(x%8===0||y%8===0)?vary([178,178,184],6):vary([204,204,210],8));
 paint(55,(x,y)=>((x+y*2)%9===0)?vary([240,150,160],14):vary([212,104,118],26));
 paint(56,()=>vary([240,236,220],12));
 paint(57,()=>vary([168,222,60],44));
+// ---- マックのステージ ----
+paint(158,(x,y)=>(y%5===4)?vary([150,18,20],8):vary([206,32,30],14));                       // 赤いかべ
+paint(159,()=>vary([255,196,24],10));                                                         // 黄色
+paint(160,(x,y)=>vary([62,62,66],16));                                                        // アスファルト
+paint(161,(x,y)=>(x>=6&&x<=9)?vary([236,236,230],8):vary([62,62,66],16));                     // 白線
+paint(162,(x,y)=>(x%8===0||y%8===0)?vary([150,140,128],8):((x>>3)+(y>>3))%2?vary([222,212,192],8):vary([196,60,48],8)); // お店の床（タイル）
+paint(163,(x,y)=>{ // メニューボード：黒い板に、ハンバーガー・ポテト・ジュースの絵
+  if(y<2||y>13||x<1||x>14)return vary([40,40,44],6);
+  const c=(x-1)%5,r=y<8?0:1;
+  if(c===0)return [26,26,30,255];
+  if(r===0){if(y===3)return [214,150,70,255];if(y===4)return [70,170,50,255];if(y===5)return [92,52,30,255];if(y===6)return [200,135,60,255];}
+  else{if(y>=9&&y<=12&&(x+y)%2)return x<6?[255,206,40,255]:x<11?[230,40,40,255]:[240,240,240,255];}
+  return [26,26,30,255];});
+paint(164,(x,y)=>((x*5+y*3)%13===0)?[250,246,232,255]:vary([214,150,70],14));                // バンズの上（ごま）
+paint(165,(x,y)=>y>12?vary([236,196,130],8):vary([204,138,62],12));                          // バンズの横
+paint(166,(x,y)=>(y%4===1)?vary([60,34,20],8):vary([100,58,34],14));                         // パティ（焼き目）
+paint(167,(x,y)=>(Math.hypot(x-7.5,y-7.5)<4&&(x+y)%3===0)?vary([255,200,120],10):vary([222,42,36],12)); // トマト
+paint(168,(x,y)=>(y===Math.round(3+Math.sin(x*0.9)*1.5)||y===Math.round(11+Math.sin(x*0.9+1)*1.5))?vary([170,226,120],10):vary([70,168,52],16)); // レタス
+const foodFace=(base,mad)=>(x,y)=>{ // ザコ敵の顔：目と口
+  for(const cx of [4,11]){if(Math.hypot(x-cx,y-6)<2.2){if(Math.hypot(x-cx,y-6.3)<1.1)return [20,20,24,255];return [250,250,250,255];}}
+  if(mad&&((y===3&&(x===3||x===12))||(y===4&&(x===4||x===11))))return [20,20,24,255];
+  if(y===11&&x>=5&&x<=10)return [120,20,20,255];if(y===10&&(x===5||x===10))return [120,20,20,255];
+  return base(x,y);};
+paint(169,foodFace((x,y)=>vary([204,138,62],12),false));   // バンズの顔
+paint(170,foodFace((x,y)=>(y%4===1)?vary([60,34,20],8):vary([100,58,34],14),true)); // パティの顔（おこっている）
+paint(171,foodFace((x,y)=>vary([222,42,36],12),false));    // トマトの顔
+paint(172,foodFace((x,y)=>vary([70,168,52],16),false));    // レタスの顔
+paint(173,(x,y)=>{ // ハンバーガーマンの顔：上のバンズに、二重まるの目と、赤い口
+  for(const cx of [4,11]){const d=Math.hypot(x-cx,y-7.5);if(d<3.3){if(d>=2.6)return [92,60,50,255];if(d<1.4)return Math.hypot(x-cx-0.5,y-7.2)<0.8?[40,30,30,255]:[92,60,50,255];return [252,246,236,255];}}
+  if((y===10&&x>=6&&x<=9)||(y===11&&(x===5||x===10)))return [220,40,40,255];
+  return y===0?vary([170,120,50],8):vary([240,214,150],10);});
+paint(174,(x,y)=>((x*5+y*3)%13===0)?[252,248,236,255]:vary([240,214,150],10));               // ハンバーガーマンの上のバンズ
+paint(175,()=>vary([118,84,70],10));                                                          // 腕と足
+paint(176,(x,y)=>{ // Mの看板（赤に黄色いM）
+  const m=(y>=3&&y<=13)&&((x>=2&&x<=3)||(x>=12&&x<=13)||(x>=7&&x<=8&&y>=6)||(y<=5&&((x>=3&&x<=6&&y===3+((x-3)>>1))||(x>=9&&x<=12&&y===3+((12-x)>>1))))||(y>=4&&y<=6&&((x>=4&&x<=7&&Math.abs(y-(x-1))<=1)||(x>=8&&x<=11&&Math.abs(y-(14-x))<=1))));
+  return m?vary([255,200,24],8):vary([206,32,30],10);});
 
 // 手に持つ剣
 (function(){const c=document.getElementById('held').getContext('2d');
@@ -1562,6 +1640,9 @@ function imoVerts(e,out){
     pushBox(out,s<0?[-1.7,0.2,-0.11]:[1.35,0.2,-0.11],s<0?[-1.35,0.5,0.11]:[1.7,0.5,0.11],T_IMO,bd);}
 }
 const T_GBLUE=[149,149,149,149,149,149],T_GBODY=[149,149,149,149,154,149],T_GHEAD=[151,151,151,151,150,151],T_GHAT=[155,155,155,155,155,155],T_GLEAF=[156,156,156,156,156,156],T_VERM=[153,153,153,153,153,153],T_TUB=[151,151,151,151,151,151],T_GOLDA=[157,157,157,157,157,157];
+// マックの敵：顔は前（-z）の面
+const T_BUN=[165,165,165,164,169,165],T_BUNB=[165,165,165,165,165,165],T_PAT=[166,166,166,166,170,166],T_PATB=[166,166,166,166,166,166],T_TOM=[167,167,167,167,171,167],T_TOMB=[167,167,167,167,167,167],
+  T_LET=[168,168,168,168,172,168],T_LETB=[168,168,168,168,168,168],T_BTOP=[174,174,165,174,173,174],T_LIMB=[175,175,175,175,175,175];
 const T_BALL=[137,137,137,137,137,137],T_OBLUE=[138,138,138,138,138,138],T_OWHITE=[140,140,140,140,140,140],T_OBODY=[140,140,140,140,141,140],T_OHEAD=[146,146,147,138,139,146],
   T_KSKIN=[147,147,147,147,147,147],T_KHEAD=[142,142,147,148,143,142],T_KTANK=[144,144,144,140,144,144],T_KSHORT=[145,145,145,145,145,145],T_BLACK=[148,148,148,148,148,148];
 const T_YSKIN=[110,110,110,110,110,110],T_YBODY=[110,110,110,110,105,110],T_YPANTS=[108,108,108,108,108,108],T_YHEAD=[109,109,110,107,106,109];
@@ -1629,6 +1710,64 @@ function kinVerts(e,out){
 }
 // がしまくん：たらいの頭に編み笠、頭に葉っぱ。くるくる回ってしっぽでたたき、佐渡島の形の手裏剣を投げる
 const GASHI_SPIN=0.8,GASHI_THROW=0.5;
+// マックの具材の敵：小さな足で走ってきて、体当たりする
+function foodVerts(e,out){
+  const sw=Math.sin(e.walk)*0.7,lunge=e.atk>0?Math.sin((1-e.atk/0.55)*Math.PI)*0.5:0;
+  const o={x:e.x,y:e.y,z:e.z,yaw:e.yaw,scale:e.scale},body=part(o,[0,0,0],-lunge*0.6);
+  const leg=(lx,a,len)=>pushBox(out,[-0.05,-len,-0.05],[0.05,0,0.05],T_LIMB,part(o,[lx,len,0],a));
+  if(e.type==='bun'){leg(-0.16,sw,0.26);leg(0.16,-sw,0.26);
+    pushBox(out,[-0.42,0.26,-0.4],[0.42,0.72,0.4],T_BUN,body);pushBox(out,[-0.3,0.72,-0.28],[0.3,0.88,0.28],T_BUN.map(()=>164),body);}
+  else if(e.type==='patty'){leg(-0.2,sw,0.2);leg(0.2,-sw,0.2);
+    pushBox(out,[-0.48,0.2,-0.46],[0.48,0.58,0.46],T_PAT,body);}
+  else if(e.type==='tomato'){leg(-0.12,sw,0.22);leg(0.12,-sw,0.22);
+    pushBox(out,[-0.33,0.22,-0.33],[0.33,0.76,0.33],T_TOM,body);pushBox(out,[-0.12,0.76,-0.12],[0.12,0.82,0.12],T_LETB,body);pushBox(out,[-0.03,0.82,-0.03],[0.03,0.92,0.03],T_LETB,body);}
+  else{const fl=Math.sin(e.walk*1.5)*0.35;leg(-0.14,sw,0.16);leg(0.14,-sw,0.16); // レタスはひらひら
+    pushBox(out,[-0.36,0.16,-0.36],[0.36,0.4,0.36],T_LET,body);
+    for(const s of [-1,1])pushBox(out,[-0.04,-0.02,-0.4],[0.04,0.02,0.4],T_LETB,part(o,[s*0.42,0.38+fl*s*0.2,0],0));}
+}
+const BURGER_SPIN=1.0,BURGER_DASH=1.6;
+// ハンバーガーマン：上から、顔のあるバンズ・パティ・トマト・レタス・下のバンズ。ひょろっとした腕と足
+function burgerVerts(e,out){
+  const dash=e.dash>0?e.dash:(e.atk<0?-e.atk:0); // 2人プレイの相手の画面では、突進はマイナスのatkで届く
+  const sw=Math.sin(e.walk)*0.5,spin=e.atk>0?(1-e.atk/BURGER_SPIN)*Math.PI*6:dash>0?(1-dash/BURGER_DASH)*Math.PI*10:0;
+  const o={x:e.x,y:e.y,z:e.z,yaw:e.yaw+spin,scale:e.scale},c=part(o,[0,0,0],0),spinning=spin!==0;
+  for(const s of [-1,1]){const lp=part(o,[s*0.22,0.62,0],s*sw); // 足（ななめに開く）
+    pushBox(out,[-0.05,-0.62,-0.05],[0.05,0,0.05],T_LIMB,lp);pushBox(out,[s>0?0:-0.22,-0.62,-0.06],[s>0?0.22:0,-0.56,0.08],T_LIMB,lp);}
+  pushBox(out,[-0.56,0.6,-0.5],[0.56,0.92,0.5],T_BUNB,c);    // 下のバンズ
+  pushBox(out,[-0.68,0.92,-0.6],[0.68,1.06,0.6],T_LETB,c);   // レタス
+  pushBox(out,[-0.74,1.06,-0.64],[0.74,1.32,0.64],T_TOMB,c); // トマト
+  pushBox(out,[-0.64,1.32,-0.56],[0.64,1.62,0.56],T_PATB,c); // パティ
+  pushBox(out,[-0.6,1.62,-0.52],[0.6,2.14,0.52],T_BTOP,c);   // 上のバンズ（顔）
+  pushBox(out,[-0.42,2.14,-0.36],[0.42,2.3,0.36],T_BTOP.map(()=>174),c);
+  for(const s of [-1,1]){
+    if(spinning){pushBox(out,[s>0?0.72:-1.75,1.14,-0.05],[s>0?1.75:-0.72,1.24,0.05],T_LIMB,c);pushBox(out,[s>0?1.62:-1.82,1.08,-0.1],[s>0?1.82:-1.62,1.3,0.1],T_LIMB,c);continue;} // 回るときは腕をひろげる
+    const ap=part(o,[0,1.2,0],-s*sw*0.6); // 腕：横に出て、下にまがる
+    pushBox(out,[s>0?0.7:-1.02,-0.05,-0.05],[s>0?1.02:-0.7,0.05,0.05],T_LIMB,ap);
+    pushBox(out,[s>0?0.94:-1.04,-0.72,-0.05],[s>0?1.04:-0.94,0.02,0.05],T_LIMB,ap);}
+}
+function updateBurger(e,dt){
+  const b=e.base||1,tg=nearestPlayer(e);
+  const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
+  let sp=0;e.dashCd=(e.dashCd===undefined?3:e.dashCd)-dt;
+  const hitAround=(R)=>{for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z);if(d<R&&Math.abs(t.y-e.y)<2.2*b)hurtTarget(t,Math.ceil(e.dmg*0.6),e.x,e.z);}}; // 2回たたくので1回は弱め
+  if(e.atk>0){ // その場でくるくる回って、ひろげた腕で2回たたく
+    const prev=e.atk;e.atk-=dt;
+    for(const k of [0.66,0.25])if(prev>k&&e.atk<=k){sfx('swing');hitAround(2.6*b);}
+    if(e.atk<=0){e.atk=0;e.cd=1.1;}}
+  else if(e.dash>0){ // 回りながら突進。ぶつかったら1回だけダメージ
+    e.dash-=dt;sp=e.spd*2.6;
+    if(!e.dashHit)for(const t of playerTargets){const d=Math.hypot(t.x-e.x,t.z-e.z);if(d<1.9*b&&Math.abs(t.y-e.y)<2.2*b){hurtTarget(t,e.dmg,e.x,e.z);e.dashHit=true;sfx('swing');break;}}
+    if(e.dash<=0){e.dash=0;e.dashCd=3+Math.random()*1.5;e.cd=0.8;}}
+  else if(tg&&(dist<30||e.boss)){
+    if(dist<2.4*b&&Math.abs(dyT)<2.2*b&&e.cd<=0)e.atk=BURGER_SPIN;
+    else if(dist>5&&dist<18&&e.dashCd<=0&&losClear(e.x,e.y+1*b,e.z,tg.x,tg.y+1,tg.z)){e.dash=BURGER_DASH;e.dashHit=false;e.dirYaw=Math.atan2(-dx,-dz);toast('🍔 ハンバーガーマンが回りながら突進してくる！');}
+    else if(dist>1.8*b){sp=e.spd;e.dirYaw=pathYaw(e,tg);}else e.dirYaw=Math.atan2(-dx,-dz);}
+  steer(e,dt,sp,e.dash>0?2:6);
+  const blocked=moveBody(e,dt,e.r,e.h);
+  if(blocked&&e.ground&&sp>0)e.vy=8.2;
+  if(e.dash>0&&blocked)e.dash=Math.min(e.dash,0.15); // かべにぶつかったら止まる
+  e.walk+=dt*sp*2.5;e.hurt-=dt;e.cd-=dt;
+}
 function gashimaVerts(e,out){
   const sw=Math.sin(e.walk)*0.5,spin=e.atk>0?(1-e.atk/GASHI_SPIN)*Math.PI*4:0;
   const o={x:e.x,y:e.y,z:e.z,yaw:e.yaw+spin,scale:e.scale};
@@ -1659,6 +1798,8 @@ function shieldVerts(e,out){
 function enemyVerts(e,out){
   if(e.type==='rival') return avatarVerts(e,out);
   if(e.type==='gashima') return gashimaVerts(e,out);
+  if(e.type==='burger') return burgerVerts(e,out);
+  if(FOOD_ENEMIES.includes(e.type)) return foodVerts(e,out);
   if(e.type==='ohtani') return ohtaniVerts(e,out);
   if(e.type==='kinnikun') return kinVerts(e,out);
   if(e.type==='yoshio') return yoshioVerts(e,out);
@@ -1781,7 +1922,7 @@ const hits=(x,y,z)=>hitsBox(x,y,z,PR,PH);
 // ---------- enemies & cows ----------
 let enemies=[],kills=0,spawnTimer=0,cowTimer=0,mimicTimer=0,playTime=0,pendingCook=0,pendingCookStew=0,cookTotal=0;
 let items=[],rockets=[],booms=[],mirrorBalls=[],tracers=[],debris=[];
-const MAX_ENEMIES=4,MAX_COWS=3,MAX_MIMIC=2,MAX_ZOMBIE=4;let zombieTimer=0,signTimer=0,ghastTimer=0,magaiTimer=0;
+const MAX_ENEMIES=4,MAX_COWS=3,MAX_MIMIC=2,MAX_ZOMBIE=4;let zombieTimer=0,signTimer=0,ghastTimer=0,magaiTimer=0,foodTimer=0;
 const ENEMY_STATS={
   zero:{r:0.3,h:1.8,hp:10,spd:2.5,dmg:3},
   cow:{r:0.4,h:1.4,hp:6,spd:2.5,dmg:3},
@@ -1797,8 +1938,14 @@ const ENEMY_STATS={
   rival:{r:0.3,h:1.8,hp:20,spd:3.4,dmg:2}, // 対戦モードのCPU
   ohtani:{r:0.32,h:2.1,hp:60,spd:2.8,dmg:5},  // よしおの第2形態
   kinnikun:{r:0.4,h:2.14,hp:80,spd:2.6,dmg:6}, // よしおの最終形態
-  gashima:{r:0.42,h:1.86,hp:70,spd:2.4,dmg:5} // 佐渡島のボス
+  gashima:{r:0.42,h:1.86,hp:70,spd:2.4,dmg:5}, // 佐渡島のボス
+  bun:{r:0.42,h:0.9,hp:10,spd:2.6,dmg:3},      // マックの敵：バンズ
+  lettuce:{r:0.42,h:0.45,hp:6,spd:3.8,dmg:2},  // レタス（はやい）
+  tomato:{r:0.33,h:0.8,hp:8,spd:3.0,dmg:2},    // トマト（はねる）
+  patty:{r:0.48,h:0.6,hp:18,spd:1.9,dmg:5},    // パティ（かたくて強い）
+  burger:{r:0.62,h:2.3,hp:80,spd:2.6,dmg:6}    // マックのボス：ハンバーガーマン
 };
+const FOOD_ENEMIES=['bun','bun','lettuce','tomato','patty'];
 function enemyDims(type){return ENEMY_STATS[type]||ENEMY_STATS.zero;}
 let nextEnemyId=1;
 function spawnEnemy(type,at,opt){
@@ -2384,6 +2531,8 @@ function updateEnemies(dt){
   if(signTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='sign').length<(STAGES[stage].mobs.sign||0)){spawnEnemy('sign');signTimer=16;}
   ghastTimer-=dt;
   if(ghastTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='ghast').length<(STAGES[stage].mobs.ghast||0)){spawnEnemy('ghast');ghastTimer=24;}
+  foodTimer-=dt;
+  if(foodTimer<=0&&enemies.filter(e=>e.dying<=0&&FOOD_ENEMIES.includes(e.type)).length<(STAGES[stage].mobs.food||0)){spawnEnemy(FOOD_ENEMIES[Math.floor(Math.random()*FOOD_ENEMIES.length)]);foodTimer=4;}
   magaiTimer-=dt;
   if(magaiTimer<=0&&enemies.filter(e=>e.dying<=0&&e.type==='magai').length<(STAGES[stage].mobs.magai||0)){spawnEnemy('magai');magaiTimer=18;}
   }
@@ -2403,6 +2552,7 @@ function updateEnemies(dt){
     if(e.type==='ohtani'){updateOhtani(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='kinnikun'){updateKinnikun(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     if(e.type==='gashima'){updateGashima(e,dt);if(e.y<-20)e.dying=0.01;continue;}
+    if(e.type==='burger'){updateBurger(e,dt);if(e.y<-20)e.dying=0.01;continue;}
     const tg=nearestPlayer(e);
     const dx=tg?tg.x-e.x:0,dz=tg?tg.z-e.z:0,dist=Math.hypot(dx,dz)||0.001,dyT=tg?tg.y-e.y:99;
     const b=e.base||1,chase=tg&&dist<30&&dist>1.2*b&&e.atk<=0?1:0;
@@ -2413,6 +2563,7 @@ function updateEnemies(dt){
     e.vy-=26*dt;if(e.vy<-30)e.vy=-30;
     const blocked=moveBody(e,dt,e.r,e.h);
     if(blocked&&e.ground&&chase)e.vy=8.2;
+    else if(e.type==='tomato'&&e.ground&&chase&&Math.random()<dt*2.5)e.vy=6.5; // トマトはぴょんぴょんはねる
     e.walk+=dt*sp*chase*3;
     e.hurt-=dt;e.cd-=dt;
     if(e.atk>0){
@@ -3149,7 +3300,7 @@ function genArena(rnd){
 function gameClear(){
   clearBtnEl.textContent='草原にもどる';islandAgainEl.style.display='none';vsAgainEl.style.display='none';rushAgainEl.style.display='none';
   document.getElementById('clearTitle').textContent='🎉 ぜんぶクリア！';
-  document.getElementById('clearMsg').textContent='佐渡島のがしまくんをたおした！ すべてのステージをクリアしたよ。';
+  document.getElementById('clearMsg').textContent='マックのハンバーガーマンをたおした！ すべてのステージをクリアしたよ。';
   clearing=true;fireHeld=false;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
   document.getElementById('clear').style.display='flex';
@@ -3456,6 +3607,11 @@ const DEX_ENEMIES=[
   {id:'imo',name:'いもじじい',desc:'大きな家のボス。泥を投げてきたり、ジャンプしてのしかかってくる。',face:101},
   {id:'ohtani',name:'おおたに',desc:'よしおの第2形態。燃えるバットをふり回し、はなれるとボールを投げてくる。',face:139},
   {id:'kinnikun',name:'なかやまきんに君',desc:'よしおの最終形態。パンチで攻撃してくる。行く手のブロックもなぐってこわす（上すぎるブロックはとどかない）。',face:143},
+  {id:'bun',name:'バンズ',desc:'マックに現れる。ふかふかのパン。近づいて体当たりしてくる。',face:169},
+  {id:'lettuce',name:'レタス',desc:'マックに現れる。ひらひらと速く走ってくる。体力は少ない。',face:172},
+  {id:'tomato',name:'トマト',desc:'マックに現れる。ぴょんぴょんはねながら近づいてくる。',face:171},
+  {id:'patty',name:'パティ',desc:'マックに現れる。動きはおそいけど、かたくてこうげきが強い。',face:170},
+  {id:'burger',name:'ハンバーガーマン',desc:'マックのボス。くるくる回って長い腕でたたく。はなれていると、回りながら突進してくる。',face:173},
   {id:'gashima',name:'がしまくん',desc:'佐渡島のボス。たらいの頭に編み笠をかぶっている。佐渡島の形をした手裏剣を投げてきて、近づくとくるくる回ってしっぽでたたく。',face:150},
   {id:'yoshio',name:'よしお',desc:'クジラのおなかのボス。おどりながら近づき、下に向かってパンチしてくる。攻撃されると足元からくずれて小さくなっていく。',face:106}
 ];
@@ -4558,7 +4714,7 @@ function netTick(dt){
   if(net.role==='host'&&(mpMonsters||bossRush||vs)){
     net.mobSendT-=dt;
     if(net.mobSendT<=0){net.mobSendT=0.1;
-      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.atk||0).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:e.king?2:0,Math.ceil(e.shield||0),e.shieldMax||0]),
+      netSend({t:'mobs',e:enemies.map(e=>[e.id,e.type,+e.x.toFixed(2),+e.y.toFixed(2),+e.z.toFixed(2),+e.yaw.toFixed(2),Math.round(e.hp),e.maxhp,+e.walk.toFixed(2),+(e.dash>0?-e.dash:(e.atk||0)).toFixed(2),+e.dying.toFixed(2),+(e.hurt||0).toFixed(2),e.scale||1,e.base||1,e.boss?1:e.king?2:0,Math.ceil(e.shield||0),e.shieldMax||0]),
         f:rockets.filter(r=>r.owner==='ghast'||r.owner==='mud'||r.owner==='ball'||r.owner==='shuriken').map(r=>[+r.x.toFixed(2),+r.y.toFixed(2),+r.z.toFixed(2),+r.vx.toFixed(2),+r.vy.toFixed(2),+r.vz.toFixed(2),r.owner==='mud'?1:r.owner==='ball'?2:r.owner==='shuriken'?4:0])});
     }
   }
@@ -4629,10 +4785,10 @@ codeIn.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')joi
 // ---------- game flow ----------
 const overlay=document.getElementById('overlay'),overEl=document.getElementById('over');
 function newRun(){
-  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;signTimer=7;ghastTimer=12;magaiTimer=6;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];mirrorBalls=[];tracers=[];debris=[];fireHeld=false;
+  P.hp=MAXHP;P.safe=0;P.inv=0;spawn();enemies=[];kills=0;cookTotal=0;playTime=0;spawnTimer=2;cowTimer=10;mimicTimer=15;zombieTimer=4;signTimer=7;ghastTimer=12;magaiTimer=6;foodTimer=1.5;pendingCook=0;pendingCookStew=0;dead=false;items=[];rockets=[];booms=[];mirrorBalls=[];tracers=[];debris=[];fireHeld=false;
   const mb=STAGES[stage].mobs;
   if(bossPhase===1){if(stageStats.boss===0)spawnBoss();}
-  else if(bossPhase===0&&!vs){if(mb.zero)spawnEnemy('zero');if(stage===ISLAND)cowTimer=70;else for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');}
+  else if(bossPhase===0&&!vs){if(mb.zero)spawnEnemy('zero');if(mb.food)for(let i=0;i<2;i++)spawnEnemy(FOOD_ENEMIES[i]);if(stage===ISLAND)cowTimer=70;else for(let i=0;i<Math.min(2,mb.cow);i++)spawnEnemy('cow');}
   updateHud();
 }
 function gameOver(cause){
