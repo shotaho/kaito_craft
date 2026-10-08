@@ -160,6 +160,17 @@ body.scoped #bScope{background:rgba(255,213,74,.55)}
 #cbtns{display:flex;gap:10px;justify-content:center}
 #cbtns button{font:inherit;font-size:19px;font-weight:800;padding:12px 18px;border:none;border-radius:10px;background:#ff9800;color:#fff;box-shadow:0 4px 0 #b36200;cursor:pointer;min-width:120px}
 #cbtns button#cB{background:#43a047;box-shadow:0 4px 0 #2b6b2e}
+#mack{display:none;z-index:12;background:rgba(40,24,10,.72)}
+#mack .card{width:min(96vw,430px);padding:12px 12px 14px}
+#mack h2{margin:0 0 4px;font-size:21px}
+#minst{margin:2px 0 6px;font-size:13px}
+#mackcv{width:100%;aspect-ratio:360/230;display:block;border-radius:8px;background:#cfd8dc;touch-action:none}
+#mfb{height:24px;margin:5px 0 3px;font-size:16px;font-weight:800;color:#e65100}
+#mbtns{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
+#mbtns button{font:inherit;font-size:15px;font-weight:800;padding:9px 12px;border:none;border-radius:10px;background:#ff9800;color:#fff;box-shadow:0 3px 0 #b36200;cursor:pointer}
+#mbtns button#mSet{background:#d32f2f;box-shadow:0 3px 0 #8e1b1b}
+#mbtns button#mClose{background:#78909c;box-shadow:0 3px 0 #455a64}
+#mbtns button:disabled{opacity:.4;cursor:default}
 #cbtns button:active{transform:translateY(3px);box-shadow:0 1px 0 #b36200}
 #cbtns button:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
 #cres{font-size:15px;line-height:1.6;margin:6px 0}
@@ -270,7 +281,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.28.0</p>
+    <p id="ver">ver 1.29.0</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -295,6 +306,15 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
     <div id="cfb"></div>
     <div id="cres"></div>
     <div id="cbtns"><button id="cA"></button><button id="cB"></button></div>
+  </div>
+</div>
+<div id="mack" class="overlay">
+  <div class="card">
+    <h2>🍔 マックのキッチン</h2>
+    <p id="minst"></p>
+    <canvas id="mackcv" width="360" height="230"></canvas>
+    <div id="mfb"></div>
+    <div id="mbtns"><button id="mBun"></button><button id="mPat"></button><button id="mSet">🍔 セットを作る</button><button id="mClose">もどる</button></div>
   </div>
 </div>
 <div id="craft" class="overlay">
@@ -483,6 +503,9 @@ BLOCKS[105]={name:'たらい舟',t:[151,151,151]};BLOCKS[106]={name:'金鉱石',
 // マック：赤いかべ・黄色・アスファルト・白線・お店の床・メニューボード・Mの看板
 BLOCKS[108]={name:'赤いかべ',t:[158,158,158]};BLOCKS[109]={name:'黄色ブロック',t:[159,159,159]};BLOCKS[110]={name:'アスファルト',t:[160,160,160]};
 BLOCKS[111]={name:'白線',t:[161,160,160]};BLOCKS[112]={name:'お店の床',t:[162,162,162]};BLOCKS[113]={name:'メニューボード',t:[160,163,160]};BLOCKS[114]={name:'Mの看板',t:[159,176,159]};
+// マックのキッチン（右クリックで料理）と、ドライブスルーの車
+BLOCKS[115]={name:'鉄板',t:[177,178,178]};BLOCKS[116]={name:'フライヤー',t:[179,178,178]};BLOCKS[117]={name:'ポテトの箱',t:[180,180,180]};
+BLOCKS[118]={name:'青い車',t:[181,181,181]};BLOCKS[119]={name:'タイヤ',t:[182,182,182]};BLOCKS[120]={name:'白い車',t:[183,183,183]};
 const TUB_BOXES=[[[0.08,0,0.08],[0.92,0.1,0.92]],[[0.04,0.05,0.04],[0.96,0.55,0.14]],[[0.04,0.05,0.86],[0.96,0.55,0.96]],[[0.04,0.05,0.14],[0.14,0.55,0.86]],[[0.86,0.05,0.14],[0.96,0.55,0.86]]];
 const BASE_HOTBAR=[1,2,3,4,7,9,8,5,6,10,27,95,67,99,20,17,18,15,11,16,22,21,29,107,108,114];
 const HOTBAR=BASE_HOTBAR.slice();
@@ -678,7 +701,7 @@ const STAGES=[
   {name:'マンション',icon:'🏢',sky:[0.72,0.84,0.95],fog:[22,62],mobs:{zero:2,zombie:4,mimic:1,cow:0},goal:{type:'reach',n:29,text:'屋上にたどり着く'},boss:{type:'wombat',hp:30,base:1.25,at:[26.5+GO,29,27.5+GO]},spawn:[24.5+GO,4,20.5+GO]},
   {name:'クジラのおなか',icon:'🐋',sky:[0.3,0.08,0.12],fog:[10,34],mobs:{zero:0,zombie:3,mimic:3,cow:1},goal:{type:'kills',n:10,text:'敵をたおす'},boss:{type:'yoshio',hp:60,base:1.6},spawn:[8.5,null,D/2+0.5]},
   {name:'佐渡島',icon:'🛶',sky:[0.6,0.82,0.96],fog:[24,66],mobs:{zero:2,zombie:3,mimic:1,cow:2},goal:{type:'cross',n:1,text:'たらい舟で金山の島へわたる'},boss:{type:'gashima',hp:70,base:1.4},spawn:[W/2+0.5,null,8.5]},
-  {name:'マック',icon:'🍔',sky:[0.62,0.82,0.96],fog:[24,66],mobs:{zero:0,zombie:0,mimic:0,cow:1,food:5},goal:{type:'kills',n:10,text:'具材の敵をたおす'},boss:{type:'burger',name:'ハンバーガーマン',hp:80,base:1.4},spawn:[W/2+0.5,null,22.5]},
+  {name:'マック',icon:'🍔',sky:[0.62,0.82,0.96],fog:[24,66],mobs:{zero:0,zombie:0,mimic:0,cow:1,food:5},goal:{type:'set',n:1,text:'ハンバーガーセットを作る'},boss:{type:'burger',name:'ハンバーガーマン',hp:80,base:1.4},spawn:[W/2+0.5,null,22.5]},
   // 無人島ふとりバトル専用（ステージえらびには出さない）。モンスターは出ない（牛はたまに出る食べ物）
   {name:'無人島',icon:'🏝️',extra:true,sky:[0.55,0.82,0.98],fog:[26,70],mobs:{zero:0,zombie:0,mimic:0,cow:1},goal:{type:'fat',n:1,text:''},boss:null,spawn:[W/2+0.5,null,D/2+0.5]},
   // 対戦モード専用。モンスターは観客席で見ているだけ
@@ -686,6 +709,7 @@ const STAGES=[
 ];
 const NSTAGE=8,SADO=6,MAC=7,ISLAND=8,VS_ARENA=9; // ふつうのステージの数、佐渡島・マック・無人島・対戦ステージのステージ番号
 // ボス戦モード：null か {t:経過秒}（ステージのボスと順番に戦う）
+let macInv={bun:0,lettuce:0,tomato:0,patty:0},macK={grill:[null,null],fry:null,made:{bun:0,patty:0,fries:0},fbT:0,t:0},macKitchen=false; // マックの具材とキッチン
 let bossRush=null,rushPick=false,island=null; // island：無人島ふとりバトル {t:のこり秒,kg:体重}
 let stage=0,goalDone=false,stageStats={kills:0,gems:0,chests:0,boss:0},skyCol=STAGES[0].sky,fogR=STAGES[0].fog;
 const PROG_KEY='blockcraft-progress-v1';
@@ -891,12 +915,21 @@ function genMac(rnd){
   for(let tx=x0+3;tx<=x1-3;tx+=5)for(const tz of [z0+3,z0+8]){if(Math.abs(tx-C)<3)continue;setB(tx,4,tz,TB);setB(tx,4,tz-1,CH);setB(tx,4,tz+1,CH+2);}
   const cz=z0+12;fill(x0+3,4,cz,x1-3,4,cz,109);fill(x0+3,5,cz,x1-3,5,cz,20);fill(C-1,4,cz,C,5,cz,0);setB(C+3,6,cz,20); // カウンター（まん中は通れる）
   for(let x=x0+4;x<=x1-4;x+=3)fill(x,7,z1,x+1,8,z1,113);                                // メニューボード（おくのかべ）
-  for(let x=x0+3;x<=x1-3;x+=4){fill(x,4,z1-3,x+1,4,z1-2,3);setB(x,5,z1-3,15);setB(x+1,5,z1-2,15);} // キッチンのグリル
+  // キッチン：鉄板（バンズとパティを焼く）・フライヤー（ポテトを揚げる）・ポテトの箱。右クリックで料理
+  for(const[a,s]of [[x0,1],[x1,-1]]){fill(a+3*s,4,z1-3,a+5*s,4,z1-3,115);fill(a+7*s,4,z1-3,a+8*s,4,z1-3,116);setB(a+10*s,4,z1-3,117);}
   setB(x1-2,4,cz+2,10); // 作業台
   // ドライブスルーの受け取り窓口（東のかべ）と、注文のメニューボード
   fill(x1,5,C+4,x1,6,C+6,8);fill(x1+1,10,C+3,L1,10,C+7,109);for(const z of [C+3,C+7])fill(L1,4,z,L1,9,z,20); // 窓口の屋根
   fill(L1+1,4,LZ-2,L1+1,6,LZ-2,20);fill(L1+1,7,LZ-4,L1+1,9,LZ,113);                       // 注文するメニューボード
   setB(L1,5,LZ-6,20);                                                                     // スピーカー
+  // 車：ドライブスルーにならんでいる（注文のところ・受け取り窓口・待っている車）と、駐車場
+  const car=(x,z,body,dir)=>{ // 横3・長さ5のブロックの車。dir=1：北（+z）向き、-1：南向き、2：東向き
+    const along=dir===2,L=(i,j,y,id)=>along?setB(x+j,y,z+i,id):setB(x+i,y,z+j,id),f=dir===-1?0:4;
+    for(let i=0;i<3;i++)for(let j=0;j<5;j++){L(i,j,4,(j===1||j===3)&&i!==1?119:body);L(i,j,5,body);}
+    for(let i=0;i<3;i++)for(let j=1;j<=3;j++){L(i,j,6,i===1&&j===2?0:8);L(i,j,7,body);}
+    L(0,f,5,15);L(2,f,5,15);};
+  car(x1+4,LZ-6,118,1);car(x1+4,C+3,120,1);car(x1+4,z0-1,118,1);
+  car(x0-12,16,120,-1);car(x0+2,16,118,-1);car(x1-2,16,120,-1);car(x1+8,z0-7,118,2);
   // 入り口の「ドライブスルー」看板と、大きなMの看板
   fill(L1+2,4,z0-4,L1+2,7,z0-4,20);fill(L1+2,8,z0-5,L1+2,9,z0-3,114);
   const PX=x0-6,PZ=14;fill(PX,4,PZ,PX,17,PZ,20);fill(PX-2,18,PZ,PX+2,21,PZ,114);
@@ -1365,6 +1398,13 @@ paint(173,(x,y)=>{ // ハンバーガーマンの顔：上のバンズに、二�
   return y===0?vary([170,120,50],8):vary([240,214,150],10);});
 paint(174,(x,y)=>((x*5+y*3)%13===0)?[252,248,236,255]:vary([240,214,150],10));               // ハンバーガーマンの上のバンズ
 paint(175,()=>vary([118,84,70],10));                                                          // 腕と足
+paint(177,(x,y)=>(x%4===0)?vary([40,40,44],6):vary([86,88,92],10));                         // 鉄板の上
+paint(178,(x,y)=>(y<2)?vary([60,60,64],6):((x===4||x===11)&&y===8)?[30,30,30,255]:vary([176,180,186],10)); // キッチンのステンレス
+paint(179,(x,y)=>(x===0||x===15||y===0||y===15)?vary([176,180,186],8):((x+y)%4===0)?vary([250,226,120],10):vary([214,170,60],12)); // フライヤーの油
+paint(180,(x,y)=>(y>=4&&y<=11&&x>=4&&x<=11)?((y<=6&&x%2===0)?vary([255,206,40],10):vary([220,36,36],8)):vary([186,140,90],10)); // ポテトの箱
+paint(181,(x,y)=>y===0?vary([120,170,240],8):vary([40,96,200],10));                          // 青い車
+paint(182,(x,y)=>(Math.hypot(x-7.5,y-7.5)<3)?vary([150,150,156],8):vary([28,28,30],6));        // タイヤ
+paint(183,(x,y)=>y===0?vary([255,255,255],4):vary([226,228,232],8));                          // 白い車
 paint(176,(x,y)=>{ // Mの看板（赤に黄色いM）
   const m=(y>=3&&y<=13)&&((x>=2&&x<=3)||(x>=12&&x<=13)||(x>=7&&x<=8&&y>=6)||(y<=5&&((x>=3&&x<=6&&y===3+((x-3)>>1))||(x>=9&&x<=12&&y===3+((12-x)>>1))))||(y>=4&&y<=6&&((x>=4&&x<=7&&Math.abs(y-(x-1))<=1)||(x>=8&&x<=11&&Math.abs(y-(14-x))<=1))));
   return m?vary([255,200,24],8):vary([206,32,30],10);});
@@ -1643,6 +1683,7 @@ const T_GBLUE=[149,149,149,149,149,149],T_GBODY=[149,149,149,149,154,149],T_GHEA
 // マックの敵：顔は前（-z）の面
 const T_BUN=[165,165,165,164,169,165],T_BUNB=[165,165,165,165,165,165],T_PAT=[166,166,166,166,170,166],T_PATB=[166,166,166,166,166,166],T_TOM=[167,167,167,167,171,167],T_TOMB=[167,167,167,167,167,167],
   T_LET=[168,168,168,168,172,168],T_LETB=[168,168,168,168,168,168],T_BTOP=[174,174,165,174,173,174],T_LIMB=[175,175,175,175,175,175];
+const FOOD_ITEM_BOX={g_bun:[[-0.2,0,-0.2],[0.2,0.2,0.2],[165,165,165,164,165,165]],g_patty:[[-0.22,0,-0.22],[0.22,0.1,0.22],T_PATB],g_tomato:[[-0.16,0,-0.16],[0.16,0.26,0.16],T_TOMB],g_lettuce:[[-0.24,0,-0.24],[0.24,0.06,0.24],T_LETB]};
 const T_BALL=[137,137,137,137,137,137],T_OBLUE=[138,138,138,138,138,138],T_OWHITE=[140,140,140,140,140,140],T_OBODY=[140,140,140,140,141,140],T_OHEAD=[146,146,147,138,139,146],
   T_KSKIN=[147,147,147,147,147,147],T_KHEAD=[142,142,147,148,143,142],T_KTANK=[144,144,144,140,144,144],T_KSHORT=[145,145,145,145,145,145],T_BLACK=[148,148,148,148,148,148];
 const T_YSKIN=[110,110,110,110,110,110],T_YBODY=[110,110,110,110,105,110],T_YPANTS=[108,108,108,108,108,108],T_YHEAD=[109,109,110,107,106,109];
@@ -1864,6 +1905,7 @@ function render(){
   if(items.length||rockets.length||booms.length||mirrorBalls.length||tracers.length||debris.length||(island&&bugs.length)){
     const out=[];
     for(const it of items){const o={x:it.x,y:it.y+0.1+Math.sin(it.t*3)*0.06,z:it.z,yaw:it.t*2,scale:1};
+      const fb=FOOD_ITEM_BOX[it.kind];if(fb){pushBox(out,fb[0],fb[1],fb[2],part(o,[0,0,0],0));continue;}
       pushBox(out,[-0.16,0,-0.16],[0.16,0.3,0.16],it.kind==='meat'?T_MEAT:T_MILK,part(o,[0,0,0],0));}
     if(island)for(const b of bugs){const o={x:b.x,y:b.y+Math.sin(b.t*9)*0.08,z:b.z,yaw:b.t*1.3+Math.PI/2,scale:1},fl=Math.sin(b.t*18)*0.7;pushBox(out,[-0.05,-0.05,-0.14],[0.05,0.05,0.14],T_BUG,part(o,[0,0,0],0));pushBox(out,[0.04,0,-0.12],[0.32,0.02,0.14],T_BUGW,part({x:o.x,y:o.y,z:o.z,yaw:o.yaw,scale:1},[0,0,0],0));pushBox(out,[-0.32,0,-0.12],[-0.04,0.02,0.14],T_BUGW,part(o,[0,0,0],fl*0.3));}
     for(const r of rockets){const o={x:r.x,y:r.y,z:r.z,yaw:r.yaw,scale:1};
@@ -1946,6 +1988,7 @@ const ENEMY_STATS={
   burger:{r:0.62,h:2.3,hp:80,spd:2.6,dmg:6}    // マックのボス：ハンバーガーマン
 };
 const FOOD_ENEMIES=['bun','bun','lettuce','tomato','patty'];
+const FOOD_LABEL={bun:'🍞 バンズ',lettuce:'🥬 レタス',tomato:'🍅 トマト',patty:'🥩 パティ'};
 function enemyDims(type){return ENEMY_STATS[type]||ENEMY_STATS.zero;}
 let nextEnemyId=1;
 function spawnEnemy(type,at,opt){
@@ -2022,13 +2065,15 @@ function damageEnemy(e,dmg,kb,src,how,localFx){
     if(e.type==='cow'){
       if(byPlayer){if(localFx){pendingCook=0.7;toast('🥩 肉と 🥛 ミルクを手に入れた！');}}
       else {dropItems(e.x,e.y+0.6,e.z);if(localFx&&Math.hypot(e.x-P.x,e.z-P.z)<24)toast('ミミッカーが牛をおそった！ 肉とミルクが落ちたよ');}
-    } else if(byPlayer){if(localFx)kills++;stageStats.kills++;}
+    } else if(byPlayer){if(localFx)kills++;stageStats.kills++;if(localFx&&FOOD_ENEMIES.includes(e.type))dropFood(e);}
     if(localFx)updateHud();
   }
 }
 function dropItems(x,y,z){
   for(const kind of ['meat','milk'])items.push({kind,x:x+(Math.random()-0.5)*0.4,y,z:z+(Math.random()-0.5)*0.4,vx:(Math.random()-0.5)*3,vy:5,vz:(Math.random()-0.5)*3,ground:false,t:Math.random()*6,life:90});
 }
+// マックの具材の敵をたおすと、その食材が落ちる（ひろってキッチンで料理する）
+function dropFood(e){items.push({kind:'g_'+e.type,x:e.x,y:e.y+0.4,z:e.z,vx:(Math.random()-0.5)*2,vy:4.5,vz:(Math.random()-0.5)*2,ground:false,t:0,life:90});}
 function updateItems(dt){
   for(const it of items){
     it.t+=dt;it.life-=dt;it.vy-=20*dt;if(it.vy<-20)it.vy=-20;
@@ -2038,6 +2083,7 @@ function updateItems(dt){
     if(it.life>0&&!dead&&it.t>0.5&&Math.hypot(it.x-P.x,it.z-P.z)<1.3&&Math.abs(it.y-P.y)<2){
       it.life=0;
       seeItem(it.kind);
+      if(it.kind.startsWith('g_')){const k=it.kind.slice(2);macInv[k]=(macInv[k]|0)+1;sfx('pickup',{kind:'meat'});toast(FOOD_LABEL[k]+'をひろった！ お店のキッチンで料理しよう');updateGoalHud();continue;}
       if(it.kind==='milk'){P.hp=Math.min(MAXHP,P.hp+3);updateHud();toast('🥛 ミルクをごくごく！ 体力+3');sfx('pickup',{kind:'milk'});}
       else {toast('🥩 肉をひろった！ 料理しよう');pendingCook=0.4;sfx('pickup',{kind:'meat'});}
     }
@@ -2598,7 +2644,7 @@ function findTarget(reach){
 const keys={};
 let started=false,locked=false,jumpHeld=false,dead=false,cooking=false,crafting=false;
 let clearing=false,portalLock=false,hazT=0,lastGoalTxt='',menuOpen=false;
-const paused=()=>cooking||crafting||clearing||menuOpen;
+const paused=()=>cooking||crafting||clearing||menuOpen||macKitchen;
 function checkCells(dt){
   const x0=Math.floor(P.x-PR),x1=Math.floor(P.x+PR-1e-4),y0=Math.floor(P.y),y1=Math.floor(P.y+PH-1e-4),z0=Math.floor(P.z-PR),z1=Math.floor(P.z+PR-1e-4);
   let haz=false,portal=false;
@@ -2610,6 +2656,7 @@ function checkCells(dt){
 function goalTarget(){const g=STAGES[stage].goal;return g.type==='reach'?1:g.n;}
 function goalProgress(){const g=STAGES[stage].goal;
   if(g.type==='cross')return sadoCrossed?1:0;
+  if(g.type==='set')return stageStats.sets|0;
   if(g.type==='kills')return stageStats.kills;if(g.type==='gems')return stageStats.gems;if(g.type==='chests')return stageStats.chests;
   return (P.y>=g.n-0.1&&P.ground)?1:0;}
 // ---- ボス戦：ステージのゴールを達成すると、ほかの敵が消えてボスがあらわれる。ボスをたおすとクリア ----
@@ -2691,6 +2738,7 @@ function updateGoalHud(){
   else if(goalDone)t=st.icon+' クリア！ 🌀ポータルに入ろう';
   else if(bossPhase===1)t='👑 ボス戦！ '+bossName()+'をたおせ';
   else if(g.type==='cross')t=st.icon+' '+g.text;
+  else if(g.type==='set')t=st.icon+' '+g.text+'　🍞'+macInv.bun+' 🥩'+macInv.patty+' 🥬'+macInv.lettuce+' 🍅'+macInv.tomato;
   else if(g.type==='reach'){const f=Math.max(1,Math.min(6,Math.floor((P.y-3)/5)+1));
     t=st.icon+' '+g.text+'（今 '+(P.y>=g.n-0.1?'屋上':f+'階')+'）';}
   else t=st.icon+' '+g.text+' '+Math.min(goalProgress(),g.n)+'/'+g.n;
@@ -2712,7 +2760,7 @@ function enterPortal(){
 }
 function goStage(n){
   n=Math.max(0,Math.min(STAGES.length-1,n));
-  stage=n;selStage=n;goalDone=false;bossPhase=bossRush?1:0;pendingBossHp=0;pendingShield=-1;bossForm=null;boat=null;sadoCrossed=false;sadoSeaT=0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
+  stage=n;selStage=n;goalDone=false;macReset();bossPhase=bossRush?1:0;pendingBossHp=0;pendingShield=-1;bossForm=null;boat=null;sadoCrossed=false;sadoSeaT=0;stageStats={kills:0,gems:0,chests:0,boss:0};portalLock=false;lastGoalTxt='';
   if(!bossRush&&n<NSTAGE){progress.unlocked=Math.max(progress.unlocked,n);saveProgress();}
   applyStageLook(n);
   // ボス戦モードの草原は、セーブした世界をこわさないように新しく作る
@@ -3505,6 +3553,7 @@ function placeBlock(){
   const r=raycast(6); if(!r) return;
   const hitId=getB(r.hit[0],r.hit[1],r.hit[2]);
   if(hitId===10){openCraft();return;}
+  if(hitId===115||hitId===116||hitId===117){openMacKitchen();return;}
   if(island){
     if(islandBusy())return;
     if(hitId===88){fillBottle('spring',r.hit);return;}
@@ -3663,6 +3712,8 @@ onTap(document.getElementById('ipPvp'),()=>{pickMode='pvp';renderIslandPick();})
 onTap(document.getElementById('ipTeam'),()=>{pickMode='team';renderIslandPick();});
 document.querySelectorAll('#ipLvRow button').forEach((b,i)=>onTap(b,()=>{islandLv=i;renderIslandPick();}));
 onTap(document.getElementById('ipGo'),()=>startIsland(true));
+onTap(document.getElementById('mBun'),()=>macPut('bun'));onTap(document.getElementById('mPat'),()=>macPut('patty'));
+onTap(document.getElementById('mSet'),()=>macMakeSet());onTap(document.getElementById('mClose'),()=>closeMacKitchen());
 onTap(document.getElementById('ipCancel'),()=>{islandPickEl.style.display='none';});
 onTap(dexTabEnemyEl,()=>{dexTab='enemy';renderDex();});
 onTap(dexTabItemEl,()=>{dexTab='item';renderDex();});
@@ -4159,6 +4210,110 @@ tbtn('bKick',kick);
 
 // ---------- 料理モード ----------
 const cookEl=document.getElementById('cook'),cv=document.getElementById('cookcv'),cx=cv.getContext('2d');
+// ---- マックのキッチン：鉄板でバンズとパティを焼く（下の面が焼けたらひっくり返す）、フライヤーでポテトを揚げる。焼きすぎると焦げて失敗 ----
+// 焼いたバンズ・パティ・揚げたポテトと、ひろったレタス・トマトで「ハンバーガーセット」を作ると、ボスのハンバーガーマンが出てくる
+const mackEl=document.getElementById('mack'),mcv=document.getElementById('mackcv'),mcx=mcv.getContext('2d'),mfbEl=document.getElementById('mfb');
+const MAC_RATE={bun:0.2,patty:0.13,fries:0.15},MAC_GOOD=0.6,MAC_DONE=1.0,MAC_BURN=1.3;
+const MAC_COL={bun:[[245,228,180],[214,140,58],[45,28,16]],patty:[[232,128,140],[118,66,38],[30,20,16]],fries:[[250,240,200],[246,190,50],[110,64,20]]};
+const MAC_SLOT=[{x:58,y:104},{x:150,y:104}],MAC_FRY={x:282,y:104};
+function macReset(){macInv={bun:0,lettuce:0,tomato:0,patty:0};macK={grill:[null,null],fry:null,made:{bun:0,patty:0,fries:0},fbT:0,t:0};}
+function macCol(kind,v){const c=MAC_COL[kind]; // 生 → こんがり → 焦げ
+  const mix=(a,b,t)=>a.map((x,i)=>Math.round(x+(b[i]-x)*Math.max(0,Math.min(1,t))));
+  const col=v<MAC_GOOD?mix(c[0],c[1],v/MAC_GOOD):v<=MAC_DONE?c[1]:mix(c[1],c[2],(v-MAC_DONE)/(MAC_BURN-MAC_DONE));return 'rgb('+col.join(',')+')';}
+function openMacKitchen(){
+  if(dead||paused())return;
+  macKitchen=true;resetTouch();fireHeld=false;for(const k in keys)keys[k]=false;
+  if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
+  mfbEl.textContent='';mackEl.style.display='flex';macButtons();
+}
+function closeMacKitchen(){macKitchen=false;mackEl.style.display='none';updateGoalHud();lockMouse();}
+function macFb(t){mfbEl.textContent=t;macK.fbT=2.2;}
+function macButtons(){
+  document.getElementById('mBun').textContent='🍞 バンズをのせる（'+macInv.bun+'）';document.getElementById('mBun').disabled=macInv.bun<=0;
+  document.getElementById('mPat').textContent='🥩 パティをのせる（'+macInv.patty+'）';document.getElementById('mPat').disabled=macInv.patty<=0;
+  document.getElementById('mSet').disabled=!macCanSet();
+}
+const macCanSet=()=>macK.made.bun>=1&&macK.made.patty>=1&&macK.made.fries>=1&&macInv.lettuce>=1&&macInv.tomato>=1;
+function macPut(kind){
+  if(macInv[kind]<=0){macFb('もっていない… 敵をたおしてひろおう');return;}
+  const i=macK.grill.findIndex(s=>!s);if(i<0){macFb('鉄板がいっぱい！');return;}
+  macInv[kind]--;macK.grill[i]={kind,side:[0,0],down:0,burnt:0};sfx('blockPlace');
+  macFb(kind==='bun'?'🍞 バンズを鉄板にのせた　ジュウ〜':'🥩 パティを鉄板にのせた　ジュウ〜');macButtons();
+}
+function macTap(x,y){
+  for(let i=0;i<2;i++){const sl=MAC_SLOT[i],it=macK.grill[i];if(Math.abs(x-sl.x)>46||Math.abs(y-sl.y)>40)continue;
+    if(!it){macFb('下のボタンで、バンズかパティをのせよう');return;}
+    if(it.burnt>0)return;
+    if(it.side[0]>=MAC_GOOD&&it.side[1]>=MAC_GOOD){macK.made[it.kind]++;macK.grill[i]=null;sfx('pickup',{kind:'meat'});macFb(it.kind==='bun'?'🍞 バンズがこんがり焼けた！':'🥩 パティがじゅうじゅう焼けた！');macButtons();return;}
+    it.down=1-it.down;sfx('blockPlace');macFb(it.side[it.down]>0?'🔄 ひっくり返した！':'🔄 ひっくり返した！ 反対の面を焼こう');return;}
+  if(Math.abs(x-MAC_FRY.x)<70&&Math.abs(y-MAC_FRY.y)<46){const f=macK.fry;
+    if(!f){macK.fry={v:0,burnt:0};sfx('blockPlace');macFb('🍟 ポテトを油に入れた！ シュワ〜');return;}
+    if(f.burnt>0)return;
+    if(f.v>=MAC_GOOD){macK.made.fries++;macK.fry=null;sfx('pickup',{kind:'meat'});macFb('🍟 ポテトがカリッと揚がった！');macButtons();return;}
+    macFb('まだ白い… きつね色になるまで待とう');}
+}
+function macMakeSet(){
+  if(!macCanSet())return;
+  macK.made.bun--;macK.made.patty--;macK.made.fries--;macInv.lettuce--;macInv.tomato--;
+  closeMacKitchen();P.hp=MAXHP;updateHud();sfx('pickup',{kind:'milk'});
+  if(stage===MAC&&bossPhase===0){toast('🍔 ハンバーガーセットのできあがり！ …いいにおいにつられて、ハンバーガーマンがやってくる！');
+    if(net.role==='guest')netSend({t:'macSet'});else stageStats.sets=(stageStats.sets|0)+1;}
+  else toast('🍔 ハンバーガーセットを食べた！ 体力満タン');
+}
+function macKitchenUpdate(dt){
+  macK.t+=dt;
+  for(let i=0;i<2;i++){const it=macK.grill[i];if(!it)continue;
+    if(it.burnt>0){it.burnt-=dt;if(it.burnt<=0)macK.grill[i]=null;continue;}
+    it.side[it.down]+=MAC_RATE[it.kind]*dt;
+    if(it.side[it.down]>MAC_BURN){it.burnt=1.4;sfx('noEffect',{type:'zero'});macFb(it.kind==='bun'?'💥 バンズが焦げちゃった！ 失敗…':'💥 パティが焦げちゃった！ 失敗…');}}
+  const f=macK.fry;
+  if(f){if(f.burnt>0){f.burnt-=dt;if(f.burnt<=0)macK.fry=null;}
+    else{f.v+=MAC_RATE.fries*dt;if(f.v>MAC_BURN){f.burnt=1.4;sfx('noEffect',{type:'zero'});macFb('💥 ポテトが焦げちゃった！ 失敗…');}}}
+  if(macK.fbT>0){macK.fbT-=dt;if(macK.fbT<=0)mfbEl.textContent='';}
+  document.getElementById('minst').textContent='鉄板：下の面が焼けたらタップでひっくり返す。両面こんがりならタップで取る。フライヤー：タップで入れる・きつね色で引き上げる。焼きすぎると焦げるよ！';
+  drawMacKitchen();
+}
+function drawMacKitchen(){
+  const c=mcx,t=macK.t;c.clearRect(0,0,360,230);
+  c.fillStyle='#eceff1';c.fillRect(0,0,360,230);c.fillStyle='#b0bec5';c.fillRect(0,150,360,80);
+  c.font='bold 13px sans-serif';c.textAlign='center';c.fillStyle='#37474f';c.fillText('鉄板',104,48);c.fillText('フライヤー',282,48);
+  // 鉄板
+  c.fillStyle='#37474f';c.fillRect(8,56,192,94);c.fillStyle='#546e7a';c.fillRect(14,62,180,82);
+  for(let x=20;x<194;x+=12){c.fillStyle='rgba(0,0,0,.18)';c.fillRect(x,62,2,82);}
+  for(let i=0;i<2;i++){const sl=MAC_SLOT[i],it=macK.grill[i];
+    if(!it){c.strokeStyle='rgba(255,255,255,.35)';c.setLineDash([5,4]);c.strokeRect(sl.x-38,sl.y-18,76,36);c.setLineDash([]);continue;}
+    const h=it.kind==='bun'?26:18,w=74,top=it.side[1-it.down],bot=it.side[it.down],y0=sl.y+10-h;
+    if(it.burnt>0){c.fillStyle='#212121';c.fillRect(sl.x-w/2,y0,w,h);c.fillStyle='rgba(80,80,80,.7)';for(let k=0;k<3;k++){c.beginPath();c.arc(sl.x-20+k*20,y0-10-((t*30+k*9)%20),7,0,7);c.fill();}continue;}
+    c.fillStyle=macCol(it.kind,top);
+    if(it.kind==='bun'){c.beginPath();c.ellipse(sl.x,y0+h-8,w/2,h-6,0,Math.PI,0);c.fill();c.fillStyle='#fff8e1';for(const[dx,dy]of [[-18,-8],[0,-14],[16,-9],[-6,-4],[9,-3]])c.fillRect(sl.x+dx,y0+h-8+dy,3,2);}
+    else{c.fillRect(sl.x-w/2,y0,w,h-6);}
+    c.fillStyle=macCol(it.kind,bot);c.fillRect(sl.x-w/2,y0+h-8,w,8); // 鉄板にふれている下の面
+    if(bot>0.95){c.fillStyle='rgba(120,120,120,.55)';for(let k=0;k<3;k++){c.beginPath();c.arc(sl.x-18+k*18,y0-8-((t*28+k*7)%18),6,0,7);c.fill();}}
+    c.font='bold 15px sans-serif';c.fillStyle='#fff';
+    const both=it.side[0]>=MAC_GOOD&&it.side[1]>=MAC_GOOD;
+    c.fillText(both?'✋ とる':bot>=MAC_GOOD?'🔄 かえして！':'',sl.x,sl.y+32);
+    // 両面のメーター（左：いまの下の面、右：上の面）
+    for(const[k,v]of [[0,bot],[1,top]]){const bx=sl.x-34+k*36;c.fillStyle='rgba(0,0,0,.35)';c.fillRect(bx,sl.y+36,32,5);c.fillStyle=v>MAC_DONE?'#e53935':v>=MAC_GOOD?'#43a047':'#ffb300';c.fillRect(bx,sl.y+36,Math.min(32,32*v/MAC_BURN),5);}
+  }
+  // フライヤー
+  c.fillStyle='#90a4ae';c.fillRect(214,56,136,94);c.fillStyle='#c79a2e';c.fillRect(222,74,120,68);
+  for(let k=0;k<6;k++){c.fillStyle='rgba(255,240,180,.6)';c.beginPath();c.arc(232+k*21,80+((t*40+k*13)%56),2.5,0,7);c.fill();}
+  const f=macK.fry;
+  if(f){c.strokeStyle='#424242';c.lineWidth=2;c.strokeRect(244,70,76,52);c.lineWidth=1;
+    c.fillStyle=f.burnt>0?'#3e2723':macCol('fries',f.v);for(let k=0;k<11;k++)c.fillRect(250+k*6,82+(k%3)*6,4,30-(k%3)*6);
+    if(f.v>1.0&&!f.burnt){c.fillStyle='rgba(120,120,120,.55)';for(let k=0;k<3;k++){c.beginPath();c.arc(262+k*18,62-((t*28+k*7)%18),6,0,7);c.fill();}}
+    c.font='bold 15px sans-serif';c.fillStyle='#fff';c.fillText(f.burnt>0?'':f.v>=MAC_GOOD?'🔼 引き上げる！':'ジュワ〜',282,138);
+    c.fillStyle='rgba(0,0,0,.35)';c.fillRect(250,144,64,5);c.fillStyle=f.v>MAC_DONE?'#e53935':f.v>=MAC_GOOD?'#43a047':'#ffb300';c.fillRect(250,144,Math.min(64,64*f.v/MAC_BURN),5);}
+  else{c.font='bold 14px sans-serif';c.fillStyle='#fff';c.fillText('タップで',282,102);c.fillText('ポテトを入れる',282,120);}
+  // できたもの・もっている具材
+  c.textAlign='left';c.fillStyle='#263238';c.font='bold 14px sans-serif';
+  c.fillText('できた：🍞'+macK.made.bun+'  🥩'+macK.made.patty+'  🍟'+macK.made.fries,12,174);
+  c.fillText('具材：🍞'+macInv.bun+'  🥩'+macInv.patty+'  🥬'+macInv.lettuce+'  🍅'+macInv.tomato,12,196);
+  c.font='12px sans-serif';c.fillStyle='#455a64';c.fillText('セット＝焼いた🍞🥩 ＋ 🥬🍅 ＋ 揚げた🍟',12,218);
+  c.textAlign='center';
+}
+mcv.addEventListener('pointerdown',e=>{e.preventDefault();const r=mcv.getBoundingClientRect();macTap((e.clientX-r.left)/r.width*360,(e.clientY-r.top)/r.height*230);});
+
 const cinst=document.getElementById('cinst'),cfb=document.getElementById('cfb'),cres=document.getElementById('cres');
 const cA=document.getElementById('cA'),cB=document.getElementById('cB'),stepEls=[...document.getElementById('steps').children];
 let ck=null;
@@ -4657,6 +4812,9 @@ function onNet(m){
     if(net.role==='host'&&island)island.pot=Math.max(0,(island.pot||0)-1);
   } else if(m.t==='islandEnd'){
     if(net.role==='guest'){if(remote&&m.hk)remote.kg=m.hk;if(Array.isArray(m.c))m.c.forEach((k,i)=>{if(cpus[i])cpus[i].kg=k;});islandEnd();}
+  } else if(m.t==='macSet'){
+    if(net.role!=='host')return;
+    stageStats.sets=(stageStats.sets|0)+1;toast('🍔 ともだちがハンバーガーセットを作った！');
   } else if(m.t==='rushReq'){
     if(net.role!=='host')return;
     if(stage===0&&!bossRush){clearTimeout(saveTimer);save();}
@@ -4834,14 +4992,14 @@ window.startGame=()=>{initAudio();menuOpen=false;
   else if(net.role!=='guest'&&selStage!==stage)goStage(selStage);
   rushPick=false;overlay.style.display='none';started=true;lockMouse();updateGoalHud();};
 function openMenu(){
-  if(!started||dead||cooking||crafting||clearing) return;
+  if(!started||dead||cooking||crafting||clearing||macKitchen) return;
   menuOpen=true;resetTouch();for(const k in keys)keys[k]=false;
   if(document.exitPointerLock)try{document.exitPointerLock();}catch(e){}
   selStage=stage;rushPick=false;renderStageSel();renderAppearSel();updateRushBest();updateVsRec();
   overlay.style.display='flex';
 }
 onTap(document.getElementById('btnMenu'),openMenu);
-addEventListener('keydown',e=>{if(e.code==='Escape'&&started&&!dead){if(menuOpen)window.startGame();else openMenu();}});
+addEventListener('keydown',e=>{if(e.code==='Escape'&&macKitchen){closeMacKitchen();return;}if(e.code==='Escape'&&started&&!dead){if(menuOpen)window.startGame();else openMenu();}});
 const clearBtnEl=document.getElementById('clearBtn'),islandAgainEl=document.getElementById('islandAgain');
 onTap(clearBtnEl,()=>{document.getElementById('clear').style.display='none';clearing=false;endBossRush();endIsland();
   if(vs){endVs();if(net.connected&&net.role==='host')netSend({t:'vsQuit'});}
@@ -4928,6 +5086,7 @@ function loop(now){
   else if(net.connected&&net.role==='host'){updateEnemies(dt);updateWeapons(dt);if(bossRush&&!goalDone)bossRush.t+=dt;if(island&&!island.over&&!clearing){island.t-=dt;islandRegrow(dt);updateCpuSim(dt);if(island.t<=0)islandEnd();}if(!clearing)checkGoal();} // やられている間も相手は戦っている
   if(vs&&!clearing&&!(menuOpen&&!net.connected))updateVs(dt); // 作業台で工作している間も時間は進む
   if(cooking)cookUpdate(dt);
+  if(macKitchen)macKitchenUpdate(dt);
   if(stage===ISLAND)updateWater(dt);
   if(!started&&!dead) yaw+=dt*0.08; // タイトル画面だけ回す
   }catch(e){reportErr(e,'step');}
