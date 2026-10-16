@@ -281,7 +281,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.29.1</p>
+    <p id="ver">ver 1.29.2</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -4581,7 +4581,84 @@ const PEER_OPTS={config:{sdpSemantics:'unified-plan',iceServers:[
   {urls:'stun:stun.cloudflare.com:3478'},
   {urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478','turn:eu-0.turn.peerjs.com:3478?transport=tcp','turn:us-0.turn.peerjs.com:3478?transport=tcp'],username:'peerjs',credential:'peerjsp'},
   {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp','turns:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}]}};
-function mpCleanup(){try{if(net.peer)net.peer.destroy();}catch(e){}net.peer=null;net.conn=null;net.role=null;net.code=null;net.connected=false;net.busy=false;remote=null;roomHud();}
+function mpCleanup(){try{if(net.peer)net.peer.destroy();}catch(e){}relayHostStop();net.peer=null;net.conn=null;net.role=null;net.code=null;net.connected=false;net.busy=false;remote=null;roomHud();}
+// ---- 中継モード：2台の間で直接つながれないとき（ChromebookとAndroidなど）は、公開のメッセージサーバー（MQTT）を通してやりとりする ----
+// ホストは部屋を作ったら中継でも待ち受ける。ゲストは直接つながれなかったら中継で入る。
+// テスト用：localStorage の kaitocraft_relay_url でサーバーを変えられる、kaitocraft_force_relay=1 で最初から中継
+const RELAY_URLS=(()=>{try{const o=localStorage.getItem('kaitocraft_relay_url');if(o)return [o];}catch(e){}return ['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt'];})();
+const relayForce=()=>{try{return localStorage.getItem('kaitocraft_force_relay')==='1';}catch(e){return false;}};
+const relayTopic=(code,to)=>PEER_PREFIX+'relay/'+code+'/'+to;
+const relayId=()=>Math.random().toString(36).slice(2,10);
+let relayClients=[];
+function loadMqtt(cb,fail){
+  if(window.mqtt)return cb();
+  const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js';
+  s.onload=()=>window.mqtt?cb():fail();s.onerror=fail;document.head.appendChild(s);
+}
+// PeerJS のデータ通路と同じ使い方ができる、中継の通路（send / on('open'|'data'|'close') / close）
+class RelayConn{
+  constructor(client,pub,sid,isHost){
+    this.client=client;this.pub=pub;this.sid=sid;this.isHost=isHost;this.relay=true;this.peerConnection=null;
+    this.open=false;this.closed=false;this._h={};this.rx=Date.now();this.parts={};
+    this.timer=setInterval(()=>{if(this.closed)return;this._pub({p:1});if(this.open&&Date.now()-this.rx>10000){nlog('中継 相手から返事がない');this.close();}},2000);
+  }
+  on(ev,cb){(this._h[ev]=this._h[ev]||[]).push(cb);}
+  _emit(ev,a){for(const cb of (this._h[ev]||[]))try{cb(a);}catch(e){reportErr(e,'relay');}}
+  _pub(o){if(!this.isHost)o._s=this.sid;try{this.client.publish(this.pub,JSON.stringify(o));}catch(e){}}
+  send(m){if(!this.open)return;const s=JSON.stringify(m);
+    if(s.length<=20000){this._pub({m});return;}
+    const id=relayId(),n=Math.ceil(s.length/20000); // 大きい（世界）は分けて送る
+    for(let i=0;i<n;i++)this._pub({c:id,i,n,d:s.slice(i*20000,(i+1)*20000)});}
+  _recv(o){this.rx=Date.now();
+    if(o.bye){this.close(true);return;}
+    if(o.m!==undefined){this._emit('data',o.m);return;}
+    if(o.c){const p=this.parts[o.c]||(this.parts[o.c]={n:0,d:[]});if(p.d[o.i]===undefined){p.d[o.i]=o.d;p.n++;}
+      if(p.n===o.n){delete this.parts[o.c];let m=null;try{m=JSON.parse(p.d.join(''));}catch(e){}if(m)this._emit('data',m);}}}
+  _opened(){if(this.open||this.closed)return;this.open=true;this._emit('open');}
+  close(remoteSaid){if(this.closed)return;if(!remoteSaid)this._pub({bye:1});this.closed=true;this.open=false;clearInterval(this.timer);if(this.onclosed)this.onclosed();this._emit('close');}
+}
+function relayHostStart(code){
+  relayHostStop();
+  loadMqtt(()=>{if(net.role!=='host'||net.code!==code)return;
+    for(const url of RELAY_URLS){let cl;
+      try{cl=mqtt.connect(url,{clientId:'kc'+relayId(),clean:true,connectTimeout:8000,reconnectPeriod:4000});}catch(e){continue;}
+      const item={cl,conns:{}};relayClients.push(item);const name=url.replace(/^wss?:\/\/([^:/]+).*$/,'$1');
+      cl.on('connect',()=>{nlog('中継 待ち受けOK '+name);cl.subscribe(relayTopic(code,'h'));});
+      cl.on('error',e=>{if(!item.err){item.err=1;nlog('中継 エラー '+name+' '+(e&&e.message||e));}}); // つなぎ直すたびに出るので1回だけ記録
+      cl.on('message',(t,buf)=>{let o;try{o=JSON.parse(buf.toString());}catch(e){return;}if(!o||!o._s)return;
+        let c=item.conns[o._s];
+        if(o.hello){
+          if(c&&!c.closed)c.close(true);
+          c=new RelayConn(cl,relayTopic(code,'g/'+o._s),o._s,true);item.conns[o._s]=c;const sid=o._s;c.onclosed=()=>{if(item.conns[sid]===c)delete item.conns[sid];};
+          nlog('中継 ゲストから接続要求（'+name+'）');
+          if(net.conn&&net.conn!==c){try{net.conn.close();}catch(e){}}
+          setupConn(c);c._pub({welcome:1});c._opened();return;}
+        if(c)c._recv(o);});
+    }},()=>nlog('中継の部品を読み込めませんでした'));
+}
+function relayHostStop(){for(const it of relayClients){for(const k in it.conns)try{it.conns[k].close();}catch(e){}try{it.cl.end(true);}catch(e){}}relayClients=[];}
+// ゲスト：中継サーバーを順番にためして、部屋（ホスト）から返事が来たらつながる
+function relayJoin(code,onFail){
+  let i=0;
+  const next=()=>{
+    if(i>=RELAY_URLS.length){onFail();return;}
+    const url=RELAY_URLS[i++],sid=relayId(),name=url.replace(/^wss?:\/\/([^:/]+).*$/,'$1');let done=false,cl;
+    try{cl=mqtt.connect(url,{clientId:'kc'+sid,clean:true,connectTimeout:8000,reconnectPeriod:0});}catch(e){next();return;}
+    const conn=new RelayConn(cl,relayTopic(code,'h'),sid,false);
+    const giveUp=why=>{if(done)return;done=true;nlog('中継 '+name+' '+why);conn.closed=true;clearInterval(conn.timer);try{cl.end(true);}catch(e){}next();};
+    const to=setTimeout(()=>giveUp('部屋から返事がない'),9000);
+    cl.on('connect',()=>{nlog('中継サーバー接続OK '+name);cl.subscribe(relayTopic(code,'g/'+sid),()=>conn._pub({hello:1}));});
+    cl.on('error',e=>nlog('中継 エラー '+name+' '+(e&&e.message||e)));
+    cl.on('message',(t,buf)=>{let o;try{o=JSON.parse(buf.toString());}catch(e){return;}
+      if(o.welcome){if(done)return;done=true;clearTimeout(to);nlog('中継でつながった ✓（'+name+'）');
+        net.role='guest';net.code=code;
+        net.peer={relay:true,disconnected:false,destroyed:false,destroy(){this.destroyed=true;try{conn.close();}catch(e){}try{cl.end(true);}catch(e){}}};
+        conn.onclosed=()=>{try{cl.end(true);}catch(e){}};
+        setupConn(conn);conn._opened();return;}
+      conn._recv(o);});
+  };
+  loadMqtt(next,onFail);
+}
 // ---- 通信ログ（原因の切り分け用。ホスト・ゲストそれぞれの画面に表示） ----
 const mpLogEl=document.getElementById('mpLog'),netLog=[];let netT0=0;
 const UA=navigator.userAgent,DEVICE=(/iPhone|iPad|iPod/.test(UA)||(/Macintosh/.test(UA)&&navigator.maxTouchPoints>1))?'iOS':/Android/.test(UA)?'Android':'PC';
@@ -4633,7 +4710,7 @@ function hostRoom(fixed){
     const tryOpen=(n)=>{
       const code=fixed||String(1000+Math.floor(Math.random()*9000));
       const peer=new Peer(PEER_PREFIX+code,PEER_OPTS);let retry=0,retryTimer=0;
-      peer.on('open',()=>{net.peer=peer;net.role='host';net.code=code;net.busy=false;retry=0;roomHud();saveMpLast();nlog('サーバー接続OK 部屋'+code);
+      peer.on('open',()=>{const first=net.peer!==peer;net.peer=peer;net.role='host';net.code=code;net.busy=false;retry=0;roomHud();saveMpLast();nlog('サーバー接続OK 部屋'+code);if(first)relayHostStart(code);
         mpSay('部屋番号 <b>'+code+'</b><br>相手の端末で「入る」にこの番号を入れてね。先に「あそぶ」で始めてもOK');});
       peer.on('connection',conn=>{
         nlog('ゲストから接続要求');watchConn(conn);
@@ -4673,6 +4750,11 @@ function joinRoom(codeArg,auto){
   // 自動つなぎ直しのときは、失敗しても知らせずに少ししてからもう一度
   const fail=t=>{if(auto&&rejoin){mpCleanup();setTimeout(tryRejoin,2500);}else mpFail(t);};
   net.busy=true;roomHud();mpSay(auto?'つなぎ直しています…（部屋 '+code+'）':'つないでいます…');nlog('入る 部屋'+code+(auto?'（自動）':''));
+  // 直接つながれなかったら中継モードで（中継もだめなら、もとのメッセージを出す）
+  let relaying=false;
+  const viaRelay=msg=>{if(relaying)return;relaying=true;mpCleanup();net.busy=true;roomHud();mpSay('直接つながれなかったので、中継モードでつないでいます…');nlog('→ 中継モードをためす');
+    relayJoin(code,()=>{net.busy=false;fail(msg);});};
+  if(relayForce()){viaRelay('中継モードでつながりませんでした（コード G-R）');return;}
   loadPeerJS(()=>{
     const peer=new Peer(undefined,PEER_OPTS);net.peer=peer;
     peer.on('open',()=>{
@@ -4680,23 +4762,26 @@ function joinRoom(codeArg,auto){
       const conn=peer.connect(PEER_PREFIX+code,{reliable:true}),pc=conn.peerConnection;
       nlog('ホストへ接続要求');watchConn(conn);
       setupConn(conn);
-      setTimeout(()=>{if(net.connected||net.role!=='guest'||net.conn!==conn)return;
+      let gave=false;
+      const giveUpDirect=()=>{if(gave||net.connected||net.role!=='guest'||net.conn!==conn)return;gave=true;
         // 返事(answer)が来ていれば signalingState は stable になる
         const answered=pc&&pc.signalingState==='stable',ice=pc?pc.iceConnectionState:'';
         const code=!pc?'G-0':!answered?'G-1':'G-2';
-        nlog('20秒たってもつながらない '+code+(pc?' SIG '+pc.signalingState+' ICE '+ice:''));
-        const finish=()=>{mpCleanup();
-          fail((!pc?'つながりませんでした。番号と、2台が同じWi‑Fiかを確認してね'
+        nlog('直接つながらない '+code+(pc?' SIG '+pc.signalingState+' ICE '+ice:''));
+        const finish=()=>viaRelay((!pc?'つながりませんでした。番号と、2台が同じWi‑Fiかを確認してね'
             :!answered?'ホストから返事がありませんでした。ホストは画面を開いたまま（スリープや別のアプリにしないで）にして、もう一度「入る」を押してね'
-            :'2台の間で直接つながれませんでした（'+ice+'）。Wi‑Fiが端末どうしの通信を止めているかも。ゲスト用Wi‑Fiでないか確認するか、片方をテザリングにして試してね')+'（コード '+code+'）');};
+            :'2台の間で直接つながれませんでした（'+ice+'）。Wi‑Fiが端末どうしの通信を止めているかも。ゲスト用Wi‑Fiでないか確認するか、片方をテザリングにして試してね')+'（コード '+code+'）');
         if(pc)pcStats(pc).then(finish);else finish();
-      },auto?9000:20000); // 中継を通すときは少し時間がかかる
+      };
+      setTimeout(giveUpDirect,auto?9000:20000);
+      if(pc)pc.addEventListener('iceconnectionstatechange',()=>{if(pc.iceConnectionState==='failed')setTimeout(giveUpDirect,500);}); // だめとわかったらすぐ中継へ
     });
     peer.on('disconnected',()=>nlog('サーバー切断'));
     peer.on('error',err=>{
       nlog('エラー G-'+err.type);
       const t=err.type==='peer-unavailable'?'その番号の部屋が見つかりません。番号を確認してね（コード G-peer-unavailable）':'つながりませんでした（コード G-'+err.type+'）';
-      if(!net.connected){mpCleanup();fail(t);} else toast('通信エラー：G-'+err.type);
+      if(relaying)return;
+      if(!net.connected){if(err.type==='peer-unavailable'){mpCleanup();fail(t);}else viaRelay(t);} else toast('通信エラー：G-'+err.type); // 部屋はあるのにつながらないときは中継で
     });
   });
 }
