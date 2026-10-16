@@ -281,7 +281,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.29.0</p>
+    <p id="ver">ver 1.29.1</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -4574,6 +4574,13 @@ function loadPeerJS(cb){
   document.head.appendChild(s);
 }
 function mpFail(t){mpSay(t,true);net.busy=false;}
+// 2台の間で直接つながれないとき（同じWi‑Fiでもルーターによってはつながれない）は、中継サーバー（TURN）を通す。
+// 中継をいくつか用意して、UDPがだめなときのためにTCP（ポート80・443）でもつなげるようにする
+const PEER_OPTS={config:{sdpSemantics:'unified-plan',iceServers:[
+  {urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},
+  {urls:'stun:stun.cloudflare.com:3478'},
+  {urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478','turn:eu-0.turn.peerjs.com:3478?transport=tcp','turn:us-0.turn.peerjs.com:3478?transport=tcp'],username:'peerjs',credential:'peerjsp'},
+  {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp','turns:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}]}};
 function mpCleanup(){try{if(net.peer)net.peer.destroy();}catch(e){}net.peer=null;net.conn=null;net.role=null;net.code=null;net.connected=false;net.busy=false;remote=null;roomHud();}
 // ---- 通信ログ（原因の切り分け用。ホスト・ゲストそれぞれの画面に表示） ----
 const mpLogEl=document.getElementById('mpLog'),netLog=[];let netT0=0;
@@ -4625,7 +4632,7 @@ function hostRoom(fixed){
   loadPeerJS(()=>{
     const tryOpen=(n)=>{
       const code=fixed||String(1000+Math.floor(Math.random()*9000));
-      const peer=new Peer(PEER_PREFIX+code);let retry=0,retryTimer=0;
+      const peer=new Peer(PEER_PREFIX+code,PEER_OPTS);let retry=0,retryTimer=0;
       peer.on('open',()=>{net.peer=peer;net.role='host';net.code=code;net.busy=false;retry=0;roomHud();saveMpLast();nlog('サーバー接続OK 部屋'+code);
         mpSay('部屋番号 <b>'+code+'</b><br>相手の端末で「入る」にこの番号を入れてね。先に「あそぶ」で始めてもOK');});
       peer.on('connection',conn=>{
@@ -4667,7 +4674,7 @@ function joinRoom(codeArg,auto){
   const fail=t=>{if(auto&&rejoin){mpCleanup();setTimeout(tryRejoin,2500);}else mpFail(t);};
   net.busy=true;roomHud();mpSay(auto?'つなぎ直しています…（部屋 '+code+'）':'つないでいます…');nlog('入る 部屋'+code+(auto?'（自動）':''));
   loadPeerJS(()=>{
-    const peer=new Peer();net.peer=peer;
+    const peer=new Peer(undefined,PEER_OPTS);net.peer=peer;
     peer.on('open',()=>{
       net.role='guest';net.code=code;nlog('サーバー接続OK');
       const conn=peer.connect(PEER_PREFIX+code,{reliable:true}),pc=conn.peerConnection;
@@ -4677,13 +4684,13 @@ function joinRoom(codeArg,auto){
         // 返事(answer)が来ていれば signalingState は stable になる
         const answered=pc&&pc.signalingState==='stable',ice=pc?pc.iceConnectionState:'';
         const code=!pc?'G-0':!answered?'G-1':'G-2';
-        nlog('15秒たってもつながらない '+code+(pc?' SIG '+pc.signalingState+' ICE '+ice:''));
+        nlog('20秒たってもつながらない '+code+(pc?' SIG '+pc.signalingState+' ICE '+ice:''));
         const finish=()=>{mpCleanup();
           fail((!pc?'つながりませんでした。番号と、2台が同じWi‑Fiかを確認してね'
             :!answered?'ホストから返事がありませんでした。ホストは画面を開いたまま（スリープや別のアプリにしないで）にして、もう一度「入る」を押してね'
             :'2台の間で直接つながれませんでした（'+ice+'）。Wi‑Fiが端末どうしの通信を止めているかも。ゲスト用Wi‑Fiでないか確認するか、片方をテザリングにして試してね')+'（コード '+code+'）');};
         if(pc)pcStats(pc).then(finish);else finish();
-      },auto?9000:15000);
+      },auto?9000:20000); // 中継を通すときは少し時間がかかる
     });
     peer.on('disconnected',()=>nlog('サーバー切断'));
     peer.on('error',err=>{
