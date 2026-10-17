@@ -281,7 +281,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.29.2</p>
+    <p id="ver">ver 1.29.3</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -4550,7 +4550,8 @@ function mpLast(){try{const j=JSON.parse(localStorage.getItem(MPLAST_KEY)||'null
 setInterval(()=>{if(net.peer&&net.code&&(net.role==='host'||net.connected))saveMpLast();},15000);
 let rejoin=null; // ゲストの自動つなぎ直し {code,until}
 // 世界の送り方・セーブのしかた：同じブロックが続くところは「ブロック,つづく数」にまとめる（ほとんど空気なので小さくなる）
-function encodeWorld(){
+function encodeWorld(){return encodeBytes(world);}
+function encodeBytes(world){
   const out=new Uint8Array(world.length*2);let n=0;
   for(let i=0;i<world.length;){const v=world[i];let r=1;while(r<255&&i+r<world.length&&world[i+r]===v)r++;out[n++]=v;out[n++]=r;i+=r;}
   let s='';for(let i=0;i<n;i+=8192)s+=String.fromCharCode.apply(null,out.subarray(i,Math.min(n,i+8192)));return 'R1'+btoa(s);
@@ -4599,19 +4600,23 @@ function loadMqtt(cb,fail){
 class RelayConn{
   constructor(client,pub,sid,isHost){
     this.client=client;this.pub=pub;this.sid=sid;this.isHost=isHost;this.relay=true;this.peerConnection=null;
-    this.open=false;this.closed=false;this._h={};this.rx=Date.now();this.parts={};
+    this.open=false;this.closed=false;this._h={};this.rx=Date.now();this.parts={};this.q=[];this.qLen=0;this.qt=0;
     this.timer=setInterval(()=>{if(this.closed)return;this._pub({p:1});if(this.open&&Date.now()-this.rx>10000){nlog('中継 相手から返事がない');this.close();}},2000);
   }
   on(ev,cb){(this._h[ev]=this._h[ev]||[]).push(cb);}
   _emit(ev,a){for(const cb of (this._h[ev]||[]))try{cb(a);}catch(e){reportErr(e,'relay');}}
   _pub(o){if(!this.isHost)o._s=this.sid;try{this.client.publish(this.pub,JSON.stringify(o));}catch(e){}}
+  // 公開サーバーは送る回数が多いと間引くことがあるので、60ミリ秒ぶんのメッセージをまとめて1回で送る
   send(m){if(!this.open)return;const s=JSON.stringify(m);
-    if(s.length<=20000){this._pub({m});return;}
-    const id=relayId(),n=Math.ceil(s.length/20000); // 大きい（世界）は分けて送る
-    for(let i=0;i<n;i++)this._pub({c:id,i,n,d:s.slice(i*20000,(i+1)*20000)});}
+    if(s.length>20000){this._flush();const id=relayId(),n=Math.ceil(s.length/20000); // 大きい（世界）は分けて送る
+      for(let i=0;i<n;i++)this._pub({c:id,i,n,d:s.slice(i*20000,(i+1)*20000)});return;}
+    this.q.push(m);this.qLen+=s.length;
+    if(this.qLen>16000)this._flush();else if(!this.qt)this.qt=setTimeout(()=>this._flush(),60);}
+  _flush(){clearTimeout(this.qt);this.qt=0;if(!this.q.length||this.closed)return;const q=this.q;this.q=[];this.qLen=0;this._pub(q.length===1?{m:q[0]}:{ms:q});}
   _recv(o){this.rx=Date.now();
     if(o.bye){this.close(true);return;}
     if(o.m!==undefined){this._emit('data',o.m);return;}
+    if(Array.isArray(o.ms)){for(const m of o.ms)this._emit('data',m);return;}
     if(o.c){const p=this.parts[o.c]||(this.parts[o.c]={n:0,d:[]});if(p.d[o.i]===undefined){p.d[o.i]=o.d;p.n++;}
       if(p.n===o.n){delete this.parts[o.c];let m=null;try{m=JSON.parse(p.d.join(''));}catch(e){}if(m)this._emit('data',m);}}}
   _opened(){if(this.open||this.closed)return;this.open=true;this._emit('open');}
@@ -4840,6 +4845,18 @@ function onNet(m){
       if((id===27||id===95)&&!doors.some(d=>d.x===x&&d.y===y&&d.z===z))addDoor(x,y,z);}} // 相手が置いたとびらも開け閉めする
     buildMesh();if(net.role==='host')queueSave();
     if(hits(P.x,P.y,P.z)){let y=Math.floor(P.y);while(y<H&&hits(P.x,y,P.z))y++;P.y=y;}
+  } else if(m.t==='wsum'){
+    if(net.role!=='guest'||m.s!==stage||!Array.isArray(m.h)||m.h.length!==NCX*NCZ)return;
+    const mine=chunkSums(),req=[];net.mis=net.mis||{};
+    for(let c=0;c<mine.length;c++){if(mine[c]!==m.h[c]){net.mis[c]=(net.mis[c]||0)+1;if(net.mis[c]>=2){req.push(c);net.mis[c]=0;}}else net.mis[c]=0;}
+    if(req.length)netSend({t:'wreq',s:stage,c:req.slice(0,8)});
+  } else if(m.t==='wreq'){
+    if(net.role!=='host'||m.s!==stage||!Array.isArray(m.c))return;
+    for(const c of m.c)if(Number.isInteger(c)&&c>=0&&c<NCX*NCZ)netSend({t:'wchunk',s:stage,c,d:encodeBytes(chunkBytes(c))});
+  } else if(m.t==='wchunk'){
+    if(net.role!=='guest'||m.s!==stage||!Number.isInteger(m.c)||m.c<0||m.c>=NCX*NCZ||typeof m.d!=='string')return;
+    const n=applyChunk(m.c,m.d);
+    if(n){nlog('世界のずれを直した（区画'+m.c+'・'+n+'ブロック）');buildMesh();if(hits(P.x,P.y,P.z)){let y=Math.floor(P.y);while(y<H&&hits(P.x,y,P.z))y++;P.y=y;}}
   } else if(m.t==='act'){
     if(!remote)return;
     if(m.a==='swing')remote.swing=0.3;
@@ -4946,6 +4963,20 @@ function onNet(m){
     if(e)damageEnemy(e,m.dmg,m.kb,null,m.how,false);
   }
 }
+// ---- 世界のずれ直し：ホストは3秒ごとに区画（16×16）ごとの合計値を送る。ゲストは2回続けてちがった区画を送り直してもらう ----
+// （中継モードなどでブロックの連絡が届かなかったときも、数秒でホストと同じ世界にもどる。とびら・ボタンの開け閉めは数えない）
+const doorNorm=v=>v===28?27:v===80?79:v===96?95:v===98?97:(isButton(v)&&(v-BTN_BASE)%2)?v-1:v;
+function chunkBox(c){const x0=(c%NCX)*CS,z0=((c/NCX)|0)*CS;return [x0,z0,Math.min(W,x0+CS),Math.min(D,z0+CS)];}
+function chunkSums(){const out=[];
+  for(let c=0;c<NCX*NCZ;c++){const [x0,z0,x1,z1]=chunkBox(c);let h=2166136261;
+    for(let y=0;y<H;y++)for(let z=z0;z<z1;z++){let i=idx(x0,y,z);for(let x=x0;x<x1;x++,i++){h^=doorNorm(world[i]);h=Math.imul(h,16777619);}}
+    out.push(h>>>0);}
+  return out;}
+function chunkBytes(c){const [x0,z0,x1,z1]=chunkBox(c),a=new Uint8Array((x1-x0)*(z1-z0)*H);let k=0;
+  for(let y=0;y<H;y++)for(let z=z0;z<z1;z++)for(let x=x0;x<x1;x++)a[k++]=world[idx(x,y,z)];return a;}
+function applyChunk(c,str){const [x0,z0,x1,z1]=chunkBox(c),a=new Uint8Array((x1-x0)*(z1-z0)*H);if(!decodeInto(str,a))return false;let k=0,n=0;
+  for(let y=0;y<H;y++)for(let z=z0;z<z1;z++)for(let x=x0;x<x1;x++){const v=a[k++],i=idx(x,y,z);if(doorNorm(world[i])!==doorNorm(v)){world[i]=v;n++;}}
+  return n;}
 function netTick(dt){
   if(remote&&remote.tx!==undefined){
     const k=Math.min(1,dt*12),ox=remote.x,oz=remote.z;
@@ -4959,6 +4990,7 @@ function netTick(dt){
   net.sendT-=dt;
   if(net.sendT<=0){net.sendT=0.066;netSend({t:'pos',x:+P.x.toFixed(3),y:+P.y.toFixed(3),z:+P.z.toFixed(3),yaw:+yaw.toFixed(3),pitch:+pitch.toFixed(3),ap:myAppearance,w:weapon,dd:dead?1:0,kg:island?+island.kg.toFixed(2):0,hp:+P.hp.toFixed(1),ar:armorLv(),gs:inv.own.gsword&&!vs?1:0,bt:boat?1:0});}
   if(net.out.length){netSend({t:'blk',c:net.out});net.out=[];}
+  if(net.role==='host'){net.sumT=(net.sumT||0)-dt;if(net.sumT<=0){net.sumT=3;netSend({t:'wsum',s:stage,h:chunkSums()});}}
   if(net.role==='host'&&island&&cpus.length){net.cpuT=(net.cpuT||0)-dt;
     if(net.cpuT<=0){net.cpuT=0.5;netSend({t:'cpus',c:cpus.map(c=>+c.kg.toFixed(3))});}}
   if(net.role==='host'&&(mpMonsters||bossRush||vs)){
