@@ -270,6 +270,8 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
     <p id="islandBest" style="margin:6px 0 0;font-size:13px;font-weight:700;opacity:.8"></p>
     <div><button id="vsBtn" class="big" style="background:#6d4c9f;box-shadow:0 4px 0 #45306a">⚔️ 対戦モード</button></div>
     <p id="vsRec" style="margin:6px 0 0;font-size:13px;font-weight:700;opacity:.8"></p>
+    <div><button id="hideBtn" class="big" style="background:#2e7d32;box-shadow:0 4px 0 #1b5e20">🌲 かくれんぼ対戦（2人）</button></div>
+    <p style="margin:6px 0 0;font-size:13px;font-weight:700;opacity:.8">相手がどこにいるかわからない森で対戦！</p>
     <p id="msg" style="display:none;font-size:13px;color:#c0392b;font-weight:700"></p>
     <div id="mp">
       <p class="mpt">2人で遊ぶ（同じWi‑Fi・テスト版）</p>
@@ -281,7 +283,7 @@ body.scoped #held,body.scoped #cross,body.scoped #flash{visibility:hidden}
       <pre id="mpLog"></pre>
     </div>
     <button id="reset">世界を作り直す</button>
-    <p id="ver">ver 1.29.3</p>
+    <p id="ver">ver 1.30.0</p>
     <p id="lastErr" style="display:none;margin:2px 0 0;font-size:11px;opacity:.6;word-break:break-all"></p>
   </div>
 </div>
@@ -705,9 +707,11 @@ const STAGES=[
   // 無人島ふとりバトル専用（ステージえらびには出さない）。モンスターは出ない（牛はたまに出る食べ物）
   {name:'無人島',icon:'🏝️',extra:true,sky:[0.55,0.82,0.98],fog:[26,70],mobs:{zero:0,zombie:0,mimic:0,cow:1},goal:{type:'fat',n:1,text:''},boss:null,spawn:[W/2+0.5,null,D/2+0.5]},
   // 対戦モード専用。モンスターは観客席で見ているだけ
-  {name:'対戦ステージ',icon:'⚔️',extra:true,sky:[0.98,0.74,0.52],fog:[30,80],mobs:{zero:0,zombie:0,mimic:0,cow:0},goal:{type:'vs',n:1,text:''},boss:null,spawn:[24.5,null,13.5]}
+  {name:'対戦ステージ',icon:'⚔️',extra:true,sky:[0.98,0.74,0.52],fog:[30,80],mobs:{zero:0,zombie:0,mimic:0,cow:0},goal:{type:'vs',n:1,text:''},boss:null,spawn:[24.5,null,13.5]},
+  // かくれんぼ対戦専用：木としげみだらけの広い森。霧が濃くて遠くは見えない
+  {name:'かくれんぼの森',icon:'🌲',extra:true,sky:[0.42,0.56,0.5],fog:[6,26],mobs:{zero:0,zombie:0,mimic:0,cow:0},goal:{type:'vs',n:1,text:''},boss:null,spawn:[W/2+0.5,null,D/2+0.5]}
 ];
-const NSTAGE=8,SADO=6,MAC=7,ISLAND=8,VS_ARENA=9; // ふつうのステージの数、佐渡島・マック・無人島・対戦ステージのステージ番号
+const NSTAGE=8,SADO=6,MAC=7,ISLAND=8,VS_ARENA=9,HIDE=10; // ふつうのステージの数、佐渡島・マック・無人島・対戦ステージのステージ番号
 // ボス戦モード：null か {t:経過秒}（ステージのボスと順番に戦う）
 let macInv={bun:0,lettuce:0,tomato:0,patty:0},macK={grill:[null,null],fry:null,made:{bun:0,patty:0,fries:0},fbT:0,t:0},macKitchen=false; // マックの具材とキッチン
 let bossRush=null,rushPick=false,island=null; // island：無人島ふとりバトル {t:のこり秒,kg:体重}
@@ -728,7 +732,7 @@ function genStage(n,seed){
   seed=seed||((Math.random()*1e9)|0);
   if(n===0) generate(seed);
   else{world=new Uint8Array(W*D*H);const rnd=mulberry32(seed);
-    [null,genMagma,genSky,genHouse,genMansion,genWhale,genSado,genMac,genIsland,genArena][n](rnd,seed);}
+    [null,genMagma,genSky,genHouse,genMansion,genWhale,genSado,genMac,genIsland,genArena,genHide][n](rnd,seed);}
   addBedrock(n);
 }
 function addBedrock(n){if(!STAGES[n].void)fill(0,0,0,W-1,0,D-1,30);}
@@ -986,7 +990,7 @@ function randomStandY(x,z,h,low){
   return c.length?(low?c[0]:c[Math.floor(Math.random()*c.length)]):null;
 }
 function ensureTable(){
-  if(stage===ISLAND||stage===VS_ARENA)return; // 無人島に作業台はない（たき火・ろ過器が支給品）。対戦ステージにもない
+  if(stage===ISLAND||stage===VS_ARENA||stage===HIDE)return; // 無人島に作業台はない（たき火・ろ過器が支給品）。対戦ステージにもない
   for(let i=0;i<world.length;i++)if(world[i]===10)return;
   const sp=STAGES[stage].spawn,x=Math.floor(sp[0])+2,z=Math.floor(sp[2]);
   setB(x,standAt(x+0.5,z+0.5,sp[1]),z,10);
@@ -2726,8 +2730,8 @@ function checkGoal(){
 function updateGoalHud(){
   const st=STAGES[stage],g=st.goal;let t;
   if(vs){const o=vsOpp();
-    t=vs.ph==='prep'?'⚔️ 準備タイム　作業台で武器と防具を作ろう'+(vs.cpu?'':'　'+(vs.ready?'✅':'⬜')+'あなた '+(vs.opReady?'✅':'⬜')+'相手')
-      :vs.ph==='fight'?'⚔️ 対戦 ⏱ '+fmtTime(Math.max(0,Math.ceil(vs.t)))+'　❤️ あなた '+Math.ceil(P.hp)+' vs '+(o?o.name+' '+Math.ceil(o.hp):'')
+    t=vs.ph==='prep'?(vs.kind==='hide'?'🌲 かくれんぼ対戦の準備':'⚔️ 準備タイム')+'　作業台で武器と防具を作ろう'+(vs.cpu?'':'　'+(vs.ready?'✅':'⬜')+'あなた '+(vs.opReady?'✅':'⬜')+'相手')
+      :vs.ph==='fight'?(vs.kind==='hide'?'🌲 かくれんぼ対戦':'⚔️ 対戦')+' ⏱ '+fmtTime(Math.max(0,Math.ceil(vs.t)))+'　❤️ あなた '+Math.ceil(P.hp)+' vs '+(o?o.name+' '+Math.ceil(o.hp):'')
       :'⚔️ 勝負あり！';}
   else if(island&&island.mode==='team'){const rk=remote&&remote.kg?remote.kg:30,ck=cpus.reduce((a,c)=>a+c.kg-30,0);
     t='🏝️ ⏱ '+fmtTime(Math.max(0,Math.ceil(island.t)))+'　🍔 あなた '+fmtKg(island.kg)+'kg　👫 '+sgnKg(island.kg+rk-60)+'kg vs 🤖 '+sgnKg(ck)+'kg';}
@@ -2770,6 +2774,7 @@ function goStage(n){
   else if(n===ISLAND)toast('🏝️ 5分でいちばん太った人の勝ち！ 食べまくれ！');
   else if(vs&&n===0)toast('⚔️ 準備タイム！ 武器と防具ができたら「準備完了」をおそう');
   else if(n===VS_ARENA)toast('⚔️ 対戦ステージ！');
+  else if(n===HIDE)toast('🌲 かくれんぼの森　相手はどこかにかくれている…さがしてたおせ！');
   else if(n===SADO)toast('🛶 ステージ7　佐渡島　浜のたらい舟に乗って（'+(isTouch?'🧱ボタン':'右クリック')+'）、金山の島へわたろう');
   else toast(STAGES[n].icon+' ステージ'+(n+1)+'　'+STAGES[n].name);
   if(net.connected&&net.role==='host')netSend({t:'world',w:encodeWorld(),x:P.x,y:P.y,z:P.z,s:stage});
@@ -3107,7 +3112,7 @@ function updateRushBest(){let b=null,k=0;try{b=parseFloat(localStorage.getItem(R
 // ---- 対戦モード：準備タイムに武器と防具を作り、「準備完了」をおしたら対戦ステージで勝負。観客席からモンスターが見守る ----
 // 2人プレイは、ふたりとも「準備完了」をおしたら始まる（部屋を作った人が始める）
 // ひとりならCPUと、2人プレイなら友だちと対戦。対戦ステージのブロックはこわれない（自分たちで置いたブロックだけこわせる）
-const VS_FIGHT=120,VS_KEY='kaitocraft_vs_record';
+const VS_FIGHT=120,HIDE_FIGHT=180,VS_KEY='kaitocraft_vs_record';
 let vs=null,crowd=[],vsCheer=0; // vs：{ph:'prep'|'fight'|'end',t:のこり秒,cd:開始のカウントダウン,placed:置いたブロック,bak:元の持ち物}
 const ARMOR_K=[1,0.75,0.55,0.4],ARMOR_NAME=['','木のよろい','石のよろい','金のよろい'];
 const armorLv=()=>inv.own.armor3?3:inv.own.armor2?2:inv.own.armor1?1:0;
@@ -3117,24 +3122,25 @@ const VS_DMG={shotgun:0.75,sword:2,pickaxe:1.5,pistol:1.5,mg:0.8,minigun:0.7,sni
 function vsDmg(d,how){if(how==='kick')return 1;if(how==='boom')return d*0.37;return VS_DMG[weapon]||d*0.4;}
 function vsRec(){try{const j=JSON.parse(localStorage.getItem(VS_KEY)||'null');if(j)return {w:j.w|0,l:j.l|0,d:j.d|0};}catch(e){}return {w:0,l:0,d:0};}
 function updateVsRec(){const r=vsRec(),el=document.getElementById('vsRec');if(el)el.textContent=r.w+r.l+r.d?'通算 '+r.w+'勝 '+r.l+'敗'+(r.d?' '+r.d+'分け':''):'武器と防具を作って対戦！（ひとりならCPUと）';}
-function startVs(){
-  rushPick=false;
-  if(net.role==='guest'){netSend({t:'vsReq'});window.startGame();toast('⚔️ 対戦モードを始めるよ！');return;}
+function startVs(kind){
+  rushPick=false;kind=kind==='hide'?'hide':'arena';
+  if(kind==='hide'&&!net.connected){toast('🌲 かくれんぼ対戦は2人で遊ぶモード。先に「部屋を作る」か「入る」でつないでね');mpSay('かくれんぼ対戦は、2人プレイでつないでから遊べるよ',true);return;}
+  if(net.role==='guest'){netSend({t:'vsReq',k:kind});window.startGame();toast(kind==='hide'?'🌲 かくれんぼ対戦を始めるよ！':'⚔️ 対戦モードを始めるよ！');return;}
   if(stage===0&&!vs&&!island&&!bossRush){clearTimeout(saveTimer);save();} // 草原の世界をセーブしてから始める
-  beginVs();window.startGame();
+  beginVs(kind);window.startGame();
 }
 // 持ち物を対戦用の空っぽにする（元の持ち物は終わったらもどす）
-function vsInvOn(){
-  const bak=vs?vs.bak:JSON.parse(JSON.stringify(inv));
-  vs={ph:'prep',t:VS_FIGHT,cd:0,placed:new Set(),bak,cpu:!net.connected,seed:(Math.random()*1e9)|0,ready:false,opReady:false};
+function vsInvOn(kind){
+  const bak=vs?vs.bak:JSON.parse(JSON.stringify(inv));kind=kind||(vs&&vs.kind)||'arena';
+  vs={kind,ph:'prep',t:VS_FIGHT,cd:0,placed:new Set(),bak,cpu:!net.connected,seed:(Math.random()*1e9)|0,ready:false,opReady:false};
   inv={wood:0,stone:0,gold:0,carrot:0,onion:0,mushroom:0,own:{pickaxe:false,pistol:false,mg:false,sniper:false,rocket:false,minigun:false,shotgun:false,remote:false,armor1:false,armor2:false,armor3:false,gsword:false},furn:{}};
   crowd=[];vsCheer=0;P.hp=MAXHP;P.inv=0;buildHotbar();selectWeapon('sword');updateHud();
   document.getElementById('clear').style.display='none';clearing=false;
 }
-function beginVs(){
-  endIsland();endBossRush();vsInvOn();
+function beginVs(kind){
+  endIsland();endBossRush();vsInvOn(kind);
   goStage(0); // vs があると、セーブした世界ではなく新しい草原を作る
-  if(net.connected)netSend({t:'vsGo'});
+  if(net.connected)netSend({t:'vsGo',k:vs.kind});
 }
 function endVs(){
   if(!vs)return;
@@ -3142,14 +3148,19 @@ function endVs(){
   if(!ownedWeapons().includes(weapon))selectWeapon('sword');else rebuildWbar();
   updateHud();updateVsRec();
 }
-function vsPlace(side){P.x=24.5;P.z=side?34.5:13.5;P.y=standAt(P.x,P.z,5);P.vx=P.vy=P.vz=P.kx=P.kz=0;yaw=side?0:Math.PI;pitch=0;}
+function vsPlace(side){
+  if(vs.kind==='hide'&&vs.spawns&&vs.spawns[side]){const s=vs.spawns[side];P.x=s[0]+0.5;P.z=s[1]+0.5;P.y=standAt(P.x,P.z);P.vx=P.vy=P.vz=P.kx=P.kz=0;yaw=Math.random()*6.28;pitch=0;return;}
+  P.x=24.5;P.z=side?34.5:13.5;P.y=standAt(P.x,P.z,5);P.vx=P.vy=P.vz=P.kx=P.kz=0;yaw=side?0:Math.PI;pitch=0;}
 function vsStartFight(){ // 部屋を作った人もゲストも：対戦ステージに立って3秒カウントダウン
-  vs.ph='fight';vs.t=VS_FIGHT;vs.cd=3.99;vs.placed=new Set();vs.last=4;vs.kingT=25+Math.random()*25; // キングガストが来るまでの秒数
+  vs.ph='fight';vs.t=vs.kind==='hide'?HIDE_FIGHT:VS_FIGHT;vs.cd=3.99;vs.placed=new Set();vs.last=4;vs.kingT=25+Math.random()*25; // キングガストが来るまでの秒数
   if(crafting){craftEl.style.display='none';crafting=false;lockMouse();}
   if(dead){overEl.style.display='none';dead=false;started=true;}
-  P.hp=MAXHP;P.inv=0;P.safe=0;fireHeld=false;vsPlace(net.role==='guest'?1:0);buildCrowd();updateHud();
+  P.hp=MAXHP;P.inv=0;P.safe=0;fireHeld=false;vsPlace(net.role==='guest'?1:0);if(vs.kind!=='hide')buildCrowd();else crowd=[];updateHud();
 }
 function vsFight(){
+  if(vs.kind==='hide'){ // かくれんぼ対戦：森の反対側の、毎回ちがう場所からスタート
+    vs.ph='fight';goStage(HIDE);vs.spawns=hideSpawns();vsStartFight();
+    if(net.connected)netSend({t:'vsFight',sp:vs.spawns});return;}
   vs.ph='fight';goStage(VS_ARENA);vsStartFight();
   if(vs.cpu)spawnRival();
   if(net.connected)netSend({t:'vsFight'});
@@ -3167,7 +3178,7 @@ function updateVs(dt){
   if(net.role==='guest')return; // 時間は部屋を作った人が進める
   if(vs.ph==='prep'){if(vs.ready&&(vs.cpu||vs.opReady))vsFight();}
   else if(vs.ph==='fight'&&vs.cd<=0){vs.t-=dt;
-    if(!enemies.some(e=>e.king&&e.dying<=0)){vs.kingT-=dt;if(vs.kingT<=0){vs.kingT=35+Math.random()*25;spawnKing();}}
+    if(vs.kind!=='hide'&&!enemies.some(e=>e.king&&e.dying<=0)){vs.kingT-=dt;if(vs.kingT<=0){vs.kingT=35+Math.random()*25;spawnKing();}}
     if(vs.t<=0){const o=vsOpp(),me=P.hp,op=o?o.hp:0;vsResult(me>op+0.05?1:op>me+0.05?-1:0,'time');}}
 }
 function vsOpp(){
@@ -3344,6 +3355,26 @@ function genArena(rnd){
   for(const[x,z]of [[17,17],[29,17],[17,29],[29,29]])fill(x,5,z,x+1,7,z+1,20);
   for(const z of [18,29])fill(22,5,z,26,5,z,7);
   fill(14,5,23,15,6,24,20);fill(32,5,23,33,6,24,20);
+}
+// かくれんぼの森：ゆるい丘に、木・しげみ・岩・古いかべがいっぱい
+function genHide(rnd,seed){
+  const hm=[];
+  for(let z=0;z<D;z++)for(let x=0;x<W;x++){const h=3+Math.floor(vnoise(x,z,12,seed)*3+vnoise(x,z,5,seed+2)*1.5);hm[z*W+x]=h;
+    for(let y=1;y<=h;y++)setB(x,y,z,y===h?1:y>=h-2?2:3);}
+  const top=(x,z)=>hm[z*W+x];
+  for(let i=0;i<10;i++){const x=6+Math.floor(rnd()*(W-14)),z=6+Math.floor(rnd()*(D-14)),y=top(x,z)+1,w=5+Math.floor(rnd()*4); // 古いかべ（くずれかけ）
+    for(let a=0;a<=w;a++)for(const[px,pz]of [[x+a,z],[x+a,z+w],[x,z+a],[x+w,z+a]]){const hh=1+Math.floor(rnd()*3);for(let k=0;k<hh;k++)if(rnd()<0.85)setB(px,top(px,pz)+1+k,pz,rnd()<0.6?9:3);}}
+  for(let i=0;i<60;i++){const x=2+Math.floor(rnd()*(W-5)),z=2+Math.floor(rnd()*(D-5)),y=top(x,z)+1,s=1+Math.floor(rnd()*2); // 岩
+    for(let a=0;a<=s;a++)for(let b=0;b<=s;b++)for(let k=0;k<=s-(a+b>s?1:0);k++)setB(x+a,y+k,z+b,3);}
+  for(let i=0;i<520;i++){const x=2+Math.floor(rnd()*(W-4)),z=2+Math.floor(rnd()*(D-4)),y=top(x,z);if(getB(x,y,z)!==1||getB(x,y+1,z)!==0)continue;tree(x,y,z,rnd);} // 木がいっぱい
+  for(let i=0;i<420;i++){const x=1+Math.floor(rnd()*(W-3)),z=1+Math.floor(rnd()*(D-3)),y=top(x,z)+1; // しげみ
+    for(let a=0;a<2;a++)for(let b=0;b<2;b++){if(getB(x+a,y,z+b)===0)setB(x+a,y,z+b,5);if(rnd()<0.4&&getB(x+a,y+1,z+b)===0)setB(x+a,y+1,z+b,5);}}
+}
+// スタート地点：森の左右はしの、毎回ちがう場所（立てる所）
+function hideSpawns(){
+  const pick=(x0,x1)=>{for(let t=0;t<200;t++){const x=x0+Math.floor(Math.random()*(x1-x0)),z=8+Math.floor(Math.random()*(D-16)),y=standAt(x+0.5,z+0.5);
+      if(y<H-2&&!WATER[getB(x,y-1,z)])return [x,z];}return [x0+2,D>>1];};
+  const a=pick(4,26),b=pick(W-26,W-4);return Math.random()<0.5?[a,b]:[b,a];
 }
 function gameClear(){
   clearBtnEl.textContent='草原にもどる';islandAgainEl.style.display='none';vsAgainEl.style.display='none';rushAgainEl.style.display='none';
@@ -4013,7 +4044,7 @@ function updateTags(){
     if(cw>0.1){tg.style.display='block';tg.style.left=((cx/cw+1)/2*innerWidth)+'px';tg.style.top=((1-cy/cw)/2*innerHeight)+'px';tg.textContent=c.name+' '+fmtKg(c.kg)+'kg';}
     else tg.style.display='none';});
   remoteTag.textContent=island&&remote&&remote.kg?'ともだち '+fmtKg(remote.kg)+'kg':'ともだち';
-  if(remote&&!remote.dead&&lastM&&started){
+  if(remote&&!remote.dead&&lastM&&started&&!(vs&&vs.kind==='hide'&&vs.ph!=='prep')){ // かくれんぼ対戦では相手の名前を出さない
     const m=lastM,x=remote.x,y=remote.y+2.05,z=remote.z;
     const cx=m[0]*x+m[4]*y+m[8]*z+m[12],cy=m[1]*x+m[5]*y+m[9]*z+m[13],cw=m[3]*x+m[7]*y+m[11]*z+m[15];
     if(cw>0.1){remoteTag.style.display='block';remoteTag.style.left=((cx/cw+1)/2*innerWidth)+'px';remoteTag.style.top=((1-cy/cw)/2*innerHeight)+'px';}
@@ -4880,16 +4911,17 @@ function onNet(m){
     if(net.role!=='host')return;
     if(stage===0&&!vs&&!island&&!bossRush){clearTimeout(saveTimer);save();}
     if(dead){dead=false;overEl.style.display='none';P.hp=MAXHP;}
-    beginVs();toast('⚔️ 相手が対戦モードを始めた！');
+    beginVs(m.k==='hide'?'hide':'arena');toast(m.k==='hide'?'🌲 相手がかくれんぼ対戦を始めた！':'⚔️ 相手が対戦モードを始めた！');
   } else if(m.t==='vsGo'){
     if(net.role!=='guest')return;
-    endIsland();bossRush=null;vsInvOn();vs.cpu=false;
+    endIsland();bossRush=null;vsInvOn(m.k==='hide'?'hide':'arena');vs.cpu=false;
     if(dead){overEl.style.display='none';respawnOnly();started=true;}
     toast('⚔️ 準備タイム！ 武器と防具ができたら「準備完了」をおそう');
   } else if(m.t==='vsReady'){ // 相手が準備完了をおした／取り消した
     if(vs&&vs.ph==='prep'){vs.opReady=!!m.r;toast(m.r?'✅ 相手の準備ができた！':'相手が準備完了を取り消した');updateGoalHud();}
   } else if(m.t==='vsFight'){
     if(net.role!=='guest'||!vs)return;
+    if(Array.isArray(m.sp))vs.spawns=m.sp;
     vsStartFight();
   } else if(m.t==='vsEnd'){
     if(vs)vsResult(m.r>0?1:m.r<0?-1:0,m.why==='time'?'time':'down',true);
@@ -5132,6 +5164,7 @@ const vsAgainEl=document.getElementById('vsAgain'),rushAgainEl=document.getEleme
 onTap(rushAgainEl,()=>{startBossRush(rushLap()+1);lockMouse();}); // ボス戦モードをクリアしたら、そのままもう一周
 onTap(vsAgainEl,()=>{document.getElementById('clear').style.display='none';clearing=false;beginVs();lockMouse();});
 onPick(document.getElementById('vsBtn'),()=>startVs());
+onPick(document.getElementById('hideBtn'),()=>startVs('hide'));
 onTap(document.getElementById('vsReady'),()=>{vsToggleReady();lockMouse();});
 addEventListener('keydown',e=>{if(e.code==='Enter'&&vs&&vs.ph==='prep'&&started&&!paused())vsToggleReady();});
 onTap(islandAgainEl,()=>{document.getElementById('clear').style.display='none';clearing=false;beginIsland();lockMouse();});
